@@ -158,7 +158,7 @@ export default function UploadOrdersPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-6 sm:pb-8">
         <header className="max-w-3xl">
           <h1 className="sc-page-title">Upload orders</h1>
           <p className="sc-page-lead">

@@ -19,6 +19,18 @@ import { Recipe } from "@/models/Recipe";
 import { SalesOrder } from "@/models/SalesOrder";
 import { PurchaseOrder } from "@/models/PurchaseOrder";
 
+export async function buildHeadChatContext(
+  restaurantId: string,
+  financeView: DashboardFinanceView = "week"
+): Promise<string> {
+  const [inventory, business] = await Promise.all([
+    buildInventoryChatContext(restaurantId),
+    buildBusinessChatContext(restaurantId, financeView),
+  ]);
+
+  return [`Inventory snapshot:\n${inventory}`, `Business snapshot:\n${business}`].join("\n\n");
+}
+
 export async function buildInventoryChatContext(restaurantId: string): Promise<string> {
   const ingredients = await Ingredient.find({ restaurantId })
     .select("name slug category currentQty reorderThreshold inventoryUnit expiryDate label")
@@ -176,11 +188,16 @@ export async function buildCreativeChatContext(
 }
 
 function buildDelegationBlock(): string {
+  const supervisor = CHAT_ASSISTANT_NAMES.head;
   const inventory = CHAT_ASSISTANT_NAMES.inventory;
   const business = CHAT_ASSISTANT_NAMES.business;
   const creative = CHAT_ASSISTANT_NAMES.create;
 
-  return `Sous Chef has three specialized assistants on the Dashboard. Stay in your role and delegate clearly:
+  return `**${supervisor}** is the kitchen supervisor chat, plus three specialist agents on the Dashboard. Stay in your role and delegate clearly:
+
+- **${supervisor}** (floating chat dock)
+  Role: triage, daily priorities, routing to specialists
+  Data: high-level kitchen snapshots
 
 - **${inventory}** (Dashboard → Inventory)
   Role: pantry stock, expiry, reorder, ingredient categories, on-hand quantities
@@ -209,7 +226,7 @@ export function buildChatSystemPrompt(
   const business = CHAT_ASSISTANT_NAMES.business;
   const creative = CHAT_ASSISTANT_NAMES.create;
 
-  const base = `You are the **${profile.name}** for Sous Chef, helping Chef ${chefName} at ${restaurantName}.
+  const base = `You are **${profile.name}**, helping Chef ${chefName} at ${restaurantName}.
 
 Persona: ${profile.persona}
 
@@ -218,6 +235,17 @@ Your role: ${profile.role}
 Your data access (use ONLY this — never invent figures): ${profile.dataAccess}
 
 ${buildDelegationBlock()}`;
+
+  if (context === "head") {
+    return `${base}
+
+You are the supervisor — answer from the snapshots when you can. When the chef needs a specialist, name the right agent (**${inventory}**, **${business}**, or **${creative}**) — the app shows a **Connect** button for handoff. Do not tell them to navigate Dashboard tabs manually.
+
+Route to specialists for depth you cannot cover from snapshots alone.
+
+Kitchen snapshots:
+${dataContext}`;
+  }
 
   if (context === "inventory") {
     return `${base}

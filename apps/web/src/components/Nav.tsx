@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Upload,
 } from "lucide-react";
+import { AppBrandMark } from "@/components/BrandMark";
 import { useKitchenName } from "@/components/KitchenNameProvider";
 import { useOrderWorkOptional } from "@/components/OrderWorkProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -68,22 +69,27 @@ export function Nav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-chef-border bg-chef-surface/95 shadow-[0_1px_2px_rgba(42,38,34,0.04)] backdrop-blur-sm">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 flex-col sm:flex-row sm:items-center sm:gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link
             href="/dashboard"
-            className="text-lg font-semibold tracking-tight text-chef-sage transition hover:text-chef-sage-dark"
+            className="flex min-w-0 items-center gap-2 transition hover:opacity-90"
           >
-            Sous Chef
+            <AppBrandMark height={34} priority />
+            {kitchenNameSet && kitchenName ? (
+              <span className="truncate text-sm font-semibold text-chef-text-muted">
+                @{kitchenName}
+              </span>
+            ) : null}
           </Link>
           {kitchenNameSet && kitchenName ? (
             <Tooltip content="Edit kitchen name">
               <button
                 type="button"
                 onClick={openEditKitchenName}
-                className="group flex min-w-0 max-w-[14rem] items-center gap-1.5 truncate text-left text-sm text-chef-text-muted transition hover:text-chef-text"
+                className="sc-icon-btn shrink-0 text-chef-text-muted hover:text-chef-text"
+                aria-label="Edit kitchen name"
               >
-                <span className="truncate">{kitchenName}</span>
-                <Pencil className="h-3.5 w-3.5 shrink-0 opacity-0 transition group-hover:opacity-70" aria-hidden />
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
               </button>
             </Tooltip>
           ) : null}

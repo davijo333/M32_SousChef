@@ -25,7 +25,7 @@ const ConversationSchema = new Schema<IConversation>(
     userId: { type: Schema.Types.ObjectId, ref: "User" },
     context: {
       type: String,
-      enum: ["inventory", "business", "create"],
+      enum: ["head", "inventory", "business", "create"],
       default: "create",
       required: true,
     },

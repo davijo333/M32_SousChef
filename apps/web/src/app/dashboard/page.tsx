@@ -5,11 +5,13 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import { DashboardChefChat } from "@/components/DashboardChefChat";
+import { AgentBrandMark } from "@/components/BrandMark";
+import { SousChefChatDock } from "@/components/SousChefChatDock";
 import { MarginRankingChart } from "@/components/MarginRankingChart";
 import { Nav } from "@/components/Nav";
 import { PantryMultiSelectFilter } from "@/components/PantryMultiSelectFilter";
 import { useKitchenName } from "@/components/KitchenNameProvider";
+import { agentBrandLabel, type AgentBrandAgent } from "@/lib/agent-icons";
 import type { MarginDishRow } from "@/lib/dashboard-margins";
 import { formatPercent, MARGIN_RANKING_LIMIT } from "@/lib/dashboard-margins";
 import {
@@ -27,6 +29,16 @@ type DashboardSection = "inventory" | "business" | "create";
 type BusinessTab = "sales" | "margins";
 type MarginView = "highest" | "lowest";
 type SalesInsightView = "topSelling" | "topUsed" | "expiry" | "reorder";
+
+const DASHBOARD_SECTIONS: Array<{
+  id: DashboardSection;
+  agent: AgentBrandAgent;
+  label: string;
+}> = [
+  { id: "inventory", agent: "inventory", label: "Inventory" },
+  { id: "business", agent: "business", label: "Business" },
+  { id: "create", agent: "create", label: "Create" },
+];
 
 const SALES_INSIGHT_OPTIONS: Array<{ id: SalesInsightView; label: string }> = [
   { id: "topSelling", label: "Top selling dishes" },
@@ -105,7 +117,7 @@ function StatCard({
 }
 
 function sectionTabClass(active: boolean): string {
-  return `rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+  return `w-full rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-colors ${
     active
       ? "bg-chef-sage text-white"
       : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
@@ -180,8 +192,8 @@ export default function DashboardPage() {
   const [financeView, setFinanceView] = useState<"week" | "month">("week");
   const [marginView, setMarginView] = useState<MarginView>("highest");
   const [salesInsightView, setSalesInsightView] = useState<SalesInsightView>("topSelling");
-  const [salesPurchasesOpen, setSalesPurchasesOpen] = useState(true);
-  const [kitchenInsightsOpen, setKitchenInsightsOpen] = useState(true);
+  const [salesPurchasesOpen, setSalesPurchasesOpen] = useState(false);
+  const [kitchenInsightsOpen, setKitchenInsightsOpen] = useState(false);
   const [dishClassFilters, setDishClassFilters] = useState<string[]>([]);
   const [ingredientClassFilters, setIngredientClassFilters] = useState<string[]>([]);
   const [seeding, setSeeding] = useState(false);
@@ -256,7 +268,7 @@ export default function DashboardPage() {
     return (
       <>
         <Nav />
-        <p className="p-8 text-chef-text-muted">Loading dashboard…</p>
+        <p className="sc-main-with-nav p-8 text-chef-text-muted">Loading dashboard…</p>
       </>
     );
   }
@@ -271,7 +283,7 @@ export default function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 py-8">
+      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-44 sm:pb-48">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-chef-text">Good morning, Chef {chefName}</h1>
@@ -317,34 +329,37 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Dashboard sections">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "inventory"}
-            onClick={() => setSection("inventory")}
-            className={sectionTabClass(section === "inventory")}
-          >
-            Inventory
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "business"}
-            onClick={() => setSection("business")}
-            className={sectionTabClass(section === "business")}
-          >
-            Business
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={section === "create"}
-            onClick={() => setSection("create")}
-            className={sectionTabClass(section === "create")}
-          >
-            Create
-          </button>
+        <div
+          className="mt-8 grid w-full grid-cols-3 gap-2"
+          role="tablist"
+          aria-label="Dashboard sections"
+        >
+          {DASHBOARD_SECTIONS.map(({ id, agent, label }) => {
+            const active = section === id;
+            return (
+              <div key={id} className="flex min-w-0 flex-col items-center">
+                <div className="mb-2 flex h-[5.5rem] flex-col items-center justify-end">
+                  {active && (
+                    <>
+                      <AgentBrandMark agent={agent} size={52} />
+                      <p className="mt-2 text-center text-sm font-semibold text-chef-text sm:text-base">
+                        {agentBrandLabel(agent)}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setSection(id)}
+                  className={sectionTabClass(active)}
+                >
+                  {label}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {section === "inventory" && (
@@ -377,16 +392,6 @@ export default function DashboardPage() {
                     (item) => `${item.name} — ${item.currentQty} ${item.inventoryUnit}`
                   )}
                 />
-              </div>
-            </section>
-
-            <section className="mt-8">
-              <h2 className="text-lg font-semibold text-chef-text">Inventory Assistant</h2>
-              <p className="mt-1 text-sm text-chef-text-muted">
-                Pantry stock, expiry, and reorder.
-              </p>
-              <div className="mt-4">
-                <DashboardChefChat context="inventory" />
               </div>
             </section>
           </>
@@ -638,32 +643,25 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
-
-            <div className="mt-8 border-t border-chef-border pt-6">
-              <h3 className="text-base font-semibold text-chef-text">Business Assistant</h3>
-              <p className="mt-1 text-sm text-chef-text-muted">
-                Sales, margins, and purchases for the {periodLabel}.
-              </p>
-              <div className="mt-4">
-                <DashboardChefChat context="business" financeView={financeView} />
-              </div>
-            </div>
           </div>
         )}
 
         {section === "create" && (
           <section className="mt-6">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold text-chef-text">Creative Assistant</h2>
-              <p className="mt-1 text-sm text-chef-text-muted">
-                Brainstorm specials from today&apos;s cues — say{" "}
-                <span className="font-medium text-chef-text">add it</span> to save to Suggested.
-              </p>
-            </div>
-            <DashboardChefChat context="create" showCues />
+            <p className="text-center text-sm text-chef-text-muted">
+              Brainstorm specials from today&apos;s cues — say{" "}
+              <span className="font-medium text-chef-text">add it</span> to save to Suggested.
+            </p>
           </section>
         )}
+
       </main>
+      <SousChefChatDock
+        financeView={financeView}
+        showCues={section === "create"}
+        dashboardSection={section}
+        onAgentHandoff={setSection}
+      />
     </>
   );
 }

@@ -4,6 +4,7 @@ Reference for the active Sous Chef app.
 
 | Folder | Contents |
 |--------|----------|
+| [Agentic_Tools/](./Agentic_Tools/) | Multi-agent chat: flows, queries, tools, LangGraph deployment |
 | [UI/](./UI/) | Pages, routes, and user flows |
 | [Agents/](./Agents/) | Python FastAPI workers on `:8000` |
 | [DB/](./DB/) | MongoDB collections and fields |

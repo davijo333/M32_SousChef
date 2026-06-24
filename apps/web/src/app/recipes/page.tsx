@@ -536,7 +536,7 @@ export default function RecipesPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-5xl px-4 py-8">
+      <main className="sc-main-with-nav mx-auto max-w-5xl px-4 pb-8">
         <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Recipes</h1>
         <p className="mt-2 text-base text-chef-text-muted">
           Recipe Agent adds linked ingredients as <strong>New</strong>. Review and activate for

@@ -2,12 +2,18 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { authOptions } from "@/lib/auth";
+import {
+  detectHandoffFromConversation,
+  isSpecialistHandoffTarget,
+  type SpecialistHandoffTarget,
+} from "@/lib/chat-handoff";
 import { MAX_CHAT_SESSIONS } from "@/lib/chat-retention";
 import { buildCreateCues, formatCuesForPrompt } from "@/lib/create-cues";
 import {
   buildBusinessChatContext,
   buildChatSystemPrompt,
   buildCreativeChatContext,
+  buildHeadChatContext,
   buildInventoryChatContext,
 } from "@/lib/dashboard-chat-context";
 import {
@@ -147,13 +153,20 @@ export async function POST(req: Request) {
   const newChat = Boolean(body.newChat);
   const confirmSuggestion = Boolean(body.confirmSuggestion);
   const contextParam = String(body.context ?? "create");
+  const agentContextParam = body.agentContext as string | undefined;
+  const connectAgentParam = body.connectAgent as string | undefined;
   const financeView = body.financeView === "month" ? "month" : "week";
 
   if (!isDashboardChatContext(contextParam)) {
     return NextResponse.json({ error: "Invalid context" }, { status: 400 });
   }
 
-  if (!message) {
+  const connectAgent =
+    connectAgentParam && isSpecialistHandoffTarget(connectAgentParam)
+      ? connectAgentParam
+      : null;
+
+  if (!message && !connectAgent) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
@@ -164,6 +177,11 @@ export async function POST(req: Request) {
   await connectDB();
 
   const context = contextParam as DashboardChatContext;
+
+  let agentContext: DashboardChatContext =
+    agentContextParam && isDashboardChatContext(agentContextParam)
+      ? agentContextParam
+      : context;
 
   let conversation = null;
   if (!newChat && conversationId) {
@@ -177,7 +195,7 @@ export async function POST(req: Request) {
       restaurantId,
       userId,
       context,
-      title: message.slice(0, 48),
+      title: (message || CHAT_ASSISTANT_NAMES[connectAgent ?? "head"]).slice(0, 48),
       messages: [],
     });
     await pruneOldChatSessions(userId, context);
@@ -187,14 +205,33 @@ export async function POST(req: Request) {
   const restaurantName =
     (session.user as { restaurantName?: string }).restaurantName ?? "your kitchen";
 
+  const historyForHandoff = conversation.messages.slice(-10).map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  let handoff: SpecialistHandoffTarget | null = null;
+  if (connectAgent) {
+    handoff = connectAgent;
+    agentContext = connectAgent;
+  } else if (context === "head") {
+    const detected = detectHandoffFromConversation(message, historyForHandoff);
+    if (detected) {
+      handoff = detected;
+      agentContext = detected;
+    }
+  }
+
   let cues;
   let dataContext: string;
   let createExtras = "";
 
-  if (context === "inventory") {
+  if (agentContext === "inventory") {
     dataContext = await buildInventoryChatContext(restaurantId);
-  } else if (context === "business") {
+  } else if (agentContext === "business") {
     dataContext = await buildBusinessChatContext(restaurantId, financeView);
+  } else if (agentContext === "head") {
+    dataContext = await buildHeadChatContext(restaurantId, financeView);
   } else {
     const weather = await fetchWeatherCue();
     cues = buildCreateCues(weather);
@@ -209,27 +246,41 @@ Only call add_suggested_dish when the chef confirms (e.g. "add it", "save that")
 Never invent pantry items — only reference slugs from the pantry list when specifying ingredientSlugs.`;
   }
 
-  const systemPrompt = buildChatSystemPrompt(
-    context,
-    chefName,
-    restaurantName,
-    dataContext,
-    createExtras
-  );
+  const handoffNote =
+    handoff && (context === "head" || connectAgent)
+      ? "\n\nThe chef was just connected to you from another assistant. Read the full conversation history and take over seamlessly — acknowledge what was discussed, then help with their current need."
+      : "";
+
+  const systemPrompt =
+    buildChatSystemPrompt(
+      agentContext,
+      chefName,
+      restaurantName,
+      dataContext,
+      createExtras
+    ) + handoffNote;
 
   const history = conversation.messages.slice(-10).map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
 
+  const savedUserMessage = connectAgent
+    ? `Connect to ${CHAT_ASSISTANT_NAMES[connectAgent]}`
+    : message;
+
+  const llmUserMessage = connectAgent
+    ? `The chef clicked Connect in chat to speak with you. Review the conversation above and take over — briefly acknowledge the thread, then help with what they need.`
+    : message;
+
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: systemPrompt },
       ...history,
-      { role: "user", content: message },
+      { role: "user", content: llmUserMessage },
     ],
-    ...(context === "create"
+    ...(agentContext === "create"
       ? {
           tools: [ADD_SUGGESTION_TOOL],
           tool_choice: confirmSuggestion
@@ -243,7 +294,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
   let reply = choice.message.content ?? "";
   let createdSuggestion: { slug: string; name: string } | null = null;
 
-  if (context === "create") {
+  if (agentContext === "create") {
     const toolCall = choice.message.tool_calls?.[0];
     if (toolCall?.type === "function" && toolCall.function.name === "add_suggested_dish") {
       try {
@@ -274,19 +325,26 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     const business = CHAT_ASSISTANT_NAMES.business;
     const creative = CHAT_ASSISTANT_NAMES.create;
     reply =
-      context === "inventory"
+      agentContext === "head"
+        ? `Ask me what to prioritize today. For stock, sales, or specials, I can point you to the ${inventory}, ${business}, or ${creative}.`
+        : agentContext === "inventory"
         ? `Ask me about stock, expiry, or reorder. For sales or new dishes, switch to the ${business} or ${creative}.`
-        : context === "business"
+        : agentContext === "business"
           ? `Ask me about sales, margins, or purchases. For stock or specials, switch to the ${inventory} or ${creative}.`
           : `Tell me what kind of special you'd like. For stock or sales, use the ${inventory} or ${business}.`;
   }
 
+  if (handoff) {
+    const specialistName = CHAT_ASSISTANT_NAMES[handoff];
+    reply = `You're now connected with the **${specialistName}**.\n\n${reply}`;
+  }
+
   conversation.messages.push(
-    { role: "user", content: message, createdAt: new Date() },
+    { role: "user", content: savedUserMessage, createdAt: new Date() },
     { role: "assistant", content: reply, createdAt: new Date() }
   );
   if (conversation.messages.filter((m) => m.role === "user").length === 1) {
-    conversation.title = message.slice(0, 48);
+    conversation.title = savedUserMessage.slice(0, 48);
   }
   await conversation.save();
 
@@ -299,6 +357,8 @@ Never invent pantry items — only reference slugs from the pantry list when spe
   return NextResponse.json({
     reply,
     context,
+    agentContext,
+    handoff,
     conversationId: conversation._id.toString(),
     conversations: sessions.map((session) => ({
       id: session._id.toString(),

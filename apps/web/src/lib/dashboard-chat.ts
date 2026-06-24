@@ -1,6 +1,7 @@
-export type DashboardChatContext = "inventory" | "business" | "create";
+export type DashboardChatContext = "head" | "inventory" | "business" | "create";
 
 export const DASHBOARD_CHAT_CONTEXTS: DashboardChatContext[] = [
+  "head",
   "inventory",
   "business",
   "create",
@@ -11,9 +12,10 @@ export function isDashboardChatContext(value: string): value is DashboardChatCon
 }
 
 export const CHAT_ASSISTANT_NAMES: Record<DashboardChatContext, string> = {
-  inventory: "Inventory Assistant",
-  business: "Business Assistant",
-  create: "Creative Assistant",
+  head: "Sous Chef",
+  inventory: "Inventory Agent",
+  business: "Business Agent",
+  create: "Creative Agent",
 };
 
 /** @deprecated Use CHAT_ASSISTANT_NAMES */
@@ -29,8 +31,23 @@ export type ChatAssistantProfile = {
 };
 
 export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistantProfile> = {
+  head: {
+    name: "Sous Chef",
+    tagline: "Kitchen supervisor & routing",
+    persona:
+      "You are Sous Chef — calm, decisive, and focused on what matters for the kitchen today. You synthesize pantry, sales, and menu context and route the chef to the right specialist when needed.",
+    role: "Answer broad kitchen questions using the snapshots below. For deep dives on stock, sales, or new dishes, suggest the Inventory, Business, or Creative agents — the chat will show a Connect button so the chef can hand off with full context.",
+    dataAccess:
+      "High-level inventory and business snapshots for this kitchen. Delegate detailed work to specialist agents.",
+    sampleQueries: [
+      "What should I focus on today?",
+      "Anything low stock or expiring soon?",
+      "How are sales looking this week?",
+      "Who should I ask about a lunch special?",
+    ],
+  },
   inventory: {
-    name: "Inventory Assistant",
+    name: "Inventory Agent",
     tagline: "Pantry stock, expiry & reorder",
     persona:
       "You are a meticulous pantry manager — precise about quantities, expiry dates, and reorder thresholds. You speak in clear, actionable terms for line cooks and chefs.",
@@ -45,7 +62,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     ],
   },
   business: {
-    name: "Business Assistant",
+    name: "Business Agent",
     tagline: "Sales, margins & purchases",
     persona:
       "You are a sharp restaurant analyst — focused on POS performance, food cost, and profitability. You explain finance plainly and never confuse bulk supplier purchases with per-ticket COGS.",
@@ -60,7 +77,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     ],
   },
   create: {
-    name: "Creative Assistant",
+    name: "Creative Agent",
     tagline: "Menu ideas & specials",
     persona:
       "You are an inventive chef de cuisine — you brainstorm specials from seasonal cues and what's in the pantry. You write POS-ready dish names and descriptions.",
@@ -77,12 +94,14 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
 };
 
 const DELEGATION_HINTS: Record<DashboardChatContext, string> = {
+  head:
+    "For stock or expiry, open **Inventory Agent**. For sales and margins, **Business Agent**. For specials and new dishes, **Creative Agent**.",
   inventory:
-    "For sales or margins, I'll send you to the **Business Assistant**. For new dish ideas, see the **Creative Assistant**.",
+    "For sales or margins, I'll send you to the **Business Agent**. For new dish ideas, see the **Creative Agent**.",
   business:
-    "For stock or expiry, I'll send you to the **Inventory Assistant**. For specials and new menu ideas, see the **Creative Assistant**.",
+    "For stock or expiry, I'll send you to the **Inventory Agent**. For specials and new menu ideas, see the **Creative Agent**.",
   create:
-    "For stock levels or expiry, I'll send you to the **Inventory Assistant**. For sales and margins, see the **Business Assistant**.",
+    "For stock levels or expiry, I'll send you to the **Inventory Agent**. For sales and margins, see the **Business Agent**.",
 };
 
 export function buildAssistantGreeting(
@@ -103,6 +122,7 @@ ${samples}`;
 }
 
 export const CHAT_PLACEHOLDER: Record<DashboardChatContext, string> = {
+  head: "Ask what's most important today…",
   inventory: "Ask about stock, expiry, or reorder…",
   business: "Ask about sales, margins, or purchases…",
   create: "Describe a special or say “add it” to save…",

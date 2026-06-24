@@ -94,10 +94,12 @@ export const authOptions: NextAuthOptions = {
           restaurantName?: string;
           kitchenNameSet?: boolean;
           restaurantId?: string;
+          name?: string;
         };
         if (patch.restaurantName) token.restaurantName = patch.restaurantName;
         if (patch.kitchenNameSet != null) token.kitchenNameSet = patch.kitchenNameSet;
         if (patch.restaurantId) token.restaurantId = patch.restaurantId;
+        if (patch.name) token.name = patch.name;
         return token;
       }
 
@@ -144,6 +146,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
+        session.user.name = token.name as string;
         (session.user as { id?: string }).id = token.sub;
         (session.user as { restaurantId?: string }).restaurantId =
           token.restaurantId as string;

@@ -12,6 +12,10 @@ const geistSans = localFont({
 export const metadata: Metadata = {
   title: "Sous Chef",
   description: "Your AI sous chef for menu & inventory",
+  icons: {
+    icon: "/brand/app-logo/icon.png",
+    apple: "/brand/app-logo/icon.png",
+  },
 };
 
 export default function RootLayout({

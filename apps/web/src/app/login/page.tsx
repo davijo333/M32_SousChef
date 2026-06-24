@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { AuthBrandLogo } from "@/components/AuthBrandLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,10 +44,11 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
       <div className="sc-card p-8">
-        <h1 className="sc-page-title text-2xl">Sous Chef</h1>
-        <p className="sc-page-lead">Your AI sous chef for menu and inventory.</p>
+        <div className="flex flex-col items-center px-1 pb-1 pt-2 text-center">
+          <AuthBrandLogo />
+        </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
             <label className="sc-label" htmlFor="email">
               Email

@@ -93,8 +93,9 @@ body {
     @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30;
   }
 
+  /** Clear fixed nav; includes room for a wrapped header on small viewports. */
   .sc-main-with-nav {
-    @apply pt-[4.75rem];
+    @apply pt-[calc(5.5rem+2rem)] sm:pt-[calc(4.75rem+2rem)];
   }
 }
 

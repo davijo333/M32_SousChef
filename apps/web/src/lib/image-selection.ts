@@ -1,6 +1,6 @@
 import type { ImageSuggestion, NewCatalogItem } from "@/lib/extract-new-items";
 
-import { isCatalogSlugImageKey } from "@/lib/r2-storage";
+import { isCatalogSlugImageKey } from "@/lib/r2-storage-keys";
 
 export const REQUIRED_CARD_IMAGES = 2;
 

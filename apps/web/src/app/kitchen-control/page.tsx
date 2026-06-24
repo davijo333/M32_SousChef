@@ -825,7 +825,7 @@ export default function KitchenControlPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-7xl px-4 py-8">
+      <main className="sc-main-with-nav mx-auto max-w-7xl px-4 pb-8">
         <div>
           <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Kitchen control</h1>
         </div>
