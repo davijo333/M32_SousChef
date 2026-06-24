@@ -36,12 +36,60 @@ type DashboardChefChatProps = {
   showCues?: boolean;
 };
 
-function sessionTabClass(active: boolean): string {
-  return `max-w-[10rem] truncate rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-    active
-      ? "bg-chef-sage text-white"
-      : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
+function sessionTabShellClass(active: boolean): string {
+  return `flex max-w-[11rem] items-center rounded-md transition ${
+    active ? "bg-chef-sage text-white" : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
   }`;
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <path d="M18 6L6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
+function SessionTab({
+  title,
+  active,
+  deleting,
+  onSelect,
+  onDelete,
+}: {
+  title: string;
+  active: boolean;
+  deleting: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className={sessionTabShellClass(active)}>
+      <button
+        type="button"
+        onClick={onSelect}
+        disabled={deleting}
+        className="min-w-0 flex-1 truncate px-2.5 py-1.5 text-left text-xs font-medium"
+        title={title}
+      >
+        {title}
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete();
+        }}
+        disabled={deleting}
+        aria-label={`Delete chat: ${title}`}
+        className={`mr-1 rounded p-0.5 transition hover:bg-black/10 disabled:opacity-50 ${
+          active ? "text-white/90 hover:text-white" : "text-chef-text-muted hover:text-chef-text"
+        }`}
+      >
+        <CloseIcon />
+      </button>
+    </div>
+  );
 }
 
 function hasUserMessages(messages: ChatMessage[]): boolean {
@@ -68,6 +116,7 @@ export function DashboardChefChat({
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -167,6 +216,42 @@ export function DashboardChefChat({
     void loadConversation(id);
   }
 
+  async function deleteSession(id: string) {
+    if (deletingId || sending) return;
+
+    setDeletingId(id);
+    setError("");
+    try {
+      const params = new URLSearchParams({ context, conversationId: id });
+      const res = await fetch(`/api/dashboard/chat?${params}`, { method: "DELETE" });
+      const data = (await res.json()) as {
+        error?: string;
+        conversations?: ChatSession[];
+      };
+
+      if (!res.ok) {
+        setError(data.error ?? "Could not delete chat.");
+        return;
+      }
+
+      const remaining = data.conversations ?? [];
+      setSessions(remaining);
+
+      const wasActive = conversationId === id && !draftNewChat;
+      if (wasActive) {
+        if (remaining.length > 0) {
+          await loadConversation(remaining[0].id);
+        } else {
+          startNewChat();
+        }
+      }
+    } catch {
+      setError("Network error — could not delete chat.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   async function sendMessage(text: string, confirmSuggestion = false) {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
@@ -237,7 +322,10 @@ export function DashboardChefChat({
 
   if (!loaded) {
     return (
-      <div className="sc-card p-4 text-sm text-chef-text-muted">Loading chat…</div>
+      <div className="sc-card flex gap-2 p-3">
+        <div className="h-10 flex-1 animate-pulse rounded-xl bg-chef-muted" />
+        <div className="h-10 w-[4.5rem] animate-pulse rounded-xl bg-chef-muted" />
+      </div>
     );
   }
 
@@ -266,22 +354,25 @@ export function DashboardChefChat({
 
       <div className="sc-card flex flex-col overflow-hidden">
         {!expanded ? (
-          <button
-            type="button"
-            onClick={openChat}
-            className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left transition hover:bg-chef-muted/30"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-chef-text">{profile.name}</p>
-              <p className="mt-0.5 text-xs text-chef-text-muted">{profile.tagline}</p>
-              <p className="mt-2 text-sm text-chef-text-muted">
-                Click to chat — I&apos;ll greet you with sample questions you can ask.
-              </p>
-            </div>
-            <span className="shrink-0 text-chef-text-muted" aria-hidden>
-              →
-            </span>
-          </button>
+          <div className="flex gap-2 p-3">
+            <input
+              type="text"
+              readOnly
+              value=""
+              placeholder={CHAT_PLACEHOLDER[context]}
+              onClick={openChat}
+              onFocus={openChat}
+              aria-label={`Open ${profile.name}`}
+              className="min-w-0 flex-1 cursor-text rounded-xl border border-chef-border bg-white px-3 py-2.5 text-sm text-chef-text placeholder:text-chef-text-muted/70"
+            />
+            <button
+              type="button"
+              onClick={openChat}
+              className="shrink-0 rounded-xl bg-chef-sage px-4 py-2.5 text-sm font-semibold text-white hover:bg-chef-sage-dark"
+            >
+              Send
+            </button>
+          </div>
         ) : (
           <>
             <div className="border-b border-chef-border bg-chef-muted/40 px-3 py-2">
@@ -315,18 +406,19 @@ export function DashboardChefChat({
               {(sessions.length > 0 || draftNewChat) && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {sessions.map((sessionRow) => (
-                    <button
+                    <SessionTab
                       key={sessionRow.id}
-                      type="button"
-                      onClick={() => selectSession(sessionRow.id)}
-                      className={sessionTabClass(activeSessionId === sessionRow.id)}
                       title={sessionRow.title}
-                    >
-                      {sessionRow.title}
-                    </button>
+                      active={activeSessionId === sessionRow.id}
+                      deleting={deletingId === sessionRow.id}
+                      onSelect={() => selectSession(sessionRow.id)}
+                      onDelete={() => void deleteSession(sessionRow.id)}
+                    />
                   ))}
                   {draftNewChat && (
-                    <span className={sessionTabClass(true)}>New chat</span>
+                    <span className="rounded-md bg-chef-sage px-2.5 py-1.5 text-xs font-medium text-white">
+                      New chat
+                    </span>
                   )}
                 </div>
               )}

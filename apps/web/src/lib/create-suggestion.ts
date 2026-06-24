@@ -1,5 +1,6 @@
 import { dishSlugFromName } from "@/lib/dish-catalog";
 import { scheduleRecipeBuild } from "@/lib/recipe-builder";
+import { normalizeSuggestionNotes, type SuggestionNote } from "@/lib/suggestion-notes";
 import { Dish } from "@/models/Dish";
 import { Ingredient } from "@/models/Ingredient";
 
@@ -10,6 +11,7 @@ export type SuggestedDishInput = {
   description: string;
   classification: string;
   ingredientSlugs?: string[];
+  notes?: SuggestionNote[];
 };
 
 async function uniqueDishSlug(restaurantId: string, baseName: string): Promise<string> {
@@ -93,6 +95,13 @@ export async function createSuggestedDish(
     ingredientLinks = await linkViaAgent(restaurantId, slug, input.name, classification);
   }
 
+  const suggestionNotes = normalizeSuggestionNotes(input.notes);
+  if (!suggestionNotes.length) {
+    throw new Error(
+      "Creative Assistant must include at least one suggestion note (e.g. expiring ingredients, seasonal offer, high-margin pantry items)."
+    );
+  }
+
   await Dish.create({
     restaurantId,
     slug,
@@ -105,6 +114,7 @@ export async function createSuggestedDish(
     recipeStatus: "suggested",
     source: "agent_create",
     imageGenerationAttempted: false,
+    suggestionNotes,
   });
 
   if (ingredientLinks.length) {

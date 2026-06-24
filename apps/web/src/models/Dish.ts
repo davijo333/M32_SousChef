@@ -1,5 +1,6 @@
 import mongoose, { Schema, type Model } from "mongoose";
 import type { IImageCandidate } from "@/models/Ingredient";
+import type { SuggestionNote } from "@/lib/suggestion-notes";
 
 export interface IIngredientLink {
   ingredientSlug: string;
@@ -29,6 +30,8 @@ export interface IDish {
   imageCandidates?: IImageCandidate[];
   selectedImageIndex?: number;
   imageGenerationAttempted?: boolean;
+  /** Agent rationale shown on Suggested recipe cards */
+  suggestionNotes?: SuggestionNote[];
 }
 
 const IngredientLinkSchema = new Schema<IIngredientLink>(
@@ -49,6 +52,18 @@ const ImageCandidateSchema = new Schema<IImageCandidate>(
     source: String,
     score: Number,
     r2Key: String,
+  },
+  { _id: false }
+);
+
+const SuggestionNoteSchema = new Schema(
+  {
+    kind: {
+      type: String,
+      enum: ["expiring_ingredients", "seasonal", "high_margin", "low_stock", "cue", "other"],
+      required: true,
+    },
+    text: { type: String, required: true },
   },
   { _id: false }
 );
@@ -74,6 +89,7 @@ const DishSchema = new Schema<IDish>(
       enum: ["new", "active", "inactive", "suggested"],
     },
     source: { type: String, default: "bill_upload" },
+    suggestionNotes: { type: [SuggestionNoteSchema], default: [] },
   },
   { timestamps: true }
 );

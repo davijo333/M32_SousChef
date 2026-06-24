@@ -389,7 +389,7 @@ export default function DashboardPage() {
             <section className="mt-8">
               <h2 className="text-lg font-semibold text-chef-text">Inventory Assistant</h2>
               <p className="mt-1 text-sm text-chef-text-muted">
-                Pantry stock, expiry, and reorder — click the chatbox to get started.
+                Pantry stock, expiry, and reorder.
               </p>
               <div className="mt-4">
                 <DashboardChefChat context="inventory" />
@@ -648,7 +648,7 @@ export default function DashboardPage() {
             <div className="mt-8 border-t border-chef-border pt-6">
               <h3 className="text-base font-semibold text-chef-text">Business Assistant</h3>
               <p className="mt-1 text-sm text-chef-text-muted">
-                Sales, margins, and purchases for the {periodLabel} — click the chatbox to get started.
+                Sales, margins, and purchases for the {periodLabel}.
               </p>
               <div className="mt-4">
                 <DashboardChefChat context="business" financeView={financeView} />
@@ -662,7 +662,7 @@ export default function DashboardPage() {
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-chef-text">Creative Assistant</h2>
               <p className="mt-1 text-sm text-chef-text-muted">
-                Brainstorm specials from today&apos;s cues — click the chatbox to get started, then say{" "}
+                Brainstorm specials from today&apos;s cues — say{" "}
                 <span className="font-medium text-chef-text">add it</span> to save to Suggested.
               </p>
             </div>

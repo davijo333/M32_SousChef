@@ -101,6 +101,7 @@ export async function GET() {
       ingredientLinks: resolveLinks(d.ingredientLinks),
       hasRecipe: (d.ingredientLinks?.length ?? 0) > 0,
       recipeStatus: d.recipeStatus ?? (d.ingredientLinks?.length ? "new" : undefined),
+      suggestionNotes: d.suggestionNotes ?? [],
       recipe: recipeMeta("dish", d.slug),
     })),
     addOns: addOns.map((a) => ({

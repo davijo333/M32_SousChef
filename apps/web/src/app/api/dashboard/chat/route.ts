@@ -7,6 +7,7 @@ import { buildCreateCues, formatCuesForPrompt } from "@/lib/create-cues";
 import {
   buildBusinessChatContext,
   buildChatSystemPrompt,
+  buildCreativeChatContext,
   buildInventoryChatContext,
 } from "@/lib/dashboard-chat-context";
 import {
@@ -17,9 +18,8 @@ import {
 import { fetchWeatherCue } from "@/lib/create-weather";
 import { createSuggestedDish } from "@/lib/create-suggestion";
 import { connectDB } from "@/lib/mongodb";
+import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@/lib/suggestion-notes";
 import { Conversation } from "@/models/Conversation";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -34,41 +34,12 @@ async function pruneOldChatSessions(userId: string, context: DashboardChatContex
   }
 }
 
-async function buildCreateKitchenContext(restaurantId: string, cuesText: string) {
-  const [ingredients, dishes] = await Promise.all([
-    Ingredient.find({ restaurantId }).select("slug name category currentQty inventoryUnit").lean(),
-    Dish.find({ restaurantId })
-      .select("slug name classification recipeStatus sellPrice")
-      .lean(),
-  ]);
-
-  const pantry = ingredients
-    .slice(0, 40)
-    .map(
-      (ing) =>
-        `${ing.name} (${ing.slug}, ${ing.category}, ${ing.currentQty} ${ing.inventoryUnit})`
-    )
-    .join("\n");
-
-  const active = dishes
-    .filter((d) => (d.recipeStatus ?? "new") === "active")
-    .map((d) => `${d.name} — $${d.sellPrice.toFixed(2)}`)
-    .join("\n");
-
-  const suggested = dishes
-    .filter((d) => d.recipeStatus === "suggested")
-    .map((d) => d.name)
-    .join(", ");
-
-  return `Context cues:\n${cuesText}\n\nPantry (sample):\n${pantry || "Empty"}\n\nActive menu:\n${active || "None"}\n\nExisting suggestions: ${suggested || "None"}`;
-}
-
 const ADD_SUGGESTION_TOOL = {
   type: "function" as const,
   function: {
     name: "add_suggested_dish",
     description:
-      "Save a new dish to the Suggested menu after the chef agrees. Links ingredients from pantry when possible.",
+      "Save a new dish to the Suggested menu after the chef agrees. Always include notes explaining why the dish is suggested.",
     parameters: {
       type: "object",
       properties: {
@@ -83,8 +54,27 @@ const ADD_SUGGESTION_TOOL = {
           items: { type: "string" },
           description: "Optional pantry slugs e.g. ing-bacon",
         },
+        notes: {
+          type: "array",
+          description:
+            "Why this dish is suggested — e.g. uses expiring ingredients, seasonal offer, high-margin pantry items, today's cue.",
+          items: {
+            type: "object",
+            properties: {
+              kind: {
+                type: "string",
+                enum: [...SUGGESTION_NOTE_KINDS],
+              },
+              text: {
+                type: "string",
+                description: "Short card note, e.g. 'Uses bacon, milk expiring in 3–5 days'",
+              },
+            },
+            required: ["kind", "text"],
+          },
+        },
       },
-      required: ["name", "description", "classification"],
+      required: ["name", "description", "classification", "notes"],
     },
   },
 };
@@ -209,8 +199,10 @@ export async function POST(req: Request) {
     const weather = await fetchWeatherCue();
     cues = buildCreateCues(weather);
     const cuesText = formatCuesForPrompt(cues);
-    dataContext = await buildCreateKitchenContext(restaurantId, cuesText);
-    createExtras = `When the chef clearly wants to save an idea, call add_suggested_dish.
+    dataContext = await buildCreativeChatContext(restaurantId, cuesText);
+    createExtras = `When the chef clearly wants to save an idea, call add_suggested_dish with a notes array (at least one entry).
+Note kinds: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
+Examples: "Uses bacon, spinach expiring this week" (expiring_ingredients), "Fall seasonal pumpkin special" (seasonal), "Features high-margin avocado & eggs" (high_margin).
 Only call add_suggested_dish when the chef confirms (e.g. "add it", "save that")${
       confirmSuggestion ? " — the chef just confirmed saving." : "."
     }
@@ -260,11 +252,15 @@ Never invent pantry items — only reference slugs from the pantry list when spe
           description: string;
           classification: string;
           ingredientSlugs?: string[];
+          notes?: Array<{ kind: string; text: string }>;
         };
-        createdSuggestion = await createSuggestedDish(restaurantId, args);
+        createdSuggestion = await createSuggestedDish(restaurantId, {
+          ...args,
+          notes: normalizeSuggestionNotes(args.notes),
+        });
         reply =
           reply ||
-          `Saved **${createdSuggestion.name}** to Suggested. Open Recipes → Suggested to review pricing and promote it when ready.`;
+          `Saved **${createdSuggestion.name}** to Suggested with rationale notes. Open Recipes → Suggested to review.`;
       } catch (err) {
         reply =
           (reply ? `${reply}\n\n` : "") +
@@ -311,5 +307,53 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     })),
     cues,
     createdSuggestion,
+  });
+}
+
+export async function DELETE(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const userId = session.user.id;
+  if (!userId) {
+    return NextResponse.json({ error: "No user" }, { status: 400 });
+  }
+
+  const contextParam = new URL(req.url).searchParams.get("context") ?? "create";
+  const conversationId = new URL(req.url).searchParams.get("conversationId");
+  if (!isDashboardChatContext(contextParam)) {
+    return NextResponse.json({ error: "Invalid context" }, { status: 400 });
+  }
+  if (!conversationId) {
+    return NextResponse.json({ error: "conversationId required" }, { status: 400 });
+  }
+
+  await connectDB();
+
+  const deleted = await Conversation.deleteOne({
+    _id: conversationId,
+    userId,
+    context: contextParam,
+  });
+  if (!deleted.deletedCount) {
+    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+  }
+
+  const sessions = await Conversation.find({ userId, context: contextParam })
+    .sort({ updatedAt: -1 })
+    .limit(MAX_CHAT_SESSIONS)
+    .select("title updatedAt")
+    .lean();
+
+  return NextResponse.json({
+    context: contextParam,
+    deletedId: conversationId,
+    conversations: sessions.map((row) => ({
+      id: row._id.toString(),
+      title: row.title || "New chat",
+      updatedAt: row.updatedAt,
+    })),
   });
 }

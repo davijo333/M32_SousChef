@@ -128,6 +128,27 @@ const SUGGESTED_DISH_SLUGS = new Set([
   "dish-cranberry-juice",
 ]);
 
+const SEED_SUGGESTION_NOTES: Record<
+  string,
+  Array<{ kind: "expiring_ingredients" | "seasonal" | "high_margin" | "cue" | "other"; text: string }>
+> = {
+  "dish-multigrain-bagel": [
+    {
+      kind: "seasonal",
+      text: "Whole-grain breakfast option aligned with fall wellness trends.",
+    },
+    { kind: "high_margin", text: "Uses high-margin bagel and cream cheese pantry staples." },
+  ],
+  "dish-soy-coffee": [
+    { kind: "cue", text: "Plant-based coffee special for today's café crowd." },
+    { kind: "high_margin", text: "Coffee and soy milk are strong margin ingredients." },
+  ],
+  "dish-cranberry-juice": [
+    { kind: "seasonal", text: "Seasonal cranberry offer for holiday-adjacent menus." },
+    { kind: "expiring_ingredients", text: "Uses cranberry concentrate before next delivery cycle." },
+  ],
+};
+
 function ingredientLinks(
   slugs: string[] | undefined,
   links:
@@ -262,6 +283,7 @@ export async function seedKitchenCatalog(restaurantId: string): Promise<SeedKitc
       sellPrice: dish.sellPrice,
       ingredientLinks: ingredientLinks(dish.ingredientSlugs, dish.ingredientLinks),
       recipeStatus: resolveDishRecipeStatus(dish),
+      suggestionNotes: SEED_SUGGESTION_NOTES[dish.slug] ?? [],
       source: "seed",
       imageGenerationAttempted: false,
     });

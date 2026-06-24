@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
 import { Nav } from "@/components/Nav";
+import {
+  suggestionNoteLabel,
+  type SuggestionNote,
+  type SuggestionNoteKind,
+} from "@/lib/suggestion-notes";
 
 type RecipeStatus = "new" | "active" | "inactive" | "suggested";
 type StatusTab = RecipeStatus;
@@ -55,6 +60,7 @@ type DishRecipe = {
   ingredientLinks: RecipeLink[];
   hasRecipe: boolean;
   recipeStatus?: RecipeStatus;
+  suggestionNotes?: SuggestionNote[];
   recipe?: RecipeMeta;
 };
 
@@ -160,28 +166,81 @@ function RecipeLinkList({ links }: { links: RecipeLink[] }) {
   );
 }
 
+function noteBadgeClass(kind: SuggestionNoteKind): string {
+  switch (kind) {
+    case "expiring_ingredients":
+      return "border-chef-amber/50 bg-chef-amber-light/60 text-chef-text";
+    case "seasonal":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+    case "high_margin":
+      return "border-chef-sage/40 bg-chef-sage-light/50 text-chef-sage-dark";
+    case "low_stock":
+      return "border-orange-200 bg-orange-50 text-orange-900";
+    case "cue":
+      return "border-sky-200 bg-sky-50 text-sky-900";
+    default:
+      return "border-chef-border bg-chef-muted/60 text-chef-text";
+  }
+}
+
+function SuggestionNotesList({ notes }: { notes: SuggestionNote[] }) {
+  if (!notes.length) return null;
+
+  return (
+    <ul className="mt-3 space-y-2">
+      {notes.map((note, index) => (
+        <li
+          key={`${note.kind}-${index}`}
+          className={`rounded-lg border px-3 py-2 text-sm ${noteBadgeClass(note.kind)}`}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
+            {suggestionNoteLabel(note.kind)}
+          </span>
+          <p className="mt-0.5 leading-snug">{note.text}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function RecipeCard({
   title,
   subtitle,
   imageUrl,
   links,
   recipe,
+  suggestionNotes,
   selected,
   onSelect,
   showCheckbox,
   onRetire,
   showRetire,
+  onAccept,
+  showAccept,
+  onReject,
+  showReject,
+  onRevive,
+  showRevive,
+  actionBusy,
 }: {
   title: string;
   subtitle: string;
   imageUrl?: string;
   links: RecipeLink[];
   recipe?: RecipeMeta;
+  suggestionNotes?: SuggestionNote[];
   selected?: boolean;
   onSelect?: (v: boolean) => void;
   showCheckbox?: boolean;
   onRetire?: () => void;
   showRetire?: boolean;
+  onAccept?: () => void;
+  showAccept?: boolean;
+  onReject?: () => void;
+  showReject?: boolean;
+  onRevive?: () => void;
+  showRevive?: boolean;
+  actionBusy?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const inProgress = recipe && recipe.progress !== "ready" && recipe.progress !== "failed";
@@ -236,6 +295,14 @@ function RecipeCard({
       </div>
       {expanded && (
         <div className="border-t border-chef-border px-5 pb-5">
+          {suggestionNotes && suggestionNotes.length > 0 && (
+            <>
+              <p className="pt-3 text-xs font-medium uppercase tracking-wide text-chef-text-muted">
+                Why suggested
+              </p>
+              <SuggestionNotesList notes={suggestionNotes} />
+            </>
+          )}
           {recipe && (
             <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
               <div>
@@ -277,6 +344,41 @@ function RecipeCard({
                 inPantry: links.some((l) => l.ingredientSlug === ing.ingredientSlug && l.inPantry),
               }))
             : links} />
+
+          {(showAccept || showReject || showRevive) && (
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-chef-border pt-4">
+              {showAccept && onAccept && (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={onAccept}
+                  className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
+                >
+                  {actionBusy ? "Saving…" : "Accept"}
+                </button>
+              )}
+              {showReject && onReject && (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={onReject}
+                  className="rounded-lg border border-chef-border bg-white px-4 py-2 text-sm font-medium text-chef-text hover:bg-chef-muted disabled:opacity-50"
+                >
+                  {actionBusy ? "Saving…" : "Reject"}
+                </button>
+              )}
+              {showRevive && onRevive && (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={onRevive}
+                  className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
+                >
+                  {actionBusy ? "Saving…" : "Revive"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </article>
@@ -291,6 +393,7 @@ export default function RecipesPage() {
   const [tab, setTab] = useState<StatusTab>("new");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activating, setActivating] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [recipeAgentCooking, setRecipeAgentCooking] = useState(false);
 
   const load = useCallback(async () => {
@@ -389,6 +492,24 @@ export default function RecipesPage() {
 
   async function retireItem(item: SelectableItem) {
     await setStatus([item], "inactive");
+  }
+
+  async function acceptItem(item: SelectableItem) {
+    setStatusUpdating(itemKey(item));
+    await setStatus([item], "active");
+    setStatusUpdating(null);
+  }
+
+  async function rejectItem(item: SelectableItem) {
+    setStatusUpdating(itemKey(item));
+    await setStatus([item], "inactive");
+    setStatusUpdating(null);
+  }
+
+  async function reviveItem(item: SelectableItem) {
+    setStatusUpdating(itemKey(item));
+    await setStatus([item], "active");
+    setStatusUpdating(null);
   }
 
   if (loading && !data) {
@@ -553,8 +674,14 @@ export default function RecipesPage() {
 
             {tab === "suggested" && (
               <p className="mt-4 text-sm text-chef-text-muted">
-                Agent suggestions may reference retired (inactive) dishes when proposing menu
-                changes.
+                Agent suggestions include rationale notes. <strong>Accept</strong> moves a recipe to
+                Active; <strong>Reject</strong> sends it to Inactive.
+              </p>
+            )}
+
+            {tab === "inactive" && (
+              <p className="mt-4 text-sm text-chef-text-muted">
+                Retired recipes can be brought back with <strong>Revive</strong>.
               </p>
             )}
 
@@ -572,6 +699,7 @@ export default function RecipesPage() {
                     subtitle={`${formatMoney(dish.recipe?.sellPrice ?? dish.sellPrice)} · ${classificationLabel(dish.classification)} · ${dish.ingredientLinks.length} ingredient${dish.ingredientLinks.length === 1 ? "" : "s"}${dish.recipe ? ` · #${dish.recipe.recipeNumber}` : ""}`}
                     links={dish.ingredientLinks}
                     recipe={dish.recipe}
+                    suggestionNotes={dish.suggestionNotes}
                     showCheckbox={tab === "new"}
                     selected={selected.has(`dish:${dish.slug}`)}
                     onSelect={(v) => {
@@ -585,6 +713,13 @@ export default function RecipesPage() {
                     }}
                     showRetire={tab === "active"}
                     onRetire={() => void retireItem({ kind: "dish", slug: dish.slug })}
+                    showAccept={tab === "suggested"}
+                    onAccept={() => void acceptItem({ kind: "dish", slug: dish.slug })}
+                    showReject={tab === "suggested"}
+                    onReject={() => void rejectItem({ kind: "dish", slug: dish.slug })}
+                    showRevive={tab === "inactive"}
+                    onRevive={() => void reviveItem({ kind: "dish", slug: dish.slug })}
+                    actionBusy={statusUpdating === `dish:${dish.slug}`}
                   />
                 ))}
                 {filteredAddOns.map((addOn) => (
@@ -607,6 +742,13 @@ export default function RecipesPage() {
                     }}
                     showRetire={tab === "active"}
                     onRetire={() => void retireItem({ kind: "addon", slug: addOn.slug })}
+                    showAccept={tab === "suggested"}
+                    onAccept={() => void acceptItem({ kind: "addon", slug: addOn.slug })}
+                    showReject={tab === "suggested"}
+                    onReject={() => void rejectItem({ kind: "addon", slug: addOn.slug })}
+                    showRevive={tab === "inactive"}
+                    onRevive={() => void reviveItem({ kind: "addon", slug: addOn.slug })}
+                    actionBusy={statusUpdating === `addon:${addOn.slug}`}
                   />
                 ))}
               </div>

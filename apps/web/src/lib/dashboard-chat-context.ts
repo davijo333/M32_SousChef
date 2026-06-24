@@ -106,6 +106,75 @@ export async function buildBusinessChatContext(
   ].join("\n");
 }
 
+export async function buildCreativeChatContext(
+  restaurantId: string,
+  cuesText: string
+): Promise<string> {
+  const [ingredients, dishes, recipes] = await Promise.all([
+    Ingredient.find({ restaurantId })
+      .select("slug name category currentQty inventoryUnit expiryDate")
+      .lean(),
+    Dish.find({ restaurantId })
+      .select("slug name classification recipeStatus sellPrice")
+      .lean(),
+    Recipe.find({ restaurantId, progress: "ready", kind: "dish" }).lean(),
+  ]);
+
+  const expiring = ingredients.filter((ing) => isIngredientExpiring(ing));
+  const expiringLines =
+    expiring
+      .map((ing) => `${ing.name} (${ing.slug}) — ${ing.currentQty} ${ing.inventoryUnit}`)
+      .join("\n") || "None";
+
+  const topMarginRecipes = recipes
+    .filter((recipe) => recipe.foodCost > 0 && recipe.sellPrice > 0)
+    .map((recipe) => ({
+      marginPct: ((recipe.sellPrice - recipe.foodCost) / recipe.sellPrice) * 100,
+      ingredients: recipe.ingredients,
+    }))
+    .sort((a, b) => b.marginPct - a.marginPct)
+    .slice(0, 5);
+
+  const highMarginIngredientNames = new Set<string>();
+  for (const recipe of topMarginRecipes) {
+    for (const ing of recipe.ingredients) {
+      if (highMarginIngredientNames.size >= 12) break;
+      highMarginIngredientNames.add(`${ing.ingredientName} (${ing.ingredientSlug})`);
+    }
+  }
+
+  const pantry = ingredients
+    .slice(0, 40)
+    .map(
+      (ing) =>
+        `${ing.name} (${ing.slug}, ${ing.category}, ${ing.currentQty} ${ing.inventoryUnit})`
+    )
+    .join("\n");
+
+  const active = dishes
+    .filter((d) => (d.recipeStatus ?? "new") === "active")
+    .map((d) => `${d.name} — $${d.sellPrice.toFixed(2)}`)
+    .join("\n");
+
+  const suggested = dishes
+    .filter((d) => d.recipeStatus === "suggested")
+    .map((d) => d.name)
+    .join(", ");
+
+  return [
+    `Context cues:\n${cuesText}`,
+    `\nExpiring within 7 days:\n${expiringLines}`,
+    `\nHigh-margin ingredients (from top dishes):\n${
+      highMarginIngredientNames.size
+        ? Array.from(highMarginIngredientNames).join("\n")
+        : "No priced recipes yet"
+    }`,
+    `\nPantry (sample):\n${pantry || "Empty"}`,
+    `\nActive menu:\n${active || "None"}`,
+    `\nExisting suggestions: ${suggested || "None"}`,
+  ].join("\n");
+}
+
 function buildDelegationBlock(): string {
   const inventory = CHAT_ASSISTANT_NAMES.inventory;
   const business = CHAT_ASSISTANT_NAMES.business;
@@ -123,7 +192,7 @@ function buildDelegationBlock(): string {
 
 - **${creative}** (Dashboard → Create)
   Role: new menu ideas, specials, saving dishes to Suggested
-  Data: Ingredient, Dish, daily cues; can call add_suggested_dish
+  Data: Ingredient, Dish, daily cues; can call add_suggested_dish with rationale notes
 
 When a question is outside your scope, name the correct assistant and dashboard section. Never invent data from another assistant's domain.`;
 }
@@ -175,7 +244,7 @@ ${dataContext}`;
 
 Delegate to **${inventory}** for stock, expiry, or what's on hand.
 Delegate to **${business}** for sales trends, margins, or profitability.
-When the chef confirms saving an idea, use add_suggested_dish.
+When the chef confirms saving an idea, call add_suggested_dish with at least one note explaining why (expiring ingredients used, seasonal tie-in, high-margin pantry items, today's cue, etc.).
 ${extras ?? ""}
 
 Live creative context:
