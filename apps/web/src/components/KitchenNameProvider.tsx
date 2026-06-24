@@ -61,16 +61,8 @@ export function KitchenNameProvider({ children }: { children: React.ReactNode })
   }, [status, isPublic, refreshRestaurant]);
 
   const openEditKitchenName = useCallback(() => {
-    if (pathname === "/dashboard") {
-      setEditOpen(true);
-    }
-  }, [pathname]);
-
-  useEffect(() => {
-    if (pathname !== "/dashboard") {
-      setEditOpen(false);
-    }
-  }, [pathname]);
+    setEditOpen(true);
+  }, []);
 
   const needsSetup = status === "authenticated" && !isPublic && loaded && !restaurant?.kitchenNameSet;
 

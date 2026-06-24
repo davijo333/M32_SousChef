@@ -8,6 +8,44 @@ import { Restaurant } from "@/models/Restaurant";
 import { User } from "@/models/User";
 import type { HydratedDocument } from "mongoose";
 import type { IRestaurant } from "@/models/Restaurant";
+import type { IUser } from "@/models/User";
+
+type SessionUser = {
+  id?: string;
+  email?: string | null;
+  name?: string | null;
+};
+
+/** Heal stale JWT user ids after DB reset by falling back to email. */
+export async function resolveSessionUser(
+  sessionUser: SessionUser
+): Promise<HydratedDocument<IUser>> {
+  if (sessionUser.id) {
+    const byId = await User.findById(sessionUser.id);
+    if (byId) return byId;
+  }
+
+  const email = sessionUser.email?.trim().toLowerCase();
+  if (email) {
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = await User.create({
+        email,
+        name: sessionUser.name?.trim() || "Chef",
+      });
+    }
+    return user;
+  }
+
+  throw new Error("User not found");
+}
+
+export async function ensureRestaurantForSession(
+  sessionUser: SessionUser
+): Promise<HydratedDocument<IRestaurant>> {
+  const user = await resolveSessionUser(sessionUser);
+  return ensureRestaurantForUser(user._id.toString());
+}
 
 /** Resolve or create the restaurant row for a user (heals stale IDs after DB reset). */
 export async function ensureRestaurantForUser(

@@ -83,4 +83,4 @@ if s == 0 and c == 0:
     sys.exit(1)
 " || fail "session restore empty"
 
-ok "all test bills parsed — open $BASE/upload-bills to review"
+ok "all test bills parsed — open $BASE/upload-orders to review"

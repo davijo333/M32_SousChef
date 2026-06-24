@@ -9,7 +9,11 @@ import {
   buildEnrichmentMap,
   lookupLineEnrichment,
 } from "@/lib/ingredient-enrichment";
-import type { IBillLine, IBillUpload } from "@/models/BillUpload";
+import {
+  inferIngredientCategory,
+  normalizeIngredientCategory,
+} from "@/lib/catalog-classification";
+import type { IBillLine } from "@/models/BillUpload";
 import { BillUpload } from "@/models/BillUpload";
 import { Ingredient } from "@/models/Ingredient";
 
@@ -90,9 +94,22 @@ export async function ingestSupplierLine(
     }
   }
 
+  const slug = ingredientSlugFromName(name);
+  if (!ing) {
+    ing = await Ingredient.findOne({ restaurantId, slug });
+    if (ing) {
+      line.matchedIngredientSlug = ing.slug;
+      line.normalizedName = ing.name;
+    }
+  }
+
   if (ing) {
     if (enrichedBrand) ing.brandName = enrichedBrand;
     if (enrichedName && !line.matchedIngredientSlug) ing.name = enrichedName;
+    const category = normalizeIngredientCategory(
+      line.ingredientCategory || ing.category
+    );
+    if (!ing.category || ing.category === "misc") ing.category = category;
     applyIngredientStockUpdate(ing, {
       addQty: line.quantity,
       unitPrice: line.unitPrice,
@@ -108,31 +125,64 @@ export async function ingestSupplierLine(
     return { updated: true, created: false };
   }
 
-  const slug = ingredientSlugFromName(name);
-  const created = await Ingredient.create({
-    restaurantId,
-    slug,
-    sku,
-    name,
-    category: "misc",
-    inventoryUnit: unit,
-    currentQty: line.quantity,
-    reorderThreshold: 1,
-    lastPurchasePrice: line.unitPrice > 0 ? line.unitPrice : undefined,
-    lastOrderedQty: line.quantity > 0 ? line.quantity : undefined,
-    brandName,
-    source: "bill_upload",
-    selectedImageIndex: 0,
-    usageUnits: [{ unit, countPerInventoryUnit: 1 }],
-  });
+  try {
+    const category = normalizeIngredientCategory(
+      line.ingredientCategory || inferIngredientCategory(name, line.rawName)
+    );
+    const created = await Ingredient.create({
+      restaurantId,
+      slug,
+      sku,
+      name,
+      category,
+      inventoryUnit: unit,
+      currentQty: line.quantity,
+      reorderThreshold: 1,
+      lastPurchasePrice: line.unitPrice > 0 ? line.unitPrice : undefined,
+      lastOrderedQty: line.quantity > 0 ? line.quantity : undefined,
+      brandName,
+      label: "new",
+      source: "bill_upload",
+      selectedImageIndex: 0,
+      imageGenerationAttempted: true,
+      usageUnits: [{ unit, countPerInventoryUnit: 1 }],
+    });
 
-  await applyIngredientEnrichment(created, rowEnrichment, line.rawName);
-  await created.save();
+    await applyIngredientEnrichment(created, rowEnrichment, line.rawName);
+    await created.save();
 
-  line.matchedIngredientSlug = slug;
-  line.normalizedName = name;
-  line.stockApplied = true;
-  return { updated: false, created: true };
+    line.matchedIngredientSlug = slug;
+    line.normalizedName = name;
+    line.stockApplied = true;
+    return { updated: false, created: true };
+  } catch (err) {
+    const dup =
+      err !== null &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: number }).code === 11000;
+    if (!dup) throw err;
+
+    const existing = await Ingredient.findOne({ restaurantId, slug });
+    if (!existing) throw err;
+
+    if (enrichedBrand) existing.brandName = enrichedBrand;
+    if (enrichedName) existing.name = enrichedName;
+    applyIngredientStockUpdate(existing, {
+      addQty: line.quantity,
+      unitPrice: line.unitPrice,
+      orderedQty: line.quantity,
+      brandName,
+      sku,
+    });
+    await applyIngredientEnrichment(existing, rowEnrichment, line.rawName);
+    if (!existing.sku) existing.sku = sku;
+    await existing.save();
+    line.matchedIngredientSlug = existing.slug;
+    line.normalizedName = existing.name;
+    line.stockApplied = true;
+    return { updated: true, created: false };
+  }
 }
 
 export async function applySupplierLineStock(

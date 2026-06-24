@@ -21,6 +21,7 @@ function patchReadyIntoFull(full: NewCatalogItem[], readyPatch: NewCatalogItem[]
 
 export function useNewCatalogReview() {
   const [newIngredients, setNewIngredients] = useState<NewCatalogItem[]>([]);
+  const [newDishes, setNewDishes] = useState<NewCatalogItem[]>([]);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [preparingReview, setPreparingReview] = useState(false);
   const [prepareLabel, setPrepareLabel] = useState("");
@@ -33,11 +34,12 @@ export function useNewCatalogReview() {
       REVIEW_STORAGE_KEY,
       JSON.stringify({
         newIngredients,
+        newDishes,
         addedItemIds: Array.from(addedItemIdsRef.current),
         preparingIds: Array.from(inFlightKeysRef.current),
       })
     );
-  }, [newIngredients]);
+  }, [newIngredients, newDishes]);
 
   const runPreparePipeline = useCallback(async (ingredients: NewCatalogItem[]) => {
     const queue = ingredients.filter(
@@ -79,12 +81,14 @@ export function useNewCatalogReview() {
       const data = await res.json();
 
       let ingredients: NewCatalogItem[] = data.newCatalogItems?.ingredients ?? [];
+      let dishes: NewCatalogItem[] = data.newCatalogItems?.dishes ?? [];
 
       try {
         const saved = sessionStorage.getItem(REVIEW_STORAGE_KEY);
         if (saved) {
           const parsed = JSON.parse(saved) as {
             newIngredients?: NewCatalogItem[];
+            newDishes?: NewCatalogItem[];
             addedItemIds?: string[];
             preparingIds?: string[];
           };
@@ -96,12 +100,14 @@ export function useNewCatalogReview() {
             skipAdded(ingredients),
             skipAdded(parsed.newIngredients ?? [])
           );
+          dishes = mergeNewCatalogItems(skipAdded(dishes), skipAdded(parsed.newDishes ?? []));
         }
       } catch {
         // ignore
       }
 
       setNewIngredients(ingredients);
+      setNewDishes(dishes);
       const needPrepare = ingredients.filter((i) => !isItemReadyForCard(i));
       if (needPrepare.length) void runPreparePipeline(needPrepare);
     } finally {
@@ -116,8 +122,12 @@ export function useNewCatalogReview() {
       try {
         const saved = sessionStorage.getItem(REVIEW_STORAGE_KEY);
         if (!saved) return;
-        const parsed = JSON.parse(saved) as { newIngredients?: NewCatalogItem[] };
+        const parsed = JSON.parse(saved) as {
+          newIngredients?: NewCatalogItem[];
+          newDishes?: NewCatalogItem[];
+        };
         if (parsed.newIngredients) setNewIngredients(parsed.newIngredients);
+        if (parsed.newDishes) setNewDishes(parsed.newDishes);
       } catch {
         // ignore
       }
@@ -130,30 +140,33 @@ export function useNewCatalogReview() {
   useEffect(() => {
     if (sessionLoading) return;
     persistReview();
-  }, [newIngredients, sessionLoading, persistReview]);
+  }, [newIngredients, newDishes, sessionLoading, persistReview]);
 
   const discoverItems = useCallback(
-    (items: { ingredients: NewCatalogItem[] }) => {
-      const ingredients = items.ingredients
+    (items: { ingredients?: NewCatalogItem[]; dishes?: NewCatalogItem[] }) => {
+      const ingredients = (items.ingredients ?? [])
         .filter((item) => !addedItemIdsRef.current.has(item.id))
         .map((i) => ({
           ...i,
           imagesLoading: isItemReadyForCard(i) ? false : (i.imagesLoading ?? true),
         }));
-      if (!ingredients.length) return;
-      setNewIngredients((prev) => mergeNewCatalogItems(prev, ingredients));
-      const needPrepare = ingredients.filter((i) => !isItemReadyForCard(i));
-      if (needPrepare.length) void runPreparePipeline(needPrepare);
+      const dishes = (items.dishes ?? []).filter((item) => !addedItemIdsRef.current.has(item.id));
+      if (!ingredients.length && !dishes.length) return;
+      if (ingredients.length) {
+        setNewIngredients((prev) => mergeNewCatalogItems(prev, ingredients));
+        const needPrepare = ingredients.filter((i) => !isItemReadyForCard(i));
+        if (needPrepare.length) void runPreparePipeline(needPrepare);
+      }
+      if (dishes.length) {
+        setNewDishes((prev) => mergeNewCatalogItems(prev, dishes));
+      }
       dispatchNewCatalogEvent();
     },
     [runPreparePipeline]
   );
 
   const handleBillsConfirmed = useCallback(
-    (
-      items: { ingredients: NewCatalogItem[] },
-      _billIds: string[]
-    ) => {
+    (items: { ingredients?: NewCatalogItem[]; dishes?: NewCatalogItem[] }) => {
       discoverItems(items);
       dispatchNewCatalogEvent();
     },
@@ -164,6 +177,7 @@ export function useNewCatalogReview() {
     ids.forEach((id) => addedItemIdsRef.current.add(id));
     const idSet = new Set(ids);
     setNewIngredients((prev) => prev.filter((item) => !idSet.has(item.id)));
+    setNewDishes((prev) => prev.filter((item) => !idSet.has(item.id)));
   }, []);
 
   const clearItemsForBills = useCallback((billIds: string[]) => {
@@ -172,16 +186,20 @@ export function useNewCatalogReview() {
       prev.filter((i) => idSet.has(i.billId)).forEach((i) => addedItemIdsRef.current.add(i.id));
       return prev.filter((i) => !idSet.has(i.billId));
     });
+    setNewDishes((prev) => {
+      prev.filter((i) => idSet.has(i.billId)).forEach((i) => addedItemIdsRef.current.add(i.id));
+      return prev.filter((i) => !idSet.has(i.billId));
+    });
   }, []);
 
   const handleBillsProcessed = useCallback(
     (billIds: string[]) => {
       clearItemsForBills(billIds);
-      if (newIngredients.length === 0) {
+      if (newIngredients.length === 0 && newDishes.length === 0) {
         sessionStorage.removeItem(REVIEW_STORAGE_KEY);
       }
     },
-    [clearItemsForBills, newIngredients.length]
+    [clearItemsForBills, newIngredients.length, newDishes.length]
   );
 
   const handleIngredientAdded = useCallback(
@@ -194,6 +212,16 @@ export function useNewCatalogReview() {
     [markItemsAdded, newIngredients, handleBillsProcessed]
   );
 
+  const handleDishAdded = useCallback(
+    (id: string, billId?: string) => {
+      markItemsAdded([id]);
+      if (!billId) return;
+      const remaining = newDishes.some((i) => i.id !== id && i.billId === billId);
+      if (!remaining) handleBillsProcessed([billId]);
+    },
+    [markItemsAdded, newDishes, handleBillsProcessed]
+  );
+
   const readyIngredients = useMemo(
     () => newIngredients.filter(isItemReadyForCard),
     [newIngredients]
@@ -204,11 +232,16 @@ export function useNewCatalogReview() {
     setNewIngredients((prev) => patchReadyIntoFull(prev, items));
   }, []);
 
+  const updateDishes = useCallback((items: NewCatalogItem[]) => {
+    setNewDishes((prev) => patchReadyIntoFull(prev, items));
+  }, []);
+
   return {
     sessionLoading,
     preparingReview,
     prepareLabel,
     newIngredients,
+    newDishes,
     readyIngredients,
     pendingCount,
     handleBillsConfirmed,
@@ -216,8 +249,10 @@ export function useNewCatalogReview() {
     handleBillRemoved: clearItemsForBills,
     handleBillsProcessed,
     handleIngredientAdded,
+    handleDishAdded,
     markItemsAdded,
     reloadSession: loadFromSession,
     updateIngredients,
+    updateDishes,
   };
 }

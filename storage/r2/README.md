@@ -1,24 +1,34 @@
 # Local R2 storage mirror
 
-Selected ingredient/dish images and uploaded bill files are saved here.
+Selected ingredient/dish/add-on images and uploaded bill files are saved here.
 
 ## Layout
 
 ```
 storage/r2/
-  ingredients/{slug}/image/selected.{jpg|png|webp}
-  items/{slug}/image/selected.{jpg|png|webp}
+  dishes/{slug}/default.{jpg|png|webp}
+  dishes/{slug}/secondary.{jpg|png|webp}
+  ingredients/{slug}/default.{jpg|png|webp}
+  ingredients/{slug}/secondary.{jpg|png|webp}
+  addons/{slug}/default.{jpg|png|webp}
+  addons/{slug}/secondary.{jpg|png|webp}
   {userId}/supplier_bill/{billId}-{filename}.{pdf|png|jpg}
   {userId}/customer_bill/{billId}-{filename}.{pdf|png|jpg}
 ```
 
+Catalog slugs come from `test/inventory/*.json` (e.g. `dish-sunrise-stack`, `ing-croissant`, `addon-bacon`) and are stable across **Load test data** runs. MongoDB `_id` values change each re-seed; image paths use **slug**, not `_id`.
+
 Example:
 
 ```
-storage/r2/ingredients/ing-black-tea/image/selected.jpg
+storage/r2/dishes/dish-sunrise-stack/default.jpg
+storage/r2/dishes/dish-sunrise-stack/secondary.jpg
+storage/r2/ingredients/ing-black-tea/default.jpg
+storage/r2/addons/addon-bacon/default.jpg
 storage/r2/507f1f77bcf86cd799439011/supplier_bill/664a...-costco-beverages.pdf
-storage/r2/507f1f77bcf86cd799439011/customer_bill/664b...-square-coffee.pdf
 ```
+
+After the first image generation (or if you commit images under these paths), re-loading test data re-attaches them without calling the agent again.
 
 ## Retention
 

@@ -246,10 +246,7 @@ export function NewItemsReview({
     for (let i = 0; i < queue.length; i++) {
       const { item, type } = queue[i];
       const withImages = applySuggestedImages([item])[0];
-      const result = await addCatalogItemToKitchen(
-        withImages,
-        type === "dish" ? "dish" : "ingredient"
-      );
+      const result = await addCatalogItemToKitchen(withImages);
 
       if (result.ok) {
         successIds.push(item.id);

@@ -64,6 +64,7 @@ export async function POST(req: Request) {
       brandName,
       sku,
     });
+    existing.imageGenerationAttempted = true;
     const remoteImageUrl = body.imageUrl as string | undefined;
     if (remoteImageUrl?.startsWith("http") && !existing.imageUrl) {
       try {
@@ -85,7 +86,22 @@ export async function POST(req: Request) {
       slug: existing.slug,
       sku: existing.sku,
       name: existing.name,
-      imageUrl: existing.imageUrl,
+      ingredient: {
+        slug: existing.slug,
+        sku: existing.sku,
+        name: existing.name,
+        category: existing.category,
+        brandName: existing.brandName,
+        inventoryUnit: existing.inventoryUnit,
+        currentQty: existing.currentQty,
+        reorderThreshold: existing.reorderThreshold,
+        lastPurchasePrice: existing.lastPurchasePrice,
+        lastOrderedQty: existing.lastOrderedQty,
+        imageUrl: existing.imageUrl,
+        imageCandidates: existing.imageCandidates ?? [],
+        selectedImageIndex: existing.selectedImageIndex ?? 0,
+        imageGenerationAttempted: existing.imageGenerationAttempted ?? true,
+      },
     });
   }
 
@@ -113,6 +129,7 @@ export async function POST(req: Request) {
     lastOrderedQty: addQty > 0 ? addQty : undefined,
     brandName,
     source: "manual_add",
+    imageGenerationAttempted: true,
     usageUnits: [{ unit: inventoryUnit, countPerInventoryUnit: 1 }],
   });
 
@@ -137,7 +154,21 @@ export async function POST(req: Request) {
     slug: ingredient.slug,
     sku: ingredient.sku,
     name: ingredient.name,
-    imageUrl: ingredient.imageUrl,
-    imageR2Key: ingredient.imageR2Key,
+    ingredient: {
+      slug: ingredient.slug,
+      sku: ingredient.sku,
+      name: ingredient.name,
+      category: ingredient.category,
+      brandName: ingredient.brandName,
+      inventoryUnit: ingredient.inventoryUnit,
+      currentQty: ingredient.currentQty,
+      reorderThreshold: ingredient.reorderThreshold,
+      lastPurchasePrice: ingredient.lastPurchasePrice,
+      lastOrderedQty: ingredient.lastOrderedQty,
+      imageUrl: ingredient.imageUrl,
+      imageCandidates: ingredient.imageCandidates ?? [],
+      selectedImageIndex: ingredient.selectedImageIndex ?? 0,
+      imageGenerationAttempted: ingredient.imageGenerationAttempted ?? true,
+    },
   });
 }

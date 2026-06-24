@@ -12,6 +12,9 @@ export interface IRestaurant {
   createdBy?: mongoose.Types.ObjectId;
   /** @deprecated v1 — use User.restaurantId; kept for legacy DB rows */
   userId?: mongoose.Types.ObjectId;
+  /** True while Recipe Agent is linking dishes/add-ons to pantry */
+  recipeAgentCooking?: boolean;
+  recipeAgentWorkCount?: number;
   createdAt: Date;
 }
 
@@ -23,6 +26,8 @@ const RestaurantSchema = new Schema<IRestaurant>(
     isSeeded: { type: Boolean, default: false },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
+    recipeAgentCooking: { type: Boolean, default: false },
+    recipeAgentWorkCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

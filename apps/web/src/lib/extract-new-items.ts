@@ -63,7 +63,7 @@ function normalizeKey(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function itemId(type: "ingredient" | "dish", name: string) {
+function itemId(type: "ingredient" | "dish" | "addon", name: string) {
   return `${type}-${normalizeKey(name).replace(/\s+/g, "-")}`;
 }
 
@@ -81,9 +81,11 @@ export function extractNewItemsFromBill(result: {
 }): {
   ingredients: NewCatalogItem[];
   dishes: NewCatalogItem[];
+  addOns: NewCatalogItem[];
 } {
   const ingredients: NewCatalogItem[] = [];
   const dishes: NewCatalogItem[] = [];
+  const addOns: NewCatalogItem[] = [];
   const supplierStore = result.billType === "supplier" ? result.vendor?.trim() : undefined;
 
   for (const line of result.lines) {
@@ -107,9 +109,17 @@ export function extractNewItemsFromBill(result: {
       });
     }
 
-    if (line.suggestedCategory === "menu_item" && !line.matchedMenuItemSlug) {
-      dishes.push({
-        id: itemId("dish", line.rawName),
+    if (line.suggestedCategory === "menu_item") {
+      const kind = (line as { menuItemKind?: string }).menuItemKind ?? "dish";
+      const matched =
+        kind === "addon"
+          ? (line as { matchedAddOnSlug?: string }).matchedAddOnSlug
+          : (line as { matchedDishSlug?: string }).matchedDishSlug ??
+            line.matchedMenuItemSlug;
+      if (matched) continue;
+
+      const catalogItem: NewCatalogItem = {
+        id: itemId(kind === "addon" ? "addon" : "dish", line.rawName),
         name,
         rawName: line.rawName,
         unit: line.unit,
@@ -118,13 +128,16 @@ export function extractNewItemsFromBill(result: {
         billId: result.billId,
         sourceFilename: result.filename,
         imageSuggestions: [],
-        imagesLoading: true,
+        imagesLoading: false,
         includedForAdd: true,
-      });
+      };
+
+      if (kind === "addon") addOns.push(catalogItem);
+      else dishes.push(catalogItem);
     }
   }
 
-  return { ingredients, dishes };
+  return { ingredients, dishes, addOns };
 }
 
 export function mergeNewCatalogItems(

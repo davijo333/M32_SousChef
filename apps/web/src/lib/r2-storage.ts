@@ -77,15 +77,78 @@ export function buildBillR2Key(
   return `${userId}/${folder}/${billId}-${base}.${ext}`;
 }
 
-export type CatalogCollection = "dishes" | "ingredients";
+export type CatalogCollection = "dishes" | "ingredients" | "addons";
 
-/** @deprecated use buildCatalogImageKey */
+export type CatalogImageSlot = "default" | "secondary";
+
+const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"] as const;
+
+/** @deprecated use buildSlugCatalogImageKey */
 export function buildR2RelativeKey(kind: CatalogKind, slug: string, ext: string) {
   return `${kind}/${slug}/image/selected.${ext}`;
 }
 
+/** @deprecated use buildSlugCatalogImageKey */
 export function buildCatalogImageKey(collection: CatalogCollection, entityId: string, ext: string) {
   return `${collection}/${entityId}/image.${ext}`;
+}
+
+/** Stable slug path: dishes/dish-sunrise-stack/default.jpg */
+export function buildSlugCatalogImageKey(
+  collection: CatalogCollection,
+  slug: string,
+  slot: CatalogImageSlot,
+  ext: string
+) {
+  return `${collection}/${slug}/${slot}.${ext}`;
+}
+
+export async function findSlugCatalogImage(
+  collection: CatalogCollection,
+  slug: string,
+  slot: CatalogImageSlot
+): Promise<{ r2Key: string; publicUrl: string } | null> {
+  for (const ext of IMAGE_EXTENSIONS) {
+    const r2Key = buildSlugCatalogImageKey(collection, slug, slot, ext);
+    try {
+      await fs.access(resolveR2Path(r2Key));
+      return { r2Key, publicUrl: buildR2PublicUrl(r2Key) };
+    } catch {
+      // try next extension
+    }
+  }
+  return null;
+}
+
+export async function persistCatalogImageToSlug(
+  collection: CatalogCollection,
+  slug: string,
+  slot: CatalogImageSlot,
+  sourceUrl: string
+): Promise<{ r2Key: string; publicUrl: string }> {
+  if (!sourceUrl?.startsWith("http")) {
+    throw new Error("imageUrl must be an http(s) URL");
+  }
+
+  const res = await fetch(sourceUrl, {
+    headers: { "User-Agent": "SousChef/1.0 (image persist)" },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to download image (${res.status})`);
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const ext = guessExtension(res.headers.get("content-type"), sourceUrl);
+  const r2Key = buildSlugCatalogImageKey(collection, slug, slot, ext);
+  const dest = resolveR2Path(r2Key);
+
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.writeFile(dest, buffer);
+
+  return {
+    r2Key,
+    publicUrl: buildR2PublicUrl(r2Key),
+  };
 }
 
 export function buildR2PublicUrl(relativeKey: string) {

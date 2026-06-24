@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectDB } from "@/lib/mongodb";
 import {
   assignKitchenName,
-  ensureRestaurantForUser,
+  ensureRestaurantForSession,
   ensureRestaurantNameKey,
 } from "@/lib/restaurant-name-server";
 import { Restaurant } from "@/models/Restaurant";
@@ -15,13 +15,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) {
-    return NextResponse.json({ error: "No user" }, { status: 400 });
-  }
-
   await connectDB();
-  const restaurant = await ensureRestaurantForUser(userId);
+  let restaurant;
+  try {
+    restaurant = await ensureRestaurantForSession({
+      id: (session.user as { id?: string }).id,
+      email: session.user.email,
+      name: session.user.name,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Session expired — please sign out and sign in again." },
+      { status: 401 }
+    );
+  }
   const restaurantId = restaurant._id.toString();
 
   await ensureRestaurantNameKey(restaurant);
@@ -45,11 +52,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) {
-    return NextResponse.json({ error: "No user" }, { status: 400 });
-  }
-
   const body = await req.json();
   const name = String(body.name ?? "").trim();
   if (!name) {
@@ -57,7 +59,19 @@ export async function PATCH(req: Request) {
   }
 
   await connectDB();
-  const restaurant = await ensureRestaurantForUser(userId);
+  let restaurant;
+  try {
+    restaurant = await ensureRestaurantForSession({
+      id: (session.user as { id?: string }).id,
+      email: session.user.email,
+      name: session.user.name,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "Session expired — please sign out and sign in again." },
+      { status: 401 }
+    );
+  }
   const result = await assignKitchenName(restaurant._id.toString(), name);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

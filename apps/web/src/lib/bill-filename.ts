@@ -1,6 +1,8 @@
 export type BillFileType = "supplier" | "customer";
 
-/** Detect bill type from standard test/production filenames like `1.c_bill.pdf` or `2.s_bill.png`. */
+const ALLOWED_BILL_EXTENSIONS = /\.(pdf|png|jpe?g)$/i;
+
+/** Legacy test markers — optional; real wholesaler/POS filenames do not need these. */
 export function detectBillTypeFromFilename(filename: string): BillFileType | null {
   const lower = filename.toLowerCase();
   const isCustomer = /\.c_bill\./.test(lower) || /[_-]c_bill[._-]/.test(lower);
@@ -11,6 +13,10 @@ export function detectBillTypeFromFilename(filename: string): BillFileType | nul
   return null;
 }
 
+export function isAllowedBillFileExtension(filename: string): boolean {
+  return ALLOWED_BILL_EXTENSIONS.test(filename.trim());
+}
+
 export function billTypeLabel(type: BillFileType): string {
   return type === "supplier" ? "purchase order" : "sales order";
 }
@@ -19,21 +25,29 @@ export function validateBillFilenameForZone(
   filename: string,
   expected: BillFileType
 ): { ok: true } | { ok: false; error: string } {
+  if (!isAllowedBillFileExtension(filename)) {
+    return {
+      ok: false,
+      error: `"${filename}" must be a PDF or PNG (e.g. Bill-1_Costco.pdf, invoice.png).`,
+    };
+  }
+
   const detected = detectBillTypeFromFilename(filename);
-  if (!detected || detected === expected) return { ok: true };
+  if (detected && detected !== expected) {
+    const expectedLabel = billTypeLabel(expected);
+    const detectedLabel = billTypeLabel(detected);
+    return {
+      ok: false,
+      error: `"${filename}" is marked as a ${detectedLabel} — upload it under ${expectedLabel}s instead.`,
+    };
+  }
 
-  const expectedLabel = billTypeLabel(expected);
-  const detectedLabel = billTypeLabel(detected);
-
-  return {
-    ok: false,
-    error: `"${filename}" is a ${detectedLabel} — upload it under ${expectedLabel}s instead.`,
-  };
+  return { ok: true };
 }
 
 export function billTypeMismatchError(
   detected: BillFileType,
   expected: BillFileType
 ): string {
-  return `This file looks like a ${billTypeLabel(detected)}, not a ${billTypeLabel(expected)}. Upload it in the correct column.`;
+  return `This file looks like a ${billTypeLabel(detected)}, not a ${billTypeLabel(expected)}. Upload it in the correct tab.`;
 }

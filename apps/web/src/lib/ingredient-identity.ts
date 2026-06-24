@@ -45,9 +45,7 @@ export async function findExistingIngredient(
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")}`;
   const bySlug = await Ingredient.findOne({ restaurantId, slug });
-  if (bySlug && bySlug.inventoryUnit === unit && scoreMatch(input.name, bySlug.name) >= 0.85) {
-    return bySlug;
-  }
+  if (bySlug) return bySlug;
 
   return null;
 }

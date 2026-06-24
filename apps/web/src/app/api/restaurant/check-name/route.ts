@@ -3,17 +3,12 @@ import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { validateKitchenName } from "@/lib/kitchen-name";
 import { connectDB } from "@/lib/mongodb";
-import { ensureRestaurantForUser, isKitchenNameTaken } from "@/lib/restaurant-name-server";
+import { ensureRestaurantForSession, isKitchenNameTaken } from "@/lib/restaurant-name-server";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const userId = (session.user as { id?: string }).id;
-  if (!userId) {
-    return NextResponse.json({ error: "No user" }, { status: 400 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -25,7 +20,19 @@ export async function GET(req: Request) {
   }
 
   await connectDB();
-  const restaurant = await ensureRestaurantForUser(userId);
+  let restaurant;
+  try {
+    restaurant = await ensureRestaurantForSession({
+      id: (session.user as { id?: string }).id,
+      email: session.user.email,
+      name: session.user.name,
+    });
+  } catch {
+    return NextResponse.json(
+      { available: false, error: "Session expired — please sign out and sign in again." },
+      { status: 401 }
+    );
+  }
   const taken = await isKitchenNameTaken(name, restaurant._id.toString());
 
   return NextResponse.json({

@@ -1,0 +1,720 @@
+{
+  "restaurant": "Panera Cafe",
+  "generated": "2026-06-24",
+  "naming": "Supplier: Bill-N_Vendor.pdf/png (Bill-1_Sysco \u2026 Bill-10_Sysco). Customer: N.c_bill.pdf/png.",
+  "inventorySource": "test/inventory",
+  "customerBills": [
+    {
+      "number": 1,
+      "id": "SQ-20260519-FRI-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "1.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-18",
+      "title": "Friday breakfast rush \u2014 lines 1\u20131",
+      "parentId": "SQ-20260519-FRI",
+      "covers": [
+        "mi-sig-sunrise-stack",
+        "mi-coffee-hot",
+        "addon-bacon"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 2,
+      "id": "SQ-20260519-FRI-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "2.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-18",
+      "title": "Friday breakfast rush \u2014 lines 2\u20133",
+      "parentId": "SQ-20260519-FRI",
+      "covers": [
+        "mi-sig-sunrise-stack",
+        "mi-coffee-hot",
+        "addon-bacon"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 3,
+      "id": "SQ-20260602-MON-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "3.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-19",
+      "title": "Early June brunch \u2014 lines 1\u20131",
+      "parentId": "SQ-20260602-MON",
+      "covers": [
+        "mi-sig-garden-morning",
+        "mi-byo-bagel",
+        "mi-juice-orange"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 4,
+      "id": "SQ-20260602-MON-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "4.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-19",
+      "title": "Early June brunch \u2014 lines 2\u20133",
+      "parentId": "SQ-20260602-MON",
+      "covers": [
+        "mi-sig-garden-morning",
+        "mi-byo-bagel",
+        "mi-juice-orange"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 5,
+      "id": "SQ-20260609-MON-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "5.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-20",
+      "title": "Coffee & sandwiches \u2014 lines 1\u20132",
+      "parentId": "SQ-20260609-MON",
+      "covers": [
+        "mi-coffee-hot",
+        "mi-coffee-mocha",
+        "mi-sig-farmers-double",
+        "addon-cheese"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 6,
+      "id": "SQ-20260609-MON-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "6.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-20",
+      "title": "Coffee & sandwiches \u2014 lines 3\u20134",
+      "parentId": "SQ-20260609-MON",
+      "covers": [
+        "mi-coffee-hot",
+        "mi-coffee-mocha",
+        "mi-sig-farmers-double",
+        "addon-cheese"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 7,
+      "id": "SQ-20260616-MON-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "7.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-21",
+      "title": "Mid-June lunch service \u2014 lines 1\u20132",
+      "parentId": "SQ-20260616-MON",
+      "covers": [
+        "mi-sig-garden-morning",
+        "mi-custom-bagel",
+        "mi-tea-green",
+        "mi-juice-apple"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 8,
+      "id": "SQ-20260616-MON-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "8.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-21",
+      "title": "Mid-June lunch service \u2014 lines 3\u20134",
+      "parentId": "SQ-20260616-MON",
+      "covers": [
+        "mi-sig-garden-morning",
+        "mi-custom-bagel",
+        "mi-tea-green",
+        "mi-juice-apple"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 9,
+      "id": "SQ-20260622-AM-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "9.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-22",
+      "title": "Breakfast sandwiches \u2014 morning shift \u2014 lines 1\u20137",
+      "parentId": "SQ-20260622-AM",
+      "covers": [
+        "mi-sig-sunrise-stack",
+        "addon-bacon",
+        "mi-sig-garden-morning",
+        "addon-veggies",
+        "mi-sig-farmers-double",
+        "addon-american-cheese",
+        "mi-custom-croissant",
+        "addon-swiss",
+        "mi-custom-bread",
+        "addon-egg",
+        "mi-custom-bagel",
+        "mi-byo-bagel",
+        "addon-bacon",
+        "addon-cheese"
+      ],
+      "lineCount": 7
+    },
+    {
+      "number": 10,
+      "id": "SQ-20260622-AM-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "10.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-22",
+      "title": "Breakfast sandwiches \u2014 morning shift \u2014 lines 8\u201314",
+      "parentId": "SQ-20260622-AM",
+      "covers": [
+        "mi-sig-sunrise-stack",
+        "addon-bacon",
+        "mi-sig-garden-morning",
+        "addon-veggies",
+        "mi-sig-farmers-double",
+        "addon-american-cheese",
+        "mi-custom-croissant",
+        "addon-swiss",
+        "mi-custom-bread",
+        "addon-egg",
+        "mi-custom-bagel",
+        "mi-byo-bagel",
+        "addon-bacon",
+        "addon-cheese"
+      ],
+      "lineCount": 7
+    },
+    {
+      "number": 11,
+      "id": "SQ-20260622-COF-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "11.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-23",
+      "title": "Coffee bar \u2014 specialty drinks \u2014 lines 1\u20134",
+      "parentId": "SQ-20260622-COF",
+      "covers": [
+        "mi-coffee-hot",
+        "mi-coffee-hot",
+        "mi-coffee-hot",
+        "mi-coffee-frappe",
+        "mi-coffee-frappe",
+        "addon-extra-shot",
+        "mi-coffee-mocha",
+        "mi-coffee-cappuccino",
+        "addon-whipped-cream"
+      ],
+      "lineCount": 4
+    },
+    {
+      "number": 12,
+      "id": "SQ-20260622-COF-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "12.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-23",
+      "title": "Coffee bar \u2014 specialty drinks \u2014 lines 5\u20139",
+      "parentId": "SQ-20260622-COF",
+      "covers": [
+        "mi-coffee-hot",
+        "mi-coffee-hot",
+        "mi-coffee-hot",
+        "mi-coffee-frappe",
+        "mi-coffee-frappe",
+        "addon-extra-shot",
+        "mi-coffee-mocha",
+        "mi-coffee-cappuccino",
+        "addon-whipped-cream"
+      ],
+      "lineCount": 5
+    },
+    {
+      "number": 13,
+      "id": "TST-20260622-BEV-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "13.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-23",
+      "title": "Tea, juice & caf\u00e9 drinks \u2014 lines 1\u20133",
+      "parentId": "TST-20260622-BEV",
+      "covers": [
+        "mi-tea-english",
+        "mi-tea-english",
+        "mi-tea-green",
+        "mi-juice-orange",
+        "mi-juice-apple",
+        "mi-juice-cranberry",
+        "mi-coffee-hot"
+      ],
+      "lineCount": 3
+    },
+    {
+      "number": 14,
+      "id": "TST-20260622-BEV-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "14.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-23",
+      "title": "Tea, juice & caf\u00e9 drinks \u2014 lines 4\u20137",
+      "parentId": "TST-20260622-BEV",
+      "covers": [
+        "mi-tea-english",
+        "mi-tea-english",
+        "mi-tea-green",
+        "mi-juice-orange",
+        "mi-juice-apple",
+        "mi-juice-cranberry",
+        "mi-coffee-hot"
+      ],
+      "lineCount": 4
+    },
+    {
+      "number": 15,
+      "id": "SQ-20260623-MIX-A",
+      "type": "customer",
+      "format": "pdf",
+      "filename": "15.c_bill.pdf",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-24",
+      "title": "Afternoon \u2014 sandwiches & blended drinks \u2014 lines 1\u20134",
+      "parentId": "SQ-20260623-MIX",
+      "covers": [
+        "mi-sig-garden-morning",
+        "addon-veggies",
+        "mi-custom-bread",
+        "addon-cheese",
+        "mi-custom-bagel",
+        "mi-byo-bagel",
+        "addon-sausage",
+        "addon-egg",
+        "mi-coffee-mocha"
+      ],
+      "lineCount": 4
+    },
+    {
+      "number": 16,
+      "id": "SQ-20260623-MIX-B",
+      "type": "customer",
+      "format": "png",
+      "filename": "16.c_bill.png",
+      "vendor": "Square POS \u2014 Panera Cafe",
+      "date": "2026-06-24",
+      "title": "Afternoon \u2014 sandwiches & blended drinks \u2014 lines 5\u20139",
+      "parentId": "SQ-20260623-MIX",
+      "covers": [
+        "mi-sig-garden-morning",
+        "addon-veggies",
+        "mi-custom-bread",
+        "addon-cheese",
+        "mi-custom-bagel",
+        "mi-byo-bagel",
+        "addon-sausage",
+        "addon-egg",
+        "mi-coffee-mocha"
+      ],
+      "lineCount": 5
+    }
+  ],
+  "supplierBills": [
+    {
+      "number": 1,
+      "id": "SYSCO-4700-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-1_Sysco.pdf",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-18",
+      "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 1\u20131",
+      "parentId": "SYSCO-4700",
+      "covers": [
+        "ing-croissant",
+        "ing-whole-milk",
+        "ing-egg"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 2,
+      "id": "SYSCO-4700-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-2_Sysco.png",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-18",
+      "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 2\u20133",
+      "parentId": "SYSCO-4700",
+      "covers": [
+        "ing-croissant",
+        "ing-whole-milk",
+        "ing-egg"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 3,
+      "id": "COSTCO-90400-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-3_Costco.pdf",
+      "vendor": "Costco Business Center",
+      "date": "2026-06-19",
+      "title": "Receipt #90400 \u2014 May beverage restock \u2014 lines 1\u20131",
+      "parentId": "COSTCO-90400",
+      "covers": [
+        "ing-coffee-beans",
+        "ing-orange-juice"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 4,
+      "id": "COSTCO-90400-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-4_Costco.png",
+      "vendor": "Costco Business Center",
+      "date": "2026-06-19",
+      "title": "Receipt #90400 \u2014 May beverage restock \u2014 lines 2\u20132",
+      "parentId": "COSTCO-90400",
+      "covers": [
+        "ing-coffee-beans",
+        "ing-orange-juice"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 5,
+      "id": "SYSCO-4810-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-5_Sysco.pdf",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-20",
+      "title": "Invoice #4810 \u2014 Early June proteins \u2014 lines 1\u20131",
+      "parentId": "SYSCO-4810",
+      "covers": [
+        "ing-bacon",
+        "ing-sausage",
+        "ing-cheddar"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 6,
+      "id": "SYSCO-4810-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-6_Sysco.png",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-20",
+      "title": "Invoice #4810 \u2014 Early June proteins \u2014 lines 2\u20133",
+      "parentId": "SYSCO-4810",
+      "covers": [
+        "ing-bacon",
+        "ing-sausage",
+        "ing-cheddar"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 7,
+      "id": "USF-77010-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-7_US-Foods.pdf",
+      "vendor": "US Foods Chef'Store",
+      "date": "2026-06-21",
+      "title": "Invoice #77010 \u2014 Mid-June produce \u2014 lines 1\u20131",
+      "parentId": "USF-77010",
+      "covers": [
+        "ing-spinach",
+        "ing-tomato",
+        "ing-avocado"
+      ],
+      "lineCount": 1
+    },
+    {
+      "number": 8,
+      "id": "USF-77010-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-8_US-Foods.png",
+      "vendor": "US Foods Chef'Store",
+      "date": "2026-06-21",
+      "title": "Invoice #77010 \u2014 Mid-June produce \u2014 lines 2\u20133",
+      "parentId": "USF-77010",
+      "covers": [
+        "ing-spinach",
+        "ing-tomato",
+        "ing-avocado"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 9,
+      "id": "SYSCO-4821-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-9_Sysco.pdf",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-22",
+      "title": "Invoice #4821 \u2014 Bakery, proteins, cheese, produce \u2014 lines 1\u20137",
+      "parentId": "SYSCO-4821",
+      "covers": [
+        "ing-croissant",
+        "ing-sourdough-bread",
+        "ing-bagel",
+        "ing-multigrain-bagel",
+        "ing-bacon",
+        "ing-sausage",
+        "ing-egg",
+        "ing-cheddar",
+        "ing-swiss",
+        "ing-american",
+        "ing-butter",
+        "ing-spinach",
+        "ing-tomato",
+        "ing-bell-pepper",
+        "ing-avocado"
+      ],
+      "lineCount": 7
+    },
+    {
+      "number": 10,
+      "id": "SYSCO-4821-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-10_Sysco.png",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-22",
+      "title": "Invoice #4821 \u2014 Bakery, proteins, cheese, produce \u2014 lines 8\u201315",
+      "parentId": "SYSCO-4821",
+      "covers": [
+        "ing-croissant",
+        "ing-sourdough-bread",
+        "ing-bagel",
+        "ing-multigrain-bagel",
+        "ing-bacon",
+        "ing-sausage",
+        "ing-egg",
+        "ing-cheddar",
+        "ing-swiss",
+        "ing-american",
+        "ing-butter",
+        "ing-spinach",
+        "ing-tomato",
+        "ing-bell-pepper",
+        "ing-avocado"
+      ],
+      "lineCount": 8
+    },
+    {
+      "number": 11,
+      "id": "SYSCO-4822-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-11_Sysco.pdf",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-22",
+      "title": "Invoice #4822 \u2014 Dairy, coffee, syrups, ice \u2014 lines 1\u20137",
+      "parentId": "SYSCO-4822",
+      "covers": [
+        "ing-espresso",
+        "ing-coffee-beans",
+        "ing-whole-milk",
+        "ing-skim-milk",
+        "ing-oat-milk",
+        "ing-almond-milk",
+        "ing-soy-milk",
+        "ing-half-and-half",
+        "ing-mocha-syrup",
+        "ing-vanilla-syrup",
+        "ing-caramel-syrup",
+        "ing-hazelnut-syrup",
+        "ing-ice",
+        "ing-heavy-cream",
+        "ing-frothing-milk"
+      ],
+      "lineCount": 7
+    },
+    {
+      "number": 12,
+      "id": "SYSCO-4822-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-12_Sysco.png",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-22",
+      "title": "Invoice #4822 \u2014 Dairy, coffee, syrups, ice \u2014 lines 8\u201315",
+      "parentId": "SYSCO-4822",
+      "covers": [
+        "ing-espresso",
+        "ing-coffee-beans",
+        "ing-whole-milk",
+        "ing-skim-milk",
+        "ing-oat-milk",
+        "ing-almond-milk",
+        "ing-soy-milk",
+        "ing-half-and-half",
+        "ing-mocha-syrup",
+        "ing-vanilla-syrup",
+        "ing-caramel-syrup",
+        "ing-hazelnut-syrup",
+        "ing-ice",
+        "ing-heavy-cream",
+        "ing-frothing-milk"
+      ],
+      "lineCount": 8
+    },
+    {
+      "number": 13,
+      "id": "COSTCO-90614-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-13_Costco.pdf",
+      "vendor": "Costco Business Center",
+      "date": "2026-06-23",
+      "title": "Receipt #90614 \u2014 Tea, juice & pantry restock \u2014 lines 1\u20132",
+      "parentId": "COSTCO-90614",
+      "covers": [
+        "ing-black-tea",
+        "ing-green-tea",
+        "ing-orange-juice",
+        "ing-apple-juice",
+        "ing-cranberry-juice"
+      ],
+      "lineCount": 2
+    },
+    {
+      "number": 14,
+      "id": "COSTCO-90614-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-14_Costco.png",
+      "vendor": "Costco Business Center",
+      "date": "2026-06-23",
+      "title": "Receipt #90614 \u2014 Tea, juice & pantry restock \u2014 lines 3\u20135",
+      "parentId": "COSTCO-90614",
+      "covers": [
+        "ing-black-tea",
+        "ing-green-tea",
+        "ing-orange-juice",
+        "ing-apple-juice",
+        "ing-cranberry-juice"
+      ],
+      "lineCount": 3
+    },
+    {
+      "number": 15,
+      "id": "USF-77102-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-15_US-Foods.pdf",
+      "vendor": "US Foods Chef'Store",
+      "date": "2026-06-24",
+      "title": "Invoice #77102 \u2014 Proteins & dairy case \u2014 lines 1\u20133",
+      "parentId": "USF-77102",
+      "covers": [
+        "ing-bacon",
+        "ing-sausage",
+        "ing-egg",
+        "ing-whole-milk",
+        "ing-cheddar",
+        "ing-butter"
+      ],
+      "lineCount": 3
+    },
+    {
+      "number": 16,
+      "id": "USF-77102-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-16_US-Foods.png",
+      "vendor": "US Foods Chef'Store",
+      "date": "2026-06-24",
+      "title": "Invoice #77102 \u2014 Proteins & dairy case \u2014 lines 4\u20136",
+      "parentId": "USF-77102",
+      "covers": [
+        "ing-bacon",
+        "ing-sausage",
+        "ing-egg",
+        "ing-whole-milk",
+        "ing-cheddar",
+        "ing-butter"
+      ],
+      "lineCount": 3
+    },
+    {
+      "number": 17,
+      "id": "SYSCO-4823-A",
+      "type": "supplier",
+      "format": "pdf",
+      "filename": "Bill-17_Sysco.pdf",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-24",
+      "title": "Invoice #4823 \u2014 Mixed restock \u2014 lines 1\u20135",
+      "parentId": "SYSCO-4823",
+      "covers": [
+        "ing-croissant",
+        "ing-bacon",
+        "ing-egg",
+        "ing-whole-milk",
+        "ing-coffee-beans",
+        "ing-spinach",
+        "ing-orange-juice",
+        "ing-vanilla-syrup",
+        "ing-bagel",
+        "ing-cheddar"
+      ],
+      "lineCount": 5
+    },
+    {
+      "number": 18,
+      "id": "SYSCO-4823-B",
+      "type": "supplier",
+      "format": "png",
+      "filename": "Bill-18_Sysco.png",
+      "vendor": "Sysco Food Services",
+      "date": "2026-06-24",
+      "title": "Invoice #4823 \u2014 Mixed restock \u2014 lines 6\u201310",
+      "parentId": "SYSCO-4823",
+      "covers": [
+        "ing-croissant",
+        "ing-bacon",
+        "ing-egg",
+        "ing-whole-milk",
+        "ing-coffee-beans",
+        "ing-spinach",
+        "ing-orange-juice",
+        "ing-vanilla-syrup",
+        "ing-bagel",
+        "ing-cheddar"
+      ],
+      "lineCount": 5
+    }
+  ],
+  "coverageNotes": {
+    "customer": "16 POS files \u2014 modest sale qty per line.",
+    "supplier": "18 wholesaler files \u2014 bulk qty for pantry headroom after sales."
+  }
+}

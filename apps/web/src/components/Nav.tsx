@@ -3,19 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { useNavigationGuardOptional } from "@/components/NavigationGuardProvider";
+import { useKitchenName } from "@/components/KitchenNameProvider";
+import { useOrderWorkOptional } from "@/components/OrderWorkProvider";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/upload-orders", label: "Upload orders" },
   { href: "/kitchen-control", label: "Kitchen control" },
+  { href: "/recipes", label: "Recipes" },
 ];
-
-function disabledNavClass(active: boolean) {
-  return `rounded-lg px-3 py-2 text-base transition cursor-not-allowed opacity-45 ${
-    active ? "bg-chef-sage-light/60 font-semibold text-chef-sage-dark" : "text-chef-text-muted"
-  }`;
-}
 
 function enabledNavClass(active: boolean) {
   return `rounded-lg px-3 py-2 text-base transition ${
@@ -28,60 +24,63 @@ function enabledNavClass(active: boolean) {
 export function Nav() {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const guard = useNavigationGuardOptional();
-  const blocked = guard?.blocked ?? false;
-  const blockReason = guard?.reason ?? "Please wait for the current operation to finish.";
+  const orderWork = useOrderWorkOptional();
+  const { openEditKitchenName, restaurant } = useKitchenName();
+  const orderWorkActive = orderWork?.anyBusy ?? false;
 
   if (!session) return null;
+
+  const sessionKitchenNameSet = (session.user as { kitchenNameSet?: boolean }).kitchenNameSet;
+  const sessionRestaurantName = (session.user as { restaurantName?: string }).restaurantName;
+  const kitchenNameSet = restaurant?.kitchenNameSet ?? sessionKitchenNameSet;
+  const kitchenName =
+    restaurant?.kitchenNameSet && restaurant.name
+      ? restaurant.name
+      : sessionKitchenNameSet
+        ? sessionRestaurantName
+        : null;
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  function navLocked(href: string) {
-    return blocked && !isActive(href);
-  }
+  const orderWorkLabel =
+    orderWork?.supplierBusy && orderWork.getStoredEntries("supplier").some((e) => e.status === "processing")
+      ? "Purchase orders processing…"
+      : orderWork?.customerBusy && orderWork.getStoredEntries("customer").some((e) => e.status === "processing")
+        ? "Sales orders processing…"
+        : orderWork?.supplierBusy
+          ? "Purchase orders uploading…"
+          : orderWork?.customerBusy
+            ? "Sales orders uploading…"
+            : "Orders processing…";
 
   return (
-    <header className="border-b border-chef-border bg-chef-surface">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-chef-border bg-chef-surface/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3.5">
         <div className="flex min-w-0 flex-col sm:flex-row sm:items-baseline sm:gap-3">
-          {navLocked("/dashboard") ? (
-            <span className="cursor-not-allowed text-xl font-semibold text-chef-sage/50" title={blockReason}>
-              Sous Chef
-            </span>
-          ) : (
-            <Link href="/dashboard" className="text-xl font-semibold text-chef-sage">
-              Sous Chef
-            </Link>
-          )}
-          {(session.user as { restaurantName?: string }).restaurantName && (
-            <span className="truncate text-sm text-chef-text-muted">
-              {(session.user as { restaurantName?: string }).restaurantName}
-            </span>
-          )}
+          <Link href="/dashboard" className="text-xl font-semibold text-chef-sage">
+            Sous Chef
+          </Link>
+          {kitchenNameSet && kitchenName ? (
+            <button
+              type="button"
+              onClick={openEditKitchenName}
+              className="truncate text-left text-sm text-chef-text-muted hover:text-chef-text"
+              title="Edit kitchen name"
+            >
+              {kitchenName}
+            </button>
+          ) : null}
         </div>
         <nav className="flex flex-wrap items-center gap-1 sm:gap-2" aria-label="Main">
-          {blocked && (
+          {orderWorkActive && (
             <span className="hidden text-sm text-chef-amber sm:inline" role="status">
-              {blockReason}
+              {orderWorkLabel}
             </span>
           )}
           {links.map((link) => {
             const active = isActive(link.href);
-            const locked = navLocked(link.href);
-            if (locked) {
-              return (
-                <span
-                  key={link.href}
-                  className={disabledNavClass(active)}
-                  title={blockReason}
-                  aria-disabled
-                >
-                  {link.label}
-                </span>
-              );
-            }
             return (
               <Link key={link.href} href={link.href} className={enabledNavClass(active)}>
                 {link.label}
@@ -90,16 +89,8 @@ export function Nav() {
           })}
           <button
             type="button"
-            disabled={blocked}
-            onClick={() => {
-              if (!blocked) signOut({ callbackUrl: "/login" });
-            }}
-            className={`rounded-lg px-3 py-2 text-base ${
-              blocked
-                ? "cursor-not-allowed text-chef-text-muted/50"
-                : "text-chef-text-muted hover:bg-chef-muted hover:text-chef-text"
-            }`}
-            title={blocked ? blockReason : undefined}
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="rounded-lg px-3 py-2 text-base text-chef-text-muted hover:bg-chef-muted hover:text-chef-text"
           >
             Log out
           </button>

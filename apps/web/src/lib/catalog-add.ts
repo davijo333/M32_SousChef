@@ -39,8 +39,7 @@ export async function relinkBillsForItems(items: NewCatalogItem[]): Promise<void
 }
 
 export async function addCatalogItemToKitchen(
-  item: NewCatalogItem,
-  _kind: "ingredient" | "dish" = "ingredient"
+  item: NewCatalogItem
 ): Promise<{ ok: boolean; slug?: string; error?: string }> {
   const res = await fetch("/api/catalog/ingredients", {
     method: "POST",

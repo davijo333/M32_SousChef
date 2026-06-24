@@ -38,6 +38,7 @@ Return JSON only:
   "lines": [
     {
       "rawName": "description",
+      "ingredientCategory": "bakery|dairy|produce|protein|coffee|tea|juice|syrup|pantry|misc",
       "quantity": 1,
       "unit": "each|lb|dz|gallon|case|...",
       "unitPrice": 0.0,
@@ -49,8 +50,39 @@ Return JSON only:
 
 Rules:
 - Ingredient purchase lines only.
+- ingredientCategory: pantry group for the product.
 - Numeric quantity, unitPrice, lineTotal.
 - Skip tax/subtotal/total rows unless separate line items."""
+
+
+def _infer_ingredient_category(raw_name: str) -> str:
+    lower = raw_name.lower()
+    if any(w in lower for w in ("croissant", "bagel", "bread", "loaf", "muffin", "bakery")):
+        return "bakery"
+    if any(w in lower for w in ("bacon", "sausage", "egg", "chicken", "ham", "meat")):
+        return "protein"
+    if any(w in lower for w in ("milk", "cheese", "butter", "cream", "dairy")):
+        return "dairy"
+    if any(w in lower for w in ("spinach", "tomato", "pepper", "avocado", "produce", "lettuce")):
+        return "produce"
+    if any(w in lower for w in ("coffee", "espresso", "bean")):
+        return "coffee"
+    if "tea" in lower:
+        return "tea"
+    if "juice" in lower:
+        return "juice"
+    if any(w in lower for w in ("syrup", "monin")):
+        return "syrup"
+    if any(w in lower for w in ("oil", "flour", "sugar", "salt")):
+        return "pantry"
+    return "misc"
+
+
+def _line_ingredient_category(row: dict, raw_name: str) -> str:
+    explicit = str(row.get("ingredientCategory", "")).strip().lower()
+    if explicit:
+        return explicit
+    return _infer_ingredient_category(raw_name)
 
 
 def quick_scan(client: OpenAI, image_bytes: bytes, mime_type: str) -> QuickScanResult:
@@ -59,6 +91,8 @@ def quick_scan(client: OpenAI, image_bytes: bytes, mime_type: str) -> QuickScanR
         QuickLineItem(
             rawName=str(row.get("rawName", "")).strip(),
             suggestedCategory="ingredient",
+            ingredientCategory=_line_ingredient_category(row, str(row.get("rawName", "")).strip()),
+            description=str(row.get("rawName", "")).strip(),
             confidence=float(row.get("confidence", 0.8)),
         )
         for row in data.get("lines", [])
@@ -82,6 +116,10 @@ def detail_parse(client: OpenAI, image_bytes: bytes, mime_type: str) -> ParsedBi
             lineTotal=float(row.get("lineTotal", 0) or 0),
             confidence=float(row.get("confidence", 0.8)),
             suggestedCategory="ingredient",
+            ingredientCategory=_line_ingredient_category(
+                row, str(row.get("rawName", "")).strip()
+            ),
+            description=str(row.get("rawName", "")).strip(),
         )
         for row in data.get("lines", [])
         if str(row.get("rawName", "")).strip()

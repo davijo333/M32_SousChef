@@ -26,6 +26,7 @@ One row per pantry item per restaurant.
 | `selectedImageIndex` | number | Index into `imageCandidates` (default `0`) |
 | `imageGenerationAttempted` | boolean | `true` after Process enrichment or manual Generate; required for Pantry listing |
 | `source` | string | `bill_upload`, `manual_add`, `seed`, … |
+| `label` | string? | `new`, `used`, `unused`, `missing` — set by recipe linker; see [ingredients](../Inventory/ingredients.md) |
 | `usageUnits` | array | Unit conversion helpers |
 
 ## Pantry visibility

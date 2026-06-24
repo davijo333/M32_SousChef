@@ -1,0 +1,820 @@
+{
+  "restaurant": "Panera Cafe",
+  "classifications": [
+    "sandwich",
+    "BYO-Sandwich",
+    "beverage",
+    "coffee",
+    "tea",
+    "juice"
+  ],
+  "dishes": [
+    {
+      "slug": "dish-sunrise-stack",
+      "menuId": "mi-sig-sunrise-stack",
+      "name": "The Sunrise Stack",
+      "classification": "sandwich",
+      "sellPrice": 9.12,
+      "posName": "Sunrise Stack\u2122 \u2014 Tyson Bacon, Eggland's Egg, Tillamook Cheddar on Vie de France Croissant",
+      "ingredientSlugs": [
+        "ing-croissant",
+        "ing-bacon",
+        "ing-egg",
+        "ing-cheddar",
+        "ing-butter"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-croissant",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 3,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-cheddar",
+          "qtyPerServing": 1.5,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 2.28
+    },
+    {
+      "slug": "dish-garden-morning-croissant",
+      "menuId": "mi-sig-garden-morning",
+      "name": "Garden Morning Croissant",
+      "classification": "sandwich",
+      "sellPrice": 7.87,
+      "posName": "Garden Morning Croissant \u2014 Earthbound Spinach, Roma Tomato, Hass Avocado",
+      "ingredientSlugs": [
+        "ing-croissant",
+        "ing-egg",
+        "ing-swiss",
+        "ing-spinach",
+        "ing-tomato",
+        "ing-avocado"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-croissant",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 2,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-swiss",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-spinach",
+          "qtyPerServing": 0.25,
+          "unit": "cup"
+        },
+        {
+          "ingredientSlug": "ing-tomato",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-avocado",
+          "qtyPerServing": 0.5,
+          "unit": "each"
+        }
+      ],
+      "foodCost": 1.97
+    },
+    {
+      "slug": "dish-farmers-double",
+      "menuId": "mi-sig-farmers-double",
+      "name": "The Farmer's Double",
+      "classification": "sandwich",
+      "sellPrice": 9.98,
+      "posName": "Farmer's Double \u2014 Jimmy Dean Sausage, Egg, Kraft American on La Brea Sourdough",
+      "ingredientSlugs": [
+        "ing-sourdough-bread",
+        "ing-butter",
+        "ing-bacon",
+        "ing-sausage",
+        "ing-egg",
+        "ing-american"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-sourdough-bread",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-sausage",
+          "qtyPerServing": 2,
+          "unit": "link"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-american",
+          "qtyPerServing": 1.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 2.49
+    },
+    {
+      "slug": "dish-build-your-own-croissant",
+      "menuId": "mi-custom-croissant",
+      "name": "Build-Your-Own Croissant",
+      "classification": "sandwich",
+      "sellPrice": 7.1,
+      "posName": "Build-Your-Own Croissant \u2014 Tyson Bacon, Fried Egg, Boar's Head Swiss",
+      "ingredientSlugs": [
+        "ing-croissant",
+        "ing-bacon",
+        "ing-egg",
+        "ing-swiss"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-croissant",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-swiss",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.78
+    },
+    {
+      "slug": "dish-build-your-own-sourdough",
+      "menuId": "mi-custom-bread",
+      "name": "Build-Your-Own Sourdough",
+      "classification": "sandwich",
+      "sellPrice": 5.62,
+      "posName": "Build-Your-Own Sourdough \u2014 Jimmy Dean Sausage, Eggland's Egg",
+      "ingredientSlugs": [
+        "ing-sourdough-bread",
+        "ing-butter",
+        "ing-sausage",
+        "ing-egg"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-sourdough-bread",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-sausage",
+          "qtyPerServing": 2,
+          "unit": "link"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        }
+      ],
+      "foodCost": 1.4
+    },
+    {
+      "slug": "dish-build-your-own-bagel",
+      "menuId": "mi-custom-bagel",
+      "name": "Build-Your-Own Bagel",
+      "classification": "sandwich",
+      "sellPrice": 7.17,
+      "posName": "Build-Your-Own Bagel \u2014 Tyson Bacon, Baby Spinach, Roma Tomato",
+      "ingredientSlugs": [
+        "ing-bagel",
+        "ing-butter",
+        "ing-bacon",
+        "ing-spinach",
+        "ing-tomato"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-bagel",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-spinach",
+          "qtyPerServing": 0.25,
+          "unit": "cup"
+        },
+        {
+          "ingredientSlug": "ing-tomato",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        }
+      ],
+      "foodCost": 1.79
+    },
+    {
+      "slug": "dish-hot-coffee",
+      "menuId": "mi-coffee-hot",
+      "name": "Hot Coffee",
+      "classification": "coffee",
+      "sellPrice": 2.99,
+      "posName": "Starbucks Pike Place Coffee 16oz \u2014 Land O Lakes Whole Milk",
+      "ingredientSlugs": [
+        "ing-coffee-beans",
+        "ing-whole-milk"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-coffee-beans",
+          "qtyPerServing": 0.05,
+          "unit": "lb"
+        },
+        {
+          "ingredientSlug": "ing-whole-milk",
+          "qtyPerServing": 8,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.39
+    },
+    {
+      "slug": "dish-lavazza-house-coffee",
+      "menuId": "mi-coffee-hot",
+      "name": "Lavazza House Hot Coffee",
+      "classification": "coffee",
+      "sellPrice": 3.18,
+      "posName": "Lavazza House Hot Coffee 12oz \u2014 Black",
+      "ingredientSlugs": [
+        "ing-espresso"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.8
+    },
+    {
+      "slug": "dish-oat-vanilla-coffee",
+      "menuId": "mi-coffee-hot",
+      "name": "Oat Vanilla Coffee",
+      "classification": "coffee",
+      "sellPrice": 5.47,
+      "posName": "House Hot Coffee 20oz \u2014 Oatly Barista Oat + Monin Vanilla Syrup",
+      "ingredientSlugs": [
+        "ing-coffee-beans",
+        "ing-oat-milk",
+        "ing-vanilla-syrup"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-coffee-beans",
+          "qtyPerServing": 0.05,
+          "unit": "lb"
+        },
+        {
+          "ingredientSlug": "ing-oat-milk",
+          "qtyPerServing": 12,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-vanilla-syrup",
+          "qtyPerServing": 0.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.37
+    },
+    {
+      "slug": "dish-skim-frappe",
+      "menuId": "mi-coffee-frappe",
+      "name": "Iced Skim Frappe",
+      "classification": "coffee",
+      "sellPrice": 5.52,
+      "posName": "Iced Land O Lakes Skim Milk Frappe 16oz",
+      "ingredientSlugs": [
+        "ing-espresso",
+        "ing-skim-milk",
+        "ing-ice",
+        "ing-heavy-cream"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-skim-milk",
+          "qtyPerServing": 8,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-ice",
+          "qtyPerServing": 6,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-heavy-cream",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.38
+    },
+    {
+      "slug": "dish-caramel-almond-frappe",
+      "menuId": "mi-coffee-frappe",
+      "name": "Caramel Almond Frappe",
+      "classification": "coffee",
+      "sellPrice": 9.35,
+      "posName": "Iced Monin Caramel Frappe 24oz \u2014 Califia Farms Almond Milk",
+      "ingredientSlugs": [
+        "ing-espresso",
+        "ing-almond-milk",
+        "ing-caramel-syrup",
+        "ing-ice",
+        "ing-heavy-cream"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-almond-milk",
+          "qtyPerServing": 10,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-caramel-syrup",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-ice",
+          "qtyPerServing": 8,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-heavy-cream",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 2.34
+    },
+    {
+      "slug": "dish-hazelnut-mocha",
+      "menuId": "mi-coffee-mocha",
+      "name": "Hazelnut Mocha",
+      "classification": "coffee",
+      "sellPrice": 6.45,
+      "posName": "Monin Dark Chocolate Mocha 16oz \u2014 Whole Milk + Monin Hazelnut",
+      "ingredientSlugs": [
+        "ing-espresso",
+        "ing-mocha-syrup",
+        "ing-whole-milk",
+        "ing-hazelnut-syrup"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-mocha-syrup",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-whole-milk",
+          "qtyPerServing": 10,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-hazelnut-syrup",
+          "qtyPerServing": 0.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.61
+    },
+    {
+      "slug": "dish-vanilla-cappuccino",
+      "menuId": "mi-coffee-cappuccino",
+      "name": "Vanilla Cappuccino",
+      "classification": "coffee",
+      "sellPrice": 5.77,
+      "posName": "Classic Cappuccino 20oz \u2014 Land O Lakes Half & Half + Monin Vanilla",
+      "ingredientSlugs": [
+        "ing-espresso",
+        "ing-half-and-half",
+        "ing-vanilla-syrup",
+        "ing-frothing-milk"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-half-and-half",
+          "qtyPerServing": 4,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-vanilla-syrup",
+          "qtyPerServing": 0.5,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-frothing-milk",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.44
+    },
+    {
+      "slug": "dish-oat-mocha",
+      "menuId": "mi-coffee-mocha",
+      "name": "Oat Milk Mocha",
+      "classification": "coffee",
+      "sellPrice": 8.15,
+      "posName": "Oatly Oat Milk Monin Mocha 12oz",
+      "ingredientSlugs": [
+        "ing-espresso",
+        "ing-oat-milk",
+        "ing-mocha-syrup"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 2,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-oat-milk",
+          "qtyPerServing": 10,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-mocha-syrup",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 2.04
+    },
+    {
+      "slug": "dish-english-breakfast-tea",
+      "menuId": "mi-tea-english",
+      "name": "English Breakfast Tea",
+      "classification": "tea",
+      "sellPrice": 2.49,
+      "posName": "Taylors of Harrogate English Breakfast Tea 16oz",
+      "ingredientSlugs": [
+        "ing-black-tea"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-black-tea",
+          "qtyPerServing": 1,
+          "unit": "bag"
+        }
+      ],
+      "foodCost": 0.13
+    },
+    {
+      "slug": "dish-green-tea",
+      "menuId": "mi-tea-green",
+      "name": "Green Tea",
+      "classification": "tea",
+      "sellPrice": 2.49,
+      "posName": "Twinings Pure Green Tea 20oz",
+      "ingredientSlugs": [
+        "ing-green-tea"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-green-tea",
+          "qtyPerServing": 1,
+          "unit": "bag"
+        }
+      ],
+      "foodCost": 0.13
+    },
+    {
+      "slug": "dish-orange-juice",
+      "menuId": "mi-juice-orange",
+      "name": "Orange Juice",
+      "classification": "juice",
+      "sellPrice": 3.49,
+      "posName": "Kirkland Signature Orange Juice 16oz",
+      "ingredientSlugs": [
+        "ing-orange-juice"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-orange-juice",
+          "qtyPerServing": 16,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.78
+    },
+    {
+      "slug": "dish-apple-juice",
+      "menuId": "mi-juice-apple",
+      "name": "Apple Juice",
+      "classification": "juice",
+      "sellPrice": 3.49,
+      "posName": "Martinelli's Gold Medal Apple Juice 16oz",
+      "ingredientSlugs": [
+        "ing-apple-juice"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-apple-juice",
+          "qtyPerServing": 16,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.75
+    },
+    {
+      "slug": "dish-cranberry-juice",
+      "menuId": "mi-juice-cranberry",
+      "name": "Cranberry Juice",
+      "classification": "juice",
+      "sellPrice": 4.08,
+      "posName": "Ocean Spray Cranberry Juice Cocktail 20oz",
+      "ingredientSlugs": [
+        "ing-cranberry-juice"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-cranberry-juice",
+          "qtyPerServing": 20,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.02
+    },
+    {
+      "slug": "dish-soy-coffee",
+      "menuId": "mi-coffee-hot",
+      "name": "Soy Milk Coffee",
+      "classification": "coffee",
+      "sellPrice": 3.2,
+      "posName": "House Coffee 16oz \u2014 Silk Original Soy Milk",
+      "ingredientSlugs": [
+        "ing-coffee-beans",
+        "ing-soy-milk"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-coffee-beans",
+          "qtyPerServing": 0.05,
+          "unit": "lb"
+        },
+        {
+          "ingredientSlug": "ing-soy-milk",
+          "qtyPerServing": 8,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.8
+    },
+    {
+      "slug": "dish-veggie-croissant",
+      "menuId": "mi-sig-garden-morning",
+      "name": "Veggie Croissant",
+      "classification": "sandwich",
+      "sellPrice": 4.49,
+      "posName": "Veggie Croissant \u2014 Earthbound Spinach, Roma Tomato, Green Bell Pepper",
+      "ingredientSlugs": [
+        "ing-croissant",
+        "ing-spinach",
+        "ing-tomato",
+        "ing-bell-pepper"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-croissant",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-spinach",
+          "qtyPerServing": 0.25,
+          "unit": "cup"
+        },
+        {
+          "ingredientSlug": "ing-tomato",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-bell-pepper",
+          "qtyPerServing": 0.125,
+          "unit": "cup"
+        }
+      ],
+      "foodCost": 0.84
+    },
+    {
+      "slug": "dish-sourdough-melt",
+      "menuId": "mi-custom-bread",
+      "name": "Sourdough Melt",
+      "classification": "sandwich",
+      "sellPrice": 8.09,
+      "posName": "La Brea Sourdough Melt \u2014 Tyson Applewood Bacon, Tillamook Cheddar",
+      "ingredientSlugs": [
+        "ing-sourdough-bread",
+        "ing-butter",
+        "ing-bacon",
+        "ing-cheddar"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-sourdough-bread",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 3,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-cheddar",
+          "qtyPerServing": 1.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 2.02
+    },
+    {
+      "slug": "dish-loaded-bagel",
+      "menuId": "mi-custom-bagel",
+      "name": "Loaded Bagel",
+      "classification": "sandwich",
+      "sellPrice": 7.33,
+      "posName": "Thomas' Bagel \u2014 Jimmy Dean Sausage, Eggland's Egg, Kraft American",
+      "ingredientSlugs": [
+        "ing-bagel",
+        "ing-butter",
+        "ing-sausage",
+        "ing-egg",
+        "ing-american"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-bagel",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        },
+        {
+          "ingredientSlug": "ing-sausage",
+          "qtyPerServing": 2,
+          "unit": "link"
+        },
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-american",
+          "qtyPerServing": 1.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 1.83
+    },
+    {
+      "slug": "dish-classic-bagel",
+      "menuId": "mi-byo-bagel",
+      "name": "Classic Bagel",
+      "classification": "BYO-Sandwich",
+      "description": "Plain Thomas' bagel \u2014 build your own toppings",
+      "sellPrice": 3.49,
+      "posName": "Classic Bagel \u2014 Thomas' Plain",
+      "ingredientSlugs": [
+        "ing-bagel",
+        "ing-butter"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-bagel",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.61
+    },
+    {
+      "slug": "dish-multigrain-bagel",
+      "menuId": "mi-byo-bagel",
+      "name": "Multigrain Bagel",
+      "classification": "BYO-Sandwich",
+      "description": "Thomas' multigrain bagel \u2014 build your own toppings",
+      "sellPrice": 3.49,
+      "posName": "Multigrain Bagel \u2014 Thomas' 12 Grain",
+      "ingredientSlugs": [
+        "ing-multigrain-bagel",
+        "ing-butter"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-multigrain-bagel",
+          "qtyPerServing": 1,
+          "unit": "each"
+        },
+        {
+          "ingredientSlug": "ing-butter",
+          "qtyPerServing": 0.25,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.65
+    }
+  ]
+}

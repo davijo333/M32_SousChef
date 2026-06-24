@@ -1,4 +1,4 @@
-"""Purchase order ingest — 1a parser + 2a ingredient normalizer."""
+"""Purchase order + sales order ingest — 1a parsers + 2a normalizer."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from bill_parser_common import (
     merge_quick_into_detail,
 )
 from catalog_prepare import enrich_supplier_items
+from customer_bill_parser import detail_parse as customer_detail_parse
+from customer_bill_parser import quick_scan as customer_quick_scan
 from supplier_bill_parser import detail_parse as supplier_detail_parse
 from supplier_bill_parser import quick_scan as supplier_quick_scan
 
@@ -51,9 +53,10 @@ def _normalize_key(name: str) -> str:
     return re.sub(r"[^a-z0-9\s]", " ", name.lower()).strip()
 
 
-def _item_id(name: str) -> str:
+def _item_id(name: str, item_type: str = "ingredient") -> str:
     slug = _normalize_key(name).replace(" ", "-")
-    return f"ingredient-{slug}"
+    prefix = "dish" if item_type == "dish" else "addon" if item_type == "addon" else "ingredient"
+    return f"{prefix}-{slug}"
 
 
 def unique_catalog_queue(
@@ -76,11 +79,43 @@ def unique_catalog_queue(
         detail = detail_by_name.get(key_name)
         queue.append(
             CatalogQueueItem(
-                key=_item_id(q.rawName),
+                key=_item_id(q.rawName, "ingredient"),
                 name=q.rawName,
                 raw_name=q.rawName,
                 item_type="ingredient",
                 store_name=vendor,
+                quantity=float(detail.quantity if detail else 1),
+                unit=str(detail.unit if detail else "each"),
+            )
+        )
+    return queue
+
+
+def unique_menu_queue(
+    quick: QuickScanResult,
+    bill: ParsedBill,
+) -> list[CatalogQueueItem]:
+    """Dishes and add-ons from customer bill quick scan."""
+    seen: set[str] = set()
+    queue: list[CatalogQueueItem] = []
+    detail_by_name = {_normalize_key(line.rawName): line for line in bill.lines}
+
+    for q in quick.lines:
+        key_name = _normalize_key(q.rawName)
+        if not key_name or key_name in seen:
+            continue
+        if key_name in {"tax", "tip", "total", "subtotal"}:
+            continue
+        seen.add(key_name)
+        detail = detail_by_name.get(key_name)
+        kind = (detail.menuItemKind if detail and detail.menuItemKind else q.menuItemKind) or "dish"
+        item_type = "addon" if kind == "addon" else "dish"
+        queue.append(
+            CatalogQueueItem(
+                key=_item_id(q.rawName, item_type),
+                name=q.rawName,
+                raw_name=q.rawName,
+                item_type=item_type,
                 quantity=float(detail.quantity if detail else 1),
                 unit=str(detail.unit if detail else "each"),
             )
@@ -108,6 +143,26 @@ def run_supplier_pipeline(
     enriched_raw = enrich_supplier_items(client, [item.model_dump() for item in unique])
     enriched = [EnrichedCatalogItem.model_validate(row) for row in enriched_raw]
     return ParsePipelineResult(bill=bill, unique_items=unique, enriched=enriched)
+
+
+def run_customer_pipeline(
+    client: OpenAI,
+    data: bytes,
+    filename: str,
+    content_type: str,
+) -> ParsePipelineResult:
+    """Parse customer bill — dishes and add-ons, no image enrichment."""
+    image_bytes, mime_type = load_bill_image(data, filename, content_type)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        quick_future = pool.submit(customer_quick_scan, client, image_bytes, mime_type)
+        detail_future = pool.submit(customer_detail_parse, client, image_bytes, mime_type)
+        quick = quick_future.result()
+        detail = detail_future.result()
+
+    bill = merge_quick_into_detail(quick, detail)
+    unique = unique_menu_queue(quick, bill)
+    return ParsePipelineResult(bill=bill, unique_items=unique, enriched=[])
 
 
 def run_parse_pipelines_parallel(

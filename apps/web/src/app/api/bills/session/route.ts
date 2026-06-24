@@ -43,16 +43,34 @@ export async function GET() {
 
   await connectDB();
 
-  const supplierBills = await BillUpload.find({ userId, billType: "supplier" })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean();
+  async function billsForType(billType: "supplier" | "customer") {
+    const [pending, recent] = await Promise.all([
+      BillUpload.find({ userId, billType, status: "pending_review" })
+        .sort({ createdAt: -1 })
+        .lean(),
+      BillUpload.find({ userId, billType }).sort({ createdAt: -1 }).limit(5).lean(),
+    ]);
+    const byId = new Map<string, (typeof pending)[number]>();
+    for (const bill of [...pending, ...recent]) {
+      byId.set(bill._id.toString(), bill);
+    }
+    return Array.from(byId.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+  }
 
-  const confirmedBillIds = supplierBills
-    .filter((b) => b.status === "confirmed")
-    .map((b) => b._id.toString());
+  const [supplierBills, customerBills] = await Promise.all([
+    billsForType("supplier"),
+    billsForType("customer"),
+  ]);
+
+  const confirmedBillIds = [
+    ...supplierBills.filter((b) => b.status === "confirmed"),
+    ...customerBills.filter((b) => b.status === "confirmed"),
+  ].map((b) => b._id.toString());
 
   let newIngredients: ReturnType<typeof extractNewItemsFromBill>["ingredients"] = [];
+  let newDishes: ReturnType<typeof extractNewItemsFromBill>["dishes"] = [];
 
   for (const bill of supplierBills.filter((b) => b.status === "confirmed")) {
     const extracted = extractNewItemsFromBill({
@@ -65,17 +83,30 @@ export async function GET() {
     newIngredients = mergeNewCatalogItems(newIngredients, extracted.ingredients);
   }
 
-  const byDate: Record<string, { supplier: ReturnType<typeof formatBill>[] }> = {};
-  for (const bill of supplierBills) {
+  for (const bill of customerBills.filter((b) => b.status === "confirmed")) {
+    const extracted = extractNewItemsFromBill({
+      billId: bill._id.toString(),
+      filename: bill.filename,
+      vendor: bill.vendor,
+      billType: "customer",
+      lines: bill.lines,
+    });
+    newDishes = mergeNewCatalogItems(newDishes, [...extracted.dishes, ...extracted.addOns]);
+  }
+
+  const byDate: Record<string, { supplier: ReturnType<typeof formatBill>[]; customer: ReturnType<typeof formatBill>[] }> = {};
+  for (const bill of [...supplierBills, ...customerBills]) {
     const date = bill.createdAt.toISOString().slice(0, 10);
-    if (!byDate[date]) byDate[date] = { supplier: [] };
-    byDate[date].supplier.push(formatBill(bill));
+    if (!byDate[date]) byDate[date] = { supplier: [], customer: [] };
+    const key = bill.billType === "customer" ? "customer" : "supplier";
+    byDate[date][key].push(formatBill(bill));
   }
 
   return NextResponse.json({
     supplier: supplierBills.map(formatBill),
+    customer: customerBills.map(formatBill),
     byDate,
     confirmedBillIds,
-    newCatalogItems: { ingredients: newIngredients, dishes: [] },
+    newCatalogItems: { ingredients: newIngredients, dishes: newDishes },
   });
 }

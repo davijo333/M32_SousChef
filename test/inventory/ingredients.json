@@ -1,0 +1,317 @@
+{
+  "restaurant": "Panera Cafe",
+  "ingredientLabels": [
+    "new",
+    "used",
+    "unused",
+    "missing"
+  ],
+  "ingredients": [
+    {
+      "slug": "ing-croissant",
+      "name": "Butter Croissant",
+      "brand": "Vie de France",
+      "inventoryUnit": "each",
+      "category": "bakery",
+      "currentQty": 18,
+      "reorderThreshold": 6,
+      "lastPurchasePrice": 0.43
+    },
+    {
+      "slug": "ing-sourdough-bread",
+      "name": "Sourdough Loaf",
+      "brand": "La Brea Bakery",
+      "inventoryUnit": "loaf",
+      "category": "bakery",
+      "currentQty": 14,
+      "reorderThreshold": 4,
+      "lastPurchasePrice": 3.2
+    },
+    {
+      "slug": "ing-bagel",
+      "name": "Plain Bagels",
+      "brand": "Thomas'",
+      "inventoryUnit": "dozen",
+      "category": "bakery",
+      "currentQty": 9,
+      "reorderThreshold": 3,
+      "lastPurchasePrice": 6.6
+    },
+    {
+      "slug": "ing-multigrain-bagel",
+      "name": "Multigrain Bagels",
+      "brand": "Thomas'",
+      "inventoryUnit": "dozen",
+      "category": "bakery",
+      "currentQty": 7,
+      "reorderThreshold": 3,
+      "lastPurchasePrice": 7.13
+    },
+    {
+      "slug": "ing-bacon",
+      "name": "Applewood Smoked Bacon",
+      "brand": "Tyson",
+      "inventoryUnit": "lb",
+      "category": "protein",
+      "currentQty": 2,
+      "reorderThreshold": 4,
+      "lastPurchasePrice": 6.49
+    },
+    {
+      "slug": "ing-sausage",
+      "name": "Premium Breakfast Sausage",
+      "brand": "Jimmy Dean",
+      "inventoryUnit": "lb",
+      "category": "protein",
+      "currentQty": 6,
+      "reorderThreshold": 3,
+      "lastPurchasePrice": 2.85
+    },
+    {
+      "slug": "ing-egg",
+      "name": "Large Eggs",
+      "brand": "Eggland's Best",
+      "inventoryUnit": "dozen",
+      "category": "protein",
+      "currentQty": 8,
+      "reorderThreshold": 3,
+      "lastPurchasePrice": 2.8
+    },
+    {
+      "slug": "ing-cheddar",
+      "name": "Medium Cheddar",
+      "brand": "Tillamook",
+      "inventoryUnit": "lb",
+      "category": "dairy",
+      "lastPurchasePrice": 3.7
+    },
+    {
+      "slug": "ing-swiss",
+      "name": "Swiss Cheese Slices",
+      "brand": "Boar's Head",
+      "inventoryUnit": "lb",
+      "category": "dairy",
+      "lastPurchasePrice": 4.9
+    },
+    {
+      "slug": "ing-american",
+      "name": "American Cheese Singles",
+      "brand": "Kraft",
+      "inventoryUnit": "lb",
+      "category": "dairy",
+      "lastPurchasePrice": 2.97
+    },
+    {
+      "slug": "ing-butter",
+      "name": "Unsalted Butter",
+      "brand": "Land O Lakes",
+      "inventoryUnit": "lb",
+      "category": "dairy",
+      "lastPurchasePrice": 3.75
+    },
+    {
+      "slug": "ing-spinach",
+      "name": "Organic Baby Spinach",
+      "brand": "Earthbound Farm",
+      "inventoryUnit": "lb",
+      "category": "produce",
+      "currentQty": 3,
+      "reorderThreshold": 2,
+      "lastPurchasePrice": 2.7,
+      "expiryDate": "2026-06-25"
+    },
+    {
+      "slug": "ing-tomato",
+      "name": "Roma Tomato",
+      "brand": "Fresh",
+      "inventoryUnit": "lb",
+      "category": "produce",
+      "currentQty": 4,
+      "reorderThreshold": 2,
+      "expiryDate": "2026-06-28",
+      "lastPurchasePrice": 0.82
+    },
+    {
+      "slug": "ing-bell-pepper",
+      "name": "Green Bell Pepper",
+      "brand": "Fresh",
+      "inventoryUnit": "lb",
+      "category": "produce",
+      "currentQty": 3,
+      "reorderThreshold": 2,
+      "expiryDate": "2026-06-29",
+      "lastPurchasePrice": 1.27
+    },
+    {
+      "slug": "ing-avocado",
+      "name": "Hass Avocado",
+      "brand": "Fresh",
+      "inventoryUnit": "case",
+      "category": "produce",
+      "currentQty": 2,
+      "reorderThreshold": 3,
+      "expiryDate": "2026-06-27",
+      "lastPurchasePrice": 38.0
+    },
+    {
+      "slug": "ing-coffee-beans",
+      "name": "Pike Place Whole Bean Coffee",
+      "brand": "Starbucks",
+      "inventoryUnit": "lb",
+      "category": "coffee",
+      "lastPurchasePrice": 2.5
+    },
+    {
+      "slug": "ing-espresso",
+      "name": "Super Crema Espresso Beans",
+      "brand": "Lavazza",
+      "inventoryUnit": "lb",
+      "category": "coffee",
+      "lastPurchasePrice": 6.36
+    },
+    {
+      "slug": "ing-whole-milk",
+      "name": "Whole Milk",
+      "brand": "Land O Lakes",
+      "inventoryUnit": "gallon",
+      "category": "dairy",
+      "lastPurchasePrice": 4.2
+    },
+    {
+      "slug": "ing-skim-milk",
+      "name": "Skim Milk",
+      "brand": "Land O Lakes",
+      "inventoryUnit": "gallon",
+      "category": "dairy",
+      "lastPurchasePrice": 4.1
+    },
+    {
+      "slug": "ing-oat-milk",
+      "name": "Barista Edition Oat Milk",
+      "brand": "Oatly",
+      "inventoryUnit": "each",
+      "category": "dairy",
+      "lastPurchasePrice": 5.8
+    },
+    {
+      "slug": "ing-almond-milk",
+      "name": "Almond Milk",
+      "brand": "Califia Farms",
+      "inventoryUnit": "each",
+      "category": "dairy",
+      "lastPurchasePrice": 5.6
+    },
+    {
+      "slug": "ing-soy-milk",
+      "name": "Original Soy Milk",
+      "brand": "Silk",
+      "inventoryUnit": "each",
+      "category": "dairy",
+      "lastPurchasePrice": 5.4
+    },
+    {
+      "slug": "ing-half-and-half",
+      "name": "Half & Half",
+      "brand": "Land O Lakes",
+      "inventoryUnit": "quart",
+      "category": "dairy",
+      "lastPurchasePrice": 3.2
+    },
+    {
+      "slug": "ing-mocha-syrup",
+      "name": "Dark Chocolate Sauce",
+      "brand": "Monin",
+      "inventoryUnit": "each",
+      "category": "syrup",
+      "lastPurchasePrice": 8.5
+    },
+    {
+      "slug": "ing-vanilla-syrup",
+      "name": "Vanilla Syrup",
+      "brand": "Monin",
+      "inventoryUnit": "each",
+      "category": "syrup",
+      "lastPurchasePrice": 7.9
+    },
+    {
+      "slug": "ing-caramel-syrup",
+      "name": "Caramel Syrup",
+      "brand": "Monin",
+      "inventoryUnit": "each",
+      "category": "syrup",
+      "lastPurchasePrice": 7.9
+    },
+    {
+      "slug": "ing-hazelnut-syrup",
+      "name": "Hazelnut Syrup",
+      "brand": "Monin",
+      "inventoryUnit": "each",
+      "category": "syrup",
+      "lastPurchasePrice": 7.9
+    },
+    {
+      "slug": "ing-ice",
+      "name": "Bagged Ice",
+      "brand": "Reddy Ice",
+      "inventoryUnit": "lb",
+      "category": "misc",
+      "lastPurchasePrice": 0.23
+    },
+    {
+      "slug": "ing-heavy-cream",
+      "name": "Heavy Whipping Cream",
+      "brand": "Land O Lakes",
+      "inventoryUnit": "half-gallon",
+      "category": "dairy",
+      "lastPurchasePrice": 7.8
+    },
+    {
+      "slug": "ing-frothing-milk",
+      "name": "Barista Frothing Milk",
+      "brand": "Pacific",
+      "inventoryUnit": "gallon",
+      "category": "dairy",
+      "lastPurchasePrice": 5.9
+    },
+    {
+      "slug": "ing-black-tea",
+      "name": "English Breakfast Tea",
+      "brand": "Taylors of Harrogate",
+      "inventoryUnit": "box",
+      "category": "tea",
+      "lastPurchasePrice": 12.99
+    },
+    {
+      "slug": "ing-green-tea",
+      "name": "Pure Green Tea",
+      "brand": "Twinings",
+      "inventoryUnit": "box",
+      "category": "tea",
+      "lastPurchasePrice": 12.99
+    },
+    {
+      "slug": "ing-orange-juice",
+      "name": "Orange Juice",
+      "brand": "Kirkland Signature",
+      "inventoryUnit": "gallon",
+      "category": "juice",
+      "lastPurchasePrice": 6.2
+    },
+    {
+      "slug": "ing-apple-juice",
+      "name": "Gold Medal Apple Juice",
+      "brand": "Martinelli's",
+      "inventoryUnit": "gallon",
+      "category": "juice",
+      "lastPurchasePrice": 5.99
+    },
+    {
+      "slug": "ing-cranberry-juice",
+      "name": "Cranberry Juice Cocktail",
+      "brand": "Ocean Spray",
+      "inventoryUnit": "each",
+      "category": "juice",
+      "lastPurchasePrice": 4.89
+    }
+  ]
+}

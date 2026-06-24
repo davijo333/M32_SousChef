@@ -1,0 +1,230 @@
+{
+  "restaurant": "Panera Cafe",
+  "classifications": [
+    "protein",
+    "cheese",
+    "veggie",
+    "coffee"
+  ],
+  "addOns": [
+    {
+      "slug": "addon-bacon",
+      "name": "Bacon",
+      "classification": "protein",
+      "description": "Extra Tyson Applewood Bacon on any sandwich",
+      "sellPrice": 3.25,
+      "posName": "Extra Tyson Applewood Bacon",
+      "ingredientSlugs": [
+        "ing-bacon"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-bacon",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        }
+      ],
+      "foodCost": 0.81
+    },
+    {
+      "slug": "addon-sausage",
+      "name": "Sausage",
+      "classification": "protein",
+      "description": "Extra Jimmy Dean breakfast sausage",
+      "sellPrice": 2.85,
+      "posName": "Extra Jimmy Dean Sausage",
+      "ingredientSlugs": [
+        "ing-sausage"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-sausage",
+          "qtyPerServing": 2,
+          "unit": "link"
+        }
+      ],
+      "foodCost": 0.71
+    },
+    {
+      "slug": "addon-egg",
+      "name": "Egg",
+      "classification": "protein",
+      "description": "Fried Eggland's Best egg",
+      "sellPrice": 0.99,
+      "posName": "Fried Eggland's Best Egg",
+      "ingredientSlugs": [
+        "ing-egg"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-egg",
+          "qtyPerServing": 1,
+          "unit": "each"
+        }
+      ],
+      "foodCost": 0.23
+    },
+    {
+      "slug": "addon-cheese",
+      "name": "Cheddar",
+      "classification": "cheese",
+      "description": "Tillamook cheddar slice",
+      "sellPrice": 0.99,
+      "posName": "Tillamook Cheddar Slice",
+      "ingredientSlugs": [
+        "ing-cheddar"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-cheddar",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.23
+    },
+    {
+      "slug": "addon-american-cheese",
+      "name": "American Cheese",
+      "classification": "cheese",
+      "description": "Kraft American cheese single",
+      "sellPrice": 0.99,
+      "posName": "Kraft American Cheese Slice",
+      "ingredientSlugs": [
+        "ing-american"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-american",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.19
+    },
+    {
+      "slug": "addon-swiss",
+      "name": "Swiss",
+      "classification": "cheese",
+      "description": "Boar's Head Swiss slice",
+      "sellPrice": 1.23,
+      "posName": "Boar's Head Swiss Slice",
+      "ingredientSlugs": [
+        "ing-swiss"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-swiss",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.31
+    },
+    {
+      "slug": "addon-veggies",
+      "name": "Veggie mix",
+      "classification": "veggie",
+      "description": "Spinach, tomato, and bell pepper",
+      "sellPrice": 1.65,
+      "posName": "Earthbound Spinach, Roma Tomato, Bell Pepper",
+      "ingredientSlugs": [
+        "ing-spinach",
+        "ing-tomato",
+        "ing-bell-pepper"
+      ],
+      "linkedDishClassifications": [
+        "sandwich",
+        "BYO-Sandwich"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-spinach",
+          "qtyPerServing": 0.25,
+          "unit": "cup"
+        },
+        {
+          "ingredientSlug": "ing-tomato",
+          "qtyPerServing": 2,
+          "unit": "slice"
+        },
+        {
+          "ingredientSlug": "ing-bell-pepper",
+          "qtyPerServing": 0.125,
+          "unit": "cup"
+        }
+      ],
+      "foodCost": 0.41
+    },
+    {
+      "slug": "addon-whipped-cream",
+      "name": "Whipped cream",
+      "classification": "coffee",
+      "description": "Land O Lakes heavy cream whipped topping",
+      "sellPrice": 0.99,
+      "posName": "Extra Land O Lakes Heavy Cream Whipped Topping",
+      "ingredientSlugs": [
+        "ing-heavy-cream"
+      ],
+      "linkedDishClassifications": [
+        "coffee",
+        "beverage"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-heavy-cream",
+          "qtyPerServing": 1.5,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.18
+    },
+    {
+      "slug": "addon-extra-shot",
+      "name": "Extra espresso shot",
+      "classification": "coffee",
+      "description": "Additional Lavazza espresso pull",
+      "sellPrice": 1.59,
+      "posName": "Extra Lavazza Espresso Shot",
+      "ingredientSlugs": [
+        "ing-espresso"
+      ],
+      "linkedDishClassifications": [
+        "coffee",
+        "beverage"
+      ],
+      "ingredientLinks": [
+        {
+          "ingredientSlug": "ing-espresso",
+          "qtyPerServing": 1,
+          "unit": "oz"
+        }
+      ],
+      "foodCost": 0.4
+    }
+  ]
+}

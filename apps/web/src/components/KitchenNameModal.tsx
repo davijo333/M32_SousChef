@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { KITCHEN_NAME_MAX, validateKitchenName } from "@/lib/kitchen-name";
+import { loadTestDataAndNotify } from "@/lib/load-test-data";
 
 type Props = {
   open: boolean;
@@ -29,6 +30,7 @@ export function KitchenNameModal({
   const [checking, setChecking] = useState(false);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loadingTestData, setLoadingTestData] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -54,6 +56,11 @@ export function KitchenNameModal({
           `/api/restaurant/check-name?name=${encodeURIComponent(trimmed)}`
         );
         const data = await res.json();
+        if (!res.ok) {
+          setAvailable(null);
+          setError((data.error as string) ?? "Could not check name availability");
+          return;
+        }
         setAvailable(Boolean(data.available));
         if (!data.available && data.error) {
           setError(data.error);
@@ -117,6 +124,29 @@ export function KitchenNameModal({
     }
   }
 
+  async function handleLoadTestData() {
+    setLoadingTestData(true);
+    setError("");
+    try {
+      const result = await loadTestDataAndNotify();
+      if (!result.ok) {
+        setError(result.error ?? "Could not load test data.");
+        return;
+      }
+
+      const kitchenName = result.restaurant ?? "Panera Cafe";
+      await update({
+        restaurantName: kitchenName,
+        kitchenNameSet: true,
+      });
+      onSaved(kitchenName);
+    } catch {
+      setError("Network error — try again.");
+    } finally {
+      setLoadingTestData(false);
+    }
+  }
+
   const heading = title ?? (required ? "Name your kitchen" : "Edit kitchen name");
   const subtext =
     description ??
@@ -148,7 +178,7 @@ export function KitchenNameModal({
               required
               maxLength={KITCHEN_NAME_MAX}
               autoFocus
-              placeholder="Sunrise Diner"
+              placeholder="Panera Cafe"
               className="mt-1.5 w-full rounded-lg border border-chef-border bg-white px-3 py-2.5 text-chef-text outline-none ring-chef-sage/30 focus:border-chef-sage focus:ring-2"
               value={name}
               onChange={(e) => {
@@ -170,24 +200,38 @@ export function KitchenNameModal({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <div className="flex flex-wrap justify-end gap-2 pt-1">
-            {!required && onClose && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            {required ? (
               <button
                 type="button"
-                onClick={onClose}
-                disabled={saving}
-                className="rounded-lg border border-chef-border px-4 py-2 text-sm font-medium text-chef-text-muted hover:bg-chef-muted disabled:opacity-50"
+                onClick={() => void handleLoadTestData()}
+                disabled={saving || loadingTestData || checking}
+                className="rounded-lg border border-chef-border bg-white px-4 py-2 text-sm font-medium text-chef-text hover:bg-chef-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {loadingTestData ? "Loading test data…" : "Load test data"}
               </button>
+            ) : (
+              <span />
             )}
-            <button
-              type="submit"
-              disabled={saving || checking || available === false}
-              className="sc-btn-primary px-5 py-2 text-sm disabled:opacity-50"
-            >
-              {saving ? "Saving…" : required ? "Continue" : "Save name"}
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {!required && onClose && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={saving || loadingTestData}
+                  className="rounded-lg border border-chef-border px-4 py-2 text-sm font-medium text-chef-text-muted hover:bg-chef-muted disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={saving || loadingTestData || checking || available === false}
+                className="sc-btn-primary px-5 py-2 text-sm disabled:opacity-50"
+              >
+                {saving ? "Saving…" : required ? "Continue" : "Save name"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

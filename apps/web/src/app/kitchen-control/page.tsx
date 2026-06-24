@@ -3,36 +3,124 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
+import { KitchenAddOnModal } from "@/components/KitchenAddOnModal";
 import { KitchenCard } from "@/components/KitchenCard";
+import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
+import { KitchenDishModal } from "@/components/KitchenDishModal";
 import { KitchenIngredientModal, type IngredientDetail } from "@/components/KitchenIngredientModal";
+import { PantryFiltersBar } from "@/components/PantryFiltersBar";
+import { MenuFiltersBar } from "@/components/MenuFiltersBar";
 import { Nav } from "@/components/Nav";
-import { useKitchenName } from "@/components/KitchenNameProvider";
 import { NewItemsEnrichingPanel } from "@/components/NewItemsEnrichingPanel";
 import { NewItemsReview } from "@/components/NewItemsReview";
 import { ingredientMissingPhotos } from "@/lib/ingredient-image-status";
+import {
+  matchesAnyPantryStatus,
+  PANTRY_STATUS_OPTIONS,
+  type PantryStatus,
+} from "@/lib/ingredient-pantry-status";
+import {
+  dishClassKey,
+  dishClassLabel,
+  dishSubclassKey,
+  formatClassificationLabel,
+  groupByClassSubclass,
+  ingredientClassKey,
+  ingredientClassLabel,
+  ingredientSubclassKey,
+} from "@/lib/catalog-classification";
+import type { DishDetail, DishIngredientLink } from "@/lib/dish-payload";
+import type { IngredientLabel } from "@/models/Ingredient";
 import { useNewCatalogReview, NEW_CATALOG_EVENT } from "@/lib/use-new-catalog-review";
 
 type IngredientRow = IngredientDetail & {
   category: string;
+  label?: IngredientLabel;
 };
+
+type MenuItemRow = {
+  kind: "dish" | "addon";
+  slug: string;
+  name: string;
+  sellPrice: number;
+  totalSold: number;
+  soldThisWeek: number;
+  recipeStatus: string;
+  category: string;
+  classification?: string;
+  description?: string;
+  imageUrl?: string;
+  imageCandidates?: DishDetail["imageCandidates"];
+  selectedImageIndex?: number;
+  imageGenerationAttempted?: boolean;
+  missingPhotos?: boolean;
+  ingredientLinks?: DishIngredientLink[];
+  linkedAddOnSlugs?: string[];
+  linkedDishSlugs?: string[];
+};
+
+type AddOnModalState = {
+  slug: string;
+  name: string;
+  classification?: string;
+  description?: string;
+  sellPrice: number;
+  imageUrl?: string;
+  imageCandidates?: DishDetail["imageCandidates"];
+  selectedImageIndex?: number;
+  imageGenerationAttempted?: boolean;
+  ingredientLinks?: DishIngredientLink[];
+  linkedDishSlugs?: string[];
+  isNew?: boolean;
+};
+
+type KitchenViewTab = "menu" | "pantry" | "both";
 
 type KitchenPayload = {
   restaurant: { name: string; isSeeded: boolean };
+  orderStats?: {
+    purchaseOrderCount: number;
+    salesOrderCount: number;
+    hasOrders: boolean;
+  };
   ingredients: IngredientRow[];
+  menuItems: MenuItemRow[];
 };
 
 export default function KitchenControlPage() {
   const router = useRouter();
   const review = useNewCatalogReview();
-  const { restaurant: kitchenProfile } = useKitchenName();
   const [data, setData] = useState<KitchenPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [ingredientModal, setIngredientModal] = useState<IngredientRow | null>(null);
+  const [dishModal, setDishModal] = useState<DishDetail | null>(null);
+  const [addOnModal, setAddOnModal] = useState<AddOnModalState | null>(null);
+  const [selectedDishSlug, setSelectedDishSlug] = useState<string | null>(null);
   const [bulkGenerating, setBulkGenerating] = useState(false);
   const [bulkMessage, setBulkMessage] = useState("");
+  const [dishBulkGenerating, setDishBulkGenerating] = useState(false);
+  const [dishBulkMessage, setDishBulkMessage] = useState("");
+  const [addOnBulkGenerating, setAddOnBulkGenerating] = useState(false);
+  const [addOnBulkMessage, setAddOnBulkMessage] = useState("");
   const [pantrySearch, setPantrySearch] = useState("");
-  const [brandFilter, setBrandFilter] = useState("");
+  const [brandFilters, setBrandFilters] = useState<string[]>([]);
+  const [departmentFilters, setDepartmentFilters] = useState<string[]>([]);
+  const [categoryFilters, setCategoryFilters] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [menuSearch, setMenuSearch] = useState("");
+  const [menuClassFilters, setMenuClassFilters] = useState<string[]>([]);
+  const [menuRecipeStatusFilters, setMenuRecipeStatusFilters] = useState<string[]>([]);
+  const [menuRecipeLinkFilters, setMenuRecipeLinkFilters] = useState<string[]>([]);
+  const [compareDishSearch, setCompareDishSearch] = useState("");
+  const [compareDishClassFilters, setCompareDishClassFilters] = useState<string[]>([]);
+  const [compareDishRecipeStatusFilters, setCompareDishRecipeStatusFilters] = useState<string[]>([]);
+  const [compareDishRecipeLinkFilters, setCompareDishRecipeLinkFilters] = useState<string[]>([]);
+  const [compareAddOnSearch, setCompareAddOnSearch] = useState("");
+  const [compareAddOnClassFilters, setCompareAddOnClassFilters] = useState<string[]>([]);
+  const [compareAddOnRecipeStatusFilters, setCompareAddOnRecipeStatusFilters] = useState<string[]>([]);
+  const [compareAddOnRecipeLinkFilters, setCompareAddOnRecipeLinkFilters] = useState<string[]>([]);
+  const [viewTab, setViewTab] = useState<KitchenViewTab>("menu");
+  const [viewTabInitialized, setViewTabInitialized] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/kitchen");
@@ -59,33 +147,537 @@ export default function KitchenControlPage() {
 
   const kitchen = data ?? {
     restaurant: { name: "Your kitchen", isSeeded: false },
+    orderStats: { purchaseOrderCount: 0, salesOrderCount: 0, hasOrders: false },
     ingredients: [] as IngredientRow[],
+    menuItems: [] as MenuItemRow[],
   };
+
+  const hasOrders = kitchen.orderStats?.hasOrders ?? false;
+
+  useEffect(() => {
+    if (!data || viewTabInitialized) return;
+    setViewTab(data.orderStats?.hasOrders ? "both" : "menu");
+    setViewTabInitialized(true);
+  }, [data, viewTabInitialized]);
 
   const missingPhotoCount = useMemo(
     () => kitchen.ingredients.filter((item) => ingredientMissingPhotos(item)).length,
     [kitchen.ingredients]
   );
 
+  const dishItems = useMemo(
+    () => kitchen.menuItems.filter((item) => item.kind === "dish"),
+    [kitchen.menuItems]
+  );
+
+  const addOnItems = useMemo(
+    () => kitchen.menuItems.filter((item) => item.kind === "addon"),
+    [kitchen.menuItems]
+  );
+
+  const missingDishPhotoCount = useMemo(
+    () => dishItems.filter((item) => item.missingPhotos).length,
+    [dishItems]
+  );
+
+  const missingAddOnPhotoCount = useMemo(
+    () => addOnItems.filter((item) => item.missingPhotos).length,
+    [addOnItems]
+  );
+
+  function menuItemToDishDetail(item: MenuItemRow): DishDetail {
+    return {
+      slug: item.slug,
+      name: item.name,
+      category: item.category,
+      classification: item.classification ?? item.category,
+      sellPrice: item.sellPrice,
+      totalSold: item.totalSold,
+      recipeStatus: item.recipeStatus as DishDetail["recipeStatus"],
+      description: item.description,
+      imageUrl: item.imageUrl,
+      imageCandidates: item.imageCandidates ?? [],
+      selectedImageIndex: item.selectedImageIndex ?? 0,
+      imageGenerationAttempted: item.imageGenerationAttempted ?? false,
+      ingredientLinks: item.ingredientLinks ?? [],
+      linkedAddOnSlugs: item.linkedAddOnSlugs ?? [],
+    };
+  }
+
+  function openNewDishModal() {
+    setDishModal({
+      slug: "",
+      name: "",
+      category: "sandwich",
+      classification: "sandwich",
+      sellPrice: 0,
+      totalSold: 0,
+      ingredientLinks: [],
+      linkedAddOnSlugs: [],
+      isNew: true,
+    });
+  }
+
+  function openNewIngredientModal() {
+    setIngredientModal({
+      slug: "",
+      name: "",
+      category: "misc",
+      currentQty: 0,
+      inventoryUnit: "each",
+      reorderThreshold: 1,
+      isNew: true,
+    });
+  }
+
+  const selectedDish = useMemo(
+    () => dishItems.find((item) => item.slug === selectedDishSlug) ?? null,
+    [dishItems, selectedDishSlug]
+  );
+
+  const selectedDishIngredientSlugs = useMemo(() => {
+    if (!selectedDish) return null;
+    return new Set((selectedDish.ingredientLinks ?? []).map((link) => link.ingredientSlug));
+  }, [selectedDish]);
+
   const brandOptions = useMemo(() => {
     const brands = new Set<string>();
+    let hasUnbranded = false;
     for (const item of kitchen.ingredients) {
       const brand = item.brandName?.trim();
       if (brand) brands.add(brand);
+      else hasUnbranded = true;
     }
-    return Array.from(brands).sort((a, b) => a.localeCompare(b));
+    const options = Array.from(brands)
+      .sort((a, b) => a.localeCompare(b))
+      .map((brand) => ({ value: brand, label: brand }));
+    if (hasUnbranded) {
+      options.unshift({ value: "__none__", label: "(No brand)" });
+    }
+    return options;
   }, [kitchen.ingredients]);
+
+  const departmentOptions = useMemo(() => {
+    const departments = new Set<string>();
+    for (const item of kitchen.ingredients) {
+      departments.add(ingredientClassKey(item.category));
+    }
+    return Array.from(departments)
+      .sort((a, b) => ingredientClassLabel(a).localeCompare(ingredientClassLabel(b)))
+      .map((departmentKey) => ({
+        value: departmentKey,
+        label: ingredientClassLabel(departmentKey),
+      }));
+  }, [kitchen.ingredients]);
+
+  const categoryOptions = useMemo(() => {
+    const categories = new Set<string>();
+    for (const item of kitchen.ingredients) {
+      categories.add(ingredientSubclassKey(item.category));
+    }
+    return Array.from(categories)
+      .sort((a, b) => formatClassificationLabel(a).localeCompare(formatClassificationLabel(b)))
+      .map((categoryKey) => ({
+        value: categoryKey,
+        label: formatClassificationLabel(categoryKey),
+      }));
+  }, [kitchen.ingredients]);
+
+  const statusOptions = PANTRY_STATUS_OPTIONS;
+
+  const menuClassOptions = useMemo(() => {
+    const classes = new Set<string>();
+    for (const item of [...dishItems, ...addOnItems]) {
+      const raw = (item.classification ?? item.category ?? "").trim();
+      if (!raw) continue;
+      classes.add(dishClassKey(raw));
+    }
+    return Array.from(classes)
+      .sort((a, b) => dishClassLabel(a).localeCompare(dishClassLabel(b)))
+      .map((key) => ({ value: key, label: dishClassLabel(key) }));
+  }, [dishItems, addOnItems]);
+
+  const menuRecipeStatusOptions = useMemo(
+    () => [
+      { value: "new", label: "New" },
+      { value: "active", label: "Active" },
+      { value: "inactive", label: "Inactive" },
+      { value: "suggested", label: "Suggested" },
+      { value: "__none__", label: "No recipe" },
+    ],
+    []
+  );
+
+  const menuRecipeLinkOptions = useMemo(
+    () => [
+      { value: "has_recipe", label: "Has ingredients linked" },
+      { value: "no_recipe", label: "No ingredients linked" },
+    ],
+    []
+  );
+
+  type MenuFilterState = {
+    search: string;
+    classFilters: string[];
+    recipeStatusFilters: string[];
+    recipeLinkFilters: string[];
+  };
+
+  function menuItemMatchesFilterSet(item: MenuItemRow, filters: MenuFilterState): boolean {
+    const nameQuery = filters.search.trim().toLowerCase();
+    if (nameQuery && !item.name.toLowerCase().includes(nameQuery)) return false;
+
+    if (filters.classFilters.length > 0) {
+      const classKey = dishClassKey(item.classification ?? item.category);
+      if (!filters.classFilters.includes(classKey)) return false;
+    }
+
+    if (filters.recipeStatusFilters.length > 0) {
+      const status = item.recipeStatus?.trim() || "__none__";
+      const hasLinks = (item.ingredientLinks?.length ?? 0) > 0;
+      const effective = hasLinks ? status : "__none__";
+      if (!filters.recipeStatusFilters.includes(effective)) return false;
+    }
+
+    if (filters.recipeLinkFilters.length > 0) {
+      const hasLinks = (item.ingredientLinks?.length ?? 0) > 0;
+      const linkValue = hasLinks ? "has_recipe" : "no_recipe";
+      if (!filters.recipeLinkFilters.includes(linkValue)) return false;
+    }
+
+    return true;
+  }
+
+  const menuFilterState: MenuFilterState = useMemo(
+    () => ({
+      search: menuSearch,
+      classFilters: menuClassFilters,
+      recipeStatusFilters: menuRecipeStatusFilters,
+      recipeLinkFilters: menuRecipeLinkFilters,
+    }),
+    [menuSearch, menuClassFilters, menuRecipeStatusFilters, menuRecipeLinkFilters]
+  );
+
+  const compareDishFilterState: MenuFilterState = useMemo(
+    () => ({
+      search: compareDishSearch,
+      classFilters: compareDishClassFilters,
+      recipeStatusFilters: compareDishRecipeStatusFilters,
+      recipeLinkFilters: compareDishRecipeLinkFilters,
+    }),
+    [
+      compareDishSearch,
+      compareDishClassFilters,
+      compareDishRecipeStatusFilters,
+      compareDishRecipeLinkFilters,
+    ]
+  );
+
+  const compareAddOnFilterState: MenuFilterState = useMemo(
+    () => ({
+      search: compareAddOnSearch,
+      classFilters: compareAddOnClassFilters,
+      recipeStatusFilters: compareAddOnRecipeStatusFilters,
+      recipeLinkFilters: compareAddOnRecipeLinkFilters,
+    }),
+    [
+      compareAddOnSearch,
+      compareAddOnClassFilters,
+      compareAddOnRecipeStatusFilters,
+      compareAddOnRecipeLinkFilters,
+    ]
+  );
+
+  const filteredDishItems = useMemo(
+    () => dishItems.filter((item) => menuItemMatchesFilterSet(item, menuFilterState)),
+    [dishItems, menuFilterState]
+  );
+
+  const filteredAddOnItems = useMemo(
+    () => addOnItems.filter((item) => menuItemMatchesFilterSet(item, menuFilterState)),
+    [addOnItems, menuFilterState]
+  );
+
+  const filteredCompareDishes = useMemo(
+    () => dishItems.filter((item) => menuItemMatchesFilterSet(item, compareDishFilterState)),
+    [dishItems, compareDishFilterState]
+  );
+
+  const filteredCompareAddOns = useMemo(
+    () => addOnItems.filter((item) => menuItemMatchesFilterSet(item, compareAddOnFilterState)),
+    [addOnItems, compareAddOnFilterState]
+  );
+
+  const compareDishClassOptions = useMemo(() => {
+    const classes = new Set<string>();
+    for (const item of dishItems) {
+      const raw = (item.classification ?? item.category ?? "").trim();
+      if (!raw) continue;
+      classes.add(dishClassKey(raw));
+    }
+    return Array.from(classes)
+      .sort((a, b) => dishClassLabel(a).localeCompare(dishClassLabel(b)))
+      .map((key) => ({ value: key, label: dishClassLabel(key) }));
+  }, [dishItems]);
+
+  const compareAddOnClassOptions = useMemo(() => {
+    const classes = new Set<string>();
+    for (const item of addOnItems) {
+      const raw = (item.classification ?? item.category ?? "").trim();
+      if (!raw) continue;
+      classes.add(dishClassKey(raw));
+    }
+    return Array.from(classes)
+      .sort((a, b) => dishClassLabel(a).localeCompare(dishClassLabel(b)))
+      .map((key) => ({ value: key, label: dishClassLabel(key) }));
+  }, [addOnItems]);
+
+  const menuFiltersActive = Boolean(
+    menuSearch.trim() ||
+      menuClassFilters.length > 0 ||
+      menuRecipeStatusFilters.length > 0 ||
+      menuRecipeLinkFilters.length > 0
+  );
+
+  function clearMenuFilters() {
+    setMenuSearch("");
+    setMenuClassFilters([]);
+    setMenuRecipeStatusFilters([]);
+    setMenuRecipeLinkFilters([]);
+  }
+
+  const compareDishFiltersActive = Boolean(
+    compareDishSearch.trim() ||
+      compareDishClassFilters.length > 0 ||
+      compareDishRecipeStatusFilters.length > 0 ||
+      compareDishRecipeLinkFilters.length > 0
+  );
+
+  const compareAddOnFiltersActive = Boolean(
+    compareAddOnSearch.trim() ||
+      compareAddOnClassFilters.length > 0 ||
+      compareAddOnRecipeStatusFilters.length > 0 ||
+      compareAddOnRecipeLinkFilters.length > 0
+  );
+
+  function clearCompareDishFilters() {
+    setCompareDishSearch("");
+    setCompareDishClassFilters([]);
+    setCompareDishRecipeStatusFilters([]);
+    setCompareDishRecipeLinkFilters([]);
+  }
+
+  function clearCompareAddOnFilters() {
+    setCompareAddOnSearch("");
+    setCompareAddOnClassFilters([]);
+    setCompareAddOnRecipeStatusFilters([]);
+    setCompareAddOnRecipeLinkFilters([]);
+  }
 
   const filteredIngredients = useMemo(() => {
     const nameQuery = pantrySearch.trim().toLowerCase();
     return kitchen.ingredients.filter((item) => {
-      if (brandFilter && (item.brandName ?? "") !== brandFilter) return false;
+      if (
+        selectedDishIngredientSlugs &&
+        !selectedDishIngredientSlugs.has(item.slug)
+      ) {
+        return false;
+      }
+      if (brandFilters.length > 0) {
+        const brandValue = item.brandName?.trim() || "__none__";
+        if (!brandFilters.includes(brandValue)) return false;
+      }
+      if (departmentFilters.length > 0) {
+        if (!departmentFilters.includes(ingredientClassKey(item.category))) return false;
+      }
+      if (categoryFilters.length > 0) {
+        if (!categoryFilters.includes(ingredientSubclassKey(item.category))) return false;
+      }
+      if (statusFilters.length > 0) {
+        if (!matchesAnyPantryStatus(item, statusFilters as PantryStatus[])) return false;
+      }
       if (!nameQuery) return true;
       return item.name.toLowerCase().includes(nameQuery);
     });
-  }, [kitchen.ingredients, pantrySearch, brandFilter]);
+  }, [
+    kitchen.ingredients,
+    pantrySearch,
+    brandFilters,
+    departmentFilters,
+    categoryFilters,
+    statusFilters,
+    selectedDishIngredientSlugs,
+  ]);
 
-  const pantryFiltersActive = Boolean(pantrySearch.trim() || brandFilter);
+  const dishGroups = useMemo(
+    () =>
+      groupByClassSubclass(
+        filteredDishItems,
+        (item) => dishClassKey(item.classification ?? item.category),
+        (item) => dishSubclassKey(item.classification ?? item.category),
+        dishClassLabel,
+        formatClassificationLabel
+      ),
+    [filteredDishItems]
+  );
+
+  const addOnGroups = useMemo(() => {
+    return groupByClassSubclass(
+      filteredAddOnItems,
+      (item) => (item.classification ?? item.category ?? "addon").trim().toLowerCase() || "addon",
+      (item) => (item.classification ?? item.category ?? "addon").trim().toLowerCase() || "addon",
+      formatClassificationLabel,
+      formatClassificationLabel
+    );
+  }, [filteredAddOnItems]);
+
+  const ingredientGroups = useMemo(
+    () =>
+      groupByClassSubclass(
+        filteredIngredients,
+        (item) => ingredientClassKey(item.category),
+        (item) => ingredientSubclassKey(item.category),
+        ingredientClassLabel,
+        formatClassificationLabel
+      ),
+    [filteredIngredients]
+  );
+
+  const pantryOptions = useMemo(
+    () =>
+      kitchen.ingredients.map((item) => ({
+        slug: item.slug,
+        name: item.name,
+        inventoryUnit: item.inventoryUnit,
+      })),
+    [kitchen.ingredients]
+  );
+
+  const addOnOptions = useMemo(
+    () =>
+      addOnItems.map((item) => ({
+        slug: item.slug,
+        name: item.name,
+        sellPrice: item.sellPrice,
+      })),
+    [addOnItems]
+  );
+
+  const dishClassOptions = useMemo(
+    () => {
+      const byNormalized = new Map<string, string>();
+      for (const item of dishItems) {
+        const raw = (item.classification ?? item.category ?? "").trim();
+        if (!raw) continue;
+        const normalized = raw.toLowerCase();
+        if (!byNormalized.has(normalized)) {
+          byNormalized.set(normalized, raw);
+        }
+      }
+      return Array.from(byNormalized.values()).sort((a, b) => a.localeCompare(b));
+    },
+    [dishItems]
+  );
+
+  const addOnClassOptions = useMemo(
+    () => {
+      const byNormalized = new Map<string, string>();
+      for (const item of addOnItems) {
+        const raw = (item.classification ?? item.category ?? "").trim();
+        if (!raw) continue;
+        const normalized = raw.toLowerCase();
+        if (!byNormalized.has(normalized)) {
+          byNormalized.set(normalized, raw);
+        }
+      }
+      return Array.from(byNormalized.values()).sort((a, b) => a.localeCompare(b));
+    },
+    [addOnItems]
+  );
+
+  const pantryFiltersActive = Boolean(
+    pantrySearch.trim() ||
+      brandFilters.length > 0 ||
+      departmentFilters.length > 0 ||
+      categoryFilters.length > 0 ||
+      statusFilters.length > 0 ||
+      selectedDishSlug
+  );
+
+  function clearPantryFilters(clearDishSelection = false) {
+    setPantrySearch("");
+    setBrandFilters([]);
+    setDepartmentFilters([]);
+    setCategoryFilters([]);
+    setStatusFilters([]);
+    if (clearDishSelection) {
+      setSelectedDishSlug(null);
+    }
+  }
+
+  async function handleGenerateMissingDishImages() {
+    setDishBulkGenerating(true);
+    setDishBulkMessage("");
+    try {
+      const res = await fetch("/api/catalog/dishes/generate-missing-images", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) {
+        setDishBulkMessage(body.error ?? "Could not generate images");
+        return;
+      }
+      const { generated, failed, attempted } = body as {
+        generated: number;
+        attempted: number;
+        failed: number;
+      };
+      if (attempted === 0) {
+        setDishBulkMessage("All dishes already have photos.");
+      } else if (failed === 0) {
+        setDishBulkMessage(`Generated images for ${generated} dish${generated === 1 ? "" : "es"}.`);
+      } else {
+        setDishBulkMessage(
+          `Generated ${generated} of ${attempted}; ${failed} failed. Try again or use per-dish Generate.`
+        );
+      }
+      await load();
+    } catch {
+      setDishBulkMessage("Could not generate images. Is the agent running?");
+    } finally {
+      setDishBulkGenerating(false);
+    }
+  }
+
+  async function handleGenerateMissingAddOnImages() {
+    setAddOnBulkGenerating(true);
+    setAddOnBulkMessage("");
+    try {
+      const res = await fetch("/api/catalog/addons/generate-missing-images", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) {
+        setAddOnBulkMessage(body.error ?? "Could not generate images");
+        return;
+      }
+      const { generated, failed, attempted } = body as {
+        generated: number;
+        attempted: number;
+        failed: number;
+      };
+      if (attempted === 0) {
+        setAddOnBulkMessage("All add-ons already have photos.");
+      } else if (failed === 0) {
+        setAddOnBulkMessage(`Generated images for ${generated} add-on${generated === 1 ? "" : "s"}.`);
+      } else {
+        setAddOnBulkMessage(
+          `Generated ${generated} of ${attempted}; ${failed} failed. Try again or use per add-on Generate.`
+        );
+      }
+      await load();
+    } catch {
+      setAddOnBulkMessage("Could not generate images. Is the agent running?");
+    } finally {
+      setAddOnBulkGenerating(false);
+    }
+  }
 
   async function handleGenerateMissingImages() {
     setBulkGenerating(true);
@@ -130,90 +722,353 @@ export default function KitchenControlPage() {
     );
   }
 
-  const empty = kitchen.ingredients.length === 0 && review.newIngredients.length === 0;
+  const empty =
+    kitchen.ingredients.length === 0 &&
+    kitchen.menuItems.length === 0 &&
+    review.newIngredients.length === 0 &&
+    review.newDishes.length === 0;
   const hasLeftContent =
+    !empty ||
     review.preparingReview ||
     review.pendingCount > 0 ||
     review.newIngredients.length > 0 ||
-    empty;
+    review.newDishes.length > 0;
+
+  function menuSalesForItem(item: MenuItemRow) {
+    return {
+      sellPrice: item.sellPrice,
+      totalSold: item.totalSold,
+      soldThisWeek: item.soldThisWeek,
+    };
+  }
+
+  function ingredientPantryForItem(item: IngredientRow) {
+    return {
+      lastPurchasePrice: item.lastPurchasePrice,
+      lastPurchaseDate: item.lastPurchaseDate,
+      currentQty: item.currentQty,
+      inventoryUnit: item.inventoryUnit,
+      reorderThreshold: item.reorderThreshold,
+    };
+  }
+
+  const KITCHEN_TABS: { id: KitchenViewTab; label: string }[] = [
+    { id: "menu", label: "Menu" },
+    { id: "pantry", label: "Pantry" },
+    { id: "both", label: "Compare View" },
+  ];
+
+  const newItemsReviewSection =
+    !review.sessionLoading &&
+    (review.newIngredients.length > 0 || review.newDishes.length > 0) ? (
+      <section className="mt-6">
+        <NewItemsReview
+          newIngredients={review.newIngredients}
+          newDishes={review.newDishes}
+          missingIngredients={[]}
+          onIngredientAdded={(id, billId) => {
+            review.handleIngredientAdded(id, billId);
+            void load();
+          }}
+          onDishAdded={(id, billId) => {
+            review.handleDishAdded(id, billId);
+            void load();
+          }}
+          onMissingIngredientAdded={() => {}}
+          onIngredientsChange={review.updateIngredients}
+          onDishesChange={review.updateDishes}
+          onMissingIngredientsChange={() => {}}
+          onBillsProcessed={review.handleBillsProcessed}
+          onItemsAdded={(ids) => {
+            review.markItemsAdded(ids);
+            void load();
+          }}
+        />
+      </section>
+    ) : null;
+
+  const enrichingPanel =
+    !review.sessionLoading && (review.preparingReview || review.pendingCount > 0) ? (
+      <NewItemsEnrichingPanel
+        readyCount={review.readyIngredients.length}
+        totalCount={review.newIngredients.length}
+        statusLabel={review.prepareLabel}
+      />
+    ) : null;
+
+  const uploadHint = (
+    <p className="text-sm text-chef-text-muted">
+      {kitchen.menuItems.length === 0 ? (
+        <>
+          Add menu items from{" "}
+          <Link href="/upload-orders" className="text-chef-sage underline">
+            sales orders
+          </Link>
+          . Need stock? Upload{" "}
+          <Link href="/upload-orders" className="text-chef-sage underline">
+            purchase orders
+          </Link>{" "}
+          first.
+        </>
+      ) : (
+        <>
+          Need more stock?{" "}
+          <Link href="/upload-orders" className="text-chef-sage underline">
+            Upload purchase orders
+          </Link>{" "}
+          and click Process.
+        </>
+      )}
+    </p>
+  );
 
   return (
     <>
       <Nav />
-      <main className="mx-auto max-w-7xl px-4 py-8">
+      <main className="sc-main-with-nav mx-auto max-w-7xl px-4 py-8">
         <div>
           <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Kitchen control</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <p className="text-base text-chef-text-muted">
-              {kitchenProfile?.kitchenNameSet ? kitchenProfile.name : kitchen.restaurant.name}
-            </p>
-          </div>
         </div>
 
-        {empty ? (
-          <CatalogEmptyPrompt
-            title="No ingredients yet"
-            description="Upload purchase orders to build your pantry. PDF or PNG invoices with .s_bill. in the filename."
-          />
-        ) : (
-          <div className="mt-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
-            <div className="min-w-0">
-              {!review.sessionLoading && (review.preparingReview || review.pendingCount > 0) && (
-                <NewItemsEnrichingPanel
-                  readyCount={review.readyIngredients.length}
-                  totalCount={review.newIngredients.length}
-                  statusLabel={review.prepareLabel}
+        {!hasOrders && empty && (
+          <div className="mt-6 rounded-xl border border-chef-amber/30 bg-chef-amber-light/40 p-4 sm:p-5">
+            <p className="text-sm leading-relaxed text-chef-text-muted">
+              No purchase or sales orders uploaded yet. Use the tabs below to build your menu and
+              pantry manually, or{" "}
+              <Link href="/upload-orders" className="font-medium text-chef-sage underline">
+                upload orders
+              </Link>{" "}
+              to populate from bills.
+            </p>
+          </div>
+        )}
+
+        <div
+          className="mt-6 flex flex-wrap gap-2 border-b border-chef-border pb-3"
+          role="tablist"
+          aria-label="Kitchen views"
+        >
+          {KITCHEN_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={viewTab === tab.id}
+              onClick={() => setViewTab(tab.id)}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                viewTab === tab.id
+                  ? "bg-chef-sage text-white"
+                  : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {viewTab === "menu" && (
+          <div className="mt-6 space-y-6">
+            <MenuFiltersBar
+              totalCount={dishItems.length + addOnItems.length}
+              filteredCount={filteredDishItems.length + filteredAddOnItems.length}
+              menuSearch={menuSearch}
+              onMenuSearchChange={setMenuSearch}
+              classFilters={menuClassFilters}
+              onClassFiltersChange={setMenuClassFilters}
+              classOptions={menuClassOptions}
+              recipeStatusFilters={menuRecipeStatusFilters}
+              onRecipeStatusFiltersChange={setMenuRecipeStatusFilters}
+              recipeStatusOptions={menuRecipeStatusOptions}
+              recipeLinkFilters={menuRecipeLinkFilters}
+              onRecipeLinkFiltersChange={setMenuRecipeLinkFilters}
+              recipeLinkOptions={menuRecipeLinkOptions}
+              filtersActive={menuFiltersActive}
+              onClearFilters={clearMenuFilters}
+            />
+            <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Dishes</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    Grouped by class and subclass. Double-click a dish to edit.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openNewDishModal}
+                    className="shrink-0 rounded-lg bg-chef-sage px-3 py-1.5 text-sm font-medium text-white hover:bg-chef-sage/90"
+                  >
+                    + Dish
+                  </button>
+                  {missingDishPhotoCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={dishBulkGenerating}
+                      onClick={() => void handleGenerateMissingDishImages()}
+                      className="shrink-0 rounded-lg border border-chef-sage/50 px-3 py-1.5 text-sm font-medium text-chef-sage hover:bg-chef-sage-light/40 disabled:opacity-50"
+                    >
+                      {dishBulkGenerating
+                        ? "Generating…"
+                        : `Generate images for missing (${missingDishPhotoCount})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {dishBulkMessage && (
+                <p className="mt-3 text-sm text-chef-text-muted">{dishBulkMessage}</p>
+              )}
+
+              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+                <KitchenClassifiedGrid
+                  groups={dishGroups}
+                  emptyMessage="No dishes yet. Add one manually or process sales orders."
+                  itemLabel={(count) => `${count} dish${count === 1 ? "" : "es"}`}
+                  renderItem={(item) => (
+                    <KitchenCard
+                      name={item.name}
+                      imageUrl={item.imageUrl}
+                      menuSales={menuSalesForItem(item)}
+                      selected={selectedDishSlug === item.slug}
+                      onClick={() => {
+                        setSelectedDishSlug((prev) => (prev === item.slug ? null : item.slug));
+                      }}
+                      onDoubleClick={() => setDishModal(menuItemToDishDetail(item))}
+                    />
+                  )}
                 />
-              )}
+              </div>
+            </section>
 
-              {!review.sessionLoading && review.newIngredients.length > 0 && (
-                <section className={review.preparingReview || review.pendingCount > 0 ? "mt-6" : ""}>
-                  <NewItemsReview
-                    newIngredients={review.newIngredients}
-                    newDishes={[]}
-                    missingIngredients={[]}
-                    onIngredientAdded={(id, billId) => {
-                      review.handleIngredientAdded(id, billId);
-                      void load();
-                    }}
-                    onDishAdded={() => {}}
-                    onMissingIngredientAdded={() => {}}
-                    onIngredientsChange={review.updateIngredients}
-                    onDishesChange={() => {}}
-                    onMissingIngredientsChange={() => {}}
-                    onBillsProcessed={review.handleBillsProcessed}
-                    onItemsAdded={(ids) => {
-                      review.markItemsAdded(ids);
-                      void load();
-                    }}
-                  />
-                </section>
+            <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Add-ons</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    Grouped by the class and subclass of linked dishes.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAddOnModal({
+                        slug: "",
+                        name: "",
+                        classification: addOnClassOptions[0] ?? "addon",
+                        description: "",
+                        sellPrice: 0,
+                        ingredientLinks: [],
+                        linkedDishSlugs: [],
+                        isNew: true,
+                      })
+                    }
+                    className="shrink-0 rounded-lg bg-chef-sage px-3 py-1.5 text-sm font-medium text-white hover:bg-chef-sage/90"
+                  >
+                    + Add-on
+                  </button>
+                  {missingAddOnPhotoCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={addOnBulkGenerating}
+                      onClick={() => void handleGenerateMissingAddOnImages()}
+                      className="shrink-0 rounded-lg border border-chef-sage/50 px-3 py-1.5 text-sm font-medium text-chef-sage hover:bg-chef-sage-light/40 disabled:opacity-50"
+                    >
+                      {addOnBulkGenerating
+                        ? "Generating…"
+                        : `Generate images for missing (${missingAddOnPhotoCount})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+              {addOnBulkMessage && (
+                <p className="mt-3 text-sm text-chef-text-muted">{addOnBulkMessage}</p>
               )}
+              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+                <KitchenClassifiedGrid
+                  groups={addOnGroups}
+                  emptyMessage="No add-ons yet. Process sales orders to capture add-ons."
+                  itemLabel={(count) => `${count} add-on${count === 1 ? "" : "s"}`}
+                  renderItem={(item) => (
+                    <KitchenCard
+                      name={item.name}
+                      imageUrl={item.imageUrl}
+                      menuSales={menuSalesForItem(item)}
+                      onClick={() => {}}
+                      onDoubleClick={() =>
+                        setAddOnModal({
+                          slug: item.slug,
+                          name: item.name,
+                          classification: item.classification ?? item.category,
+                          description: item.description,
+                          sellPrice: item.sellPrice,
+                          imageUrl: item.imageUrl,
+                          imageCandidates: item.imageCandidates ?? [],
+                          selectedImageIndex: item.selectedImageIndex ?? 0,
+                          imageGenerationAttempted: item.imageGenerationAttempted ?? false,
+                          ingredientLinks: item.ingredientLinks ?? [],
+                          linkedDishSlugs: item.linkedDishSlugs ?? [],
+                        })
+                      }
+                    />
+                  )}
+                />
+              </div>
+            </section>
 
-              {!hasLeftContent && (
-                <p className="text-sm text-chef-text-muted">
-                  New items from purchase orders will appear here for review.
-                </p>
-              )}
-
-              <p className="mt-6 text-sm text-chef-text-muted">
-                Need more stock?{" "}
-                <Link href="/upload-orders" className="text-chef-sage underline">
-                  Upload purchase orders
-                </Link>{" "}
-                and click Process.
+            {enrichingPanel}
+            {newItemsReviewSection}
+            {!hasLeftContent && (
+              <p className="text-sm text-chef-text-muted">
+                Process sales orders to populate your menu, or purchase orders to review new pantry
+                items.
               </p>
-            </div>
+            )}
+            <div className="mt-2">{uploadHint}</div>
+          </div>
+        )}
 
-            <aside className="mt-8 min-w-0 lg:mt-0 lg:sticky lg:top-6">
-              <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-chef-text">Pantry</h2>
-                    <p className="mt-1 text-sm text-chef-text-muted">
-                      Stock from processed orders. Tap an item for details.
-                    </p>
-                  </div>
+        {viewTab === "pantry" && (
+          <div className="mt-6 space-y-6">
+            {kitchen.ingredients.length > 0 && (
+              <PantryFiltersBar
+                totalCount={kitchen.ingredients.length}
+                filteredCount={filteredIngredients.length}
+                pantrySearch={pantrySearch}
+                onPantrySearchChange={setPantrySearch}
+                brandFilters={brandFilters}
+                onBrandFiltersChange={setBrandFilters}
+                brandOptions={brandOptions}
+                departmentFilters={departmentFilters}
+                onDepartmentFiltersChange={setDepartmentFilters}
+                departmentOptions={departmentOptions}
+                categoryFilters={categoryFilters}
+                onCategoryFiltersChange={setCategoryFilters}
+                categoryOptions={categoryOptions}
+                statusFilters={statusFilters}
+                onStatusFiltersChange={setStatusFilters}
+                statusOptions={statusOptions}
+                filtersActive={pantryFiltersActive}
+                onClearFilters={() => clearPantryFilters()}
+              />
+            )}
+            <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Pantry</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    Ingredients grouped by department and category. Tap an item for details.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openNewIngredientModal}
+                    className="shrink-0 rounded-lg bg-chef-sage px-3 py-1.5 text-sm font-medium text-white hover:bg-chef-sage/90"
+                  >
+                    + Ingredient
+                  </button>
                   {missingPhotoCount > 0 && (
                     <button
                       type="button"
@@ -227,58 +1082,212 @@ export default function KitchenControlPage() {
                     </button>
                   )}
                 </div>
+              </div>
 
-                {bulkMessage && (
-                  <p className="mt-3 text-sm text-chef-text-muted">{bulkMessage}</p>
+              {bulkMessage && <p className="mt-3 text-sm text-chef-text-muted">{bulkMessage}</p>}
+
+              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+                {kitchen.ingredients.length === 0 ? (
+                  <p className="text-sm text-chef-text-muted">
+                    No pantry items yet. Add an ingredient or process a purchase order.
+                  </p>
+                ) : filteredIngredients.length === 0 ? (
+                  <p className="text-sm text-chef-text-muted">
+                    No ingredients match your search or filters.
+                  </p>
+                ) : (
+                  <KitchenClassifiedGrid
+                    groups={ingredientGroups}
+                    emptyMessage="No ingredients match your search or filters."
+                    subgroupTitlePrefix="Category"
+                    renderItem={(item) => (
+                      <KitchenCard
+                        name={item.name}
+                        imageUrl={item.imageUrl}
+                        ingredientPantry={ingredientPantryForItem(item)}
+                        label={item.label}
+                        onClick={() => setIngredientModal(item)}
+                      />
+                    )}
+                  />
                 )}
+              </div>
+            </section>
+            <div className="mt-6">{uploadHint}</div>
+          </div>
+        )}
+
+        {viewTab === "both" && (
+          <div className="mt-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8">
+            <div className="min-w-0 space-y-6">
+              <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Dishes</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    Click a dish to filter pantry ingredients; double-click to edit.
+                  </p>
+                </div>
+
+                <MenuFiltersBar
+                  totalCount={dishItems.length}
+                  filteredCount={filteredCompareDishes.length}
+                  menuSearch={compareDishSearch}
+                  onMenuSearchChange={setCompareDishSearch}
+                  classFilters={compareDishClassFilters}
+                  onClassFiltersChange={setCompareDishClassFilters}
+                  classOptions={compareDishClassOptions}
+                  recipeStatusFilters={compareDishRecipeStatusFilters}
+                  onRecipeStatusFiltersChange={setCompareDishRecipeStatusFilters}
+                  recipeStatusOptions={menuRecipeStatusOptions}
+                  recipeLinkFilters={compareDishRecipeLinkFilters}
+                  onRecipeLinkFiltersChange={setCompareDishRecipeLinkFilters}
+                  recipeLinkOptions={menuRecipeLinkOptions}
+                  filtersActive={compareDishFiltersActive}
+                  onClearFilters={clearCompareDishFilters}
+                />
+
+                <div className="mt-3 flex max-h-[calc(100vh-20rem)] flex-wrap gap-3 overflow-y-auto pb-2">
+                  {dishItems.length === 0 ? (
+                    <p className="text-sm text-chef-text-muted">
+                      No dishes yet. Add one manually or process sales orders.
+                    </p>
+                  ) : filteredCompareDishes.length === 0 ? (
+                    <p className="text-sm text-chef-text-muted">No dishes match your filters.</p>
+                  ) : (
+                    filteredCompareDishes.map((item) => (
+                      <KitchenCard
+                        key={`${item.kind}:${item.slug}`}
+                        name={item.name}
+                        imageUrl={item.imageUrl}
+                        menuSales={menuSalesForItem(item)}
+                        selected={selectedDishSlug === item.slug}
+                        onClick={() => {
+                          setSelectedDishSlug((prev) =>
+                            prev === item.slug ? null : item.slug
+                          );
+                        }}
+                        onDoubleClick={() => setDishModal(menuItemToDishDetail(item))}
+                      />
+                    ))
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-chef-text-muted">
+                  {filteredCompareDishes.length} of {dishItems.length} dish
+                  {dishItems.length === 1 ? "" : "es"}
+                </p>
+              </section>
+
+              <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Add-ons</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    POS modifiers from processed sales orders. Double-click to edit.
+                  </p>
+                </div>
+
+                <MenuFiltersBar
+                  totalCount={addOnItems.length}
+                  filteredCount={filteredCompareAddOns.length}
+                  menuSearch={compareAddOnSearch}
+                  onMenuSearchChange={setCompareAddOnSearch}
+                  classFilters={compareAddOnClassFilters}
+                  onClassFiltersChange={setCompareAddOnClassFilters}
+                  classOptions={compareAddOnClassOptions}
+                  recipeStatusFilters={compareAddOnRecipeStatusFilters}
+                  onRecipeStatusFiltersChange={setCompareAddOnRecipeStatusFilters}
+                  recipeStatusOptions={menuRecipeStatusOptions}
+                  recipeLinkFilters={compareAddOnRecipeLinkFilters}
+                  onRecipeLinkFiltersChange={setCompareAddOnRecipeLinkFilters}
+                  recipeLinkOptions={menuRecipeLinkOptions}
+                  filtersActive={compareAddOnFiltersActive}
+                  onClearFilters={clearCompareAddOnFilters}
+                />
+
+                <div className="mt-3 flex max-h-[calc(100vh-20rem)] flex-wrap gap-3 overflow-y-auto pb-2">
+                  {addOnItems.length === 0 ? (
+                    <p className="text-sm text-chef-text-muted">
+                      No add-ons yet. Process sales orders to capture add-ons.
+                    </p>
+                  ) : filteredCompareAddOns.length === 0 ? (
+                    <p className="text-sm text-chef-text-muted">No add-ons match your filters.</p>
+                  ) : (
+                    filteredCompareAddOns.map((item) => (
+                      <KitchenCard
+                        key={`${item.kind}:${item.slug}`}
+                        name={item.name}
+                        imageUrl={item.imageUrl}
+                        menuSales={menuSalesForItem(item)}
+                        onClick={() => {}}
+                        onDoubleClick={() =>
+                          setAddOnModal({
+                            slug: item.slug,
+                            name: item.name,
+                            classification: item.classification ?? item.category,
+                            description: item.description,
+                            sellPrice: item.sellPrice,
+                            imageUrl: item.imageUrl,
+                            imageCandidates: item.imageCandidates ?? [],
+                            selectedImageIndex: item.selectedImageIndex ?? 0,
+                            imageGenerationAttempted: item.imageGenerationAttempted ?? false,
+                            ingredientLinks: item.ingredientLinks ?? [],
+                            linkedDishSlugs: item.linkedDishSlugs ?? [],
+                          })
+                        }
+                      />
+                    ))
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-chef-text-muted">
+                  {filteredCompareAddOns.length} of {addOnItems.length} add-on
+                  {addOnItems.length === 1 ? "" : "s"}
+                </p>
+              </section>
+
+              {enrichingPanel}
+              {newItemsReviewSection}
+
+              {!hasLeftContent && (
+                <p className="text-sm text-chef-text-muted">
+                  Process sales orders to populate your menu, or purchase orders to review new
+                  pantry items.
+                </p>
+              )}
+
+              <p>{uploadHint}</p>
+            </div>
+
+            <aside className="mt-8 min-w-0 lg:mt-0 lg:sticky lg:top-6">
+              <section className="rounded-2xl border border-chef-border bg-chef-surface/50 p-4 sm:p-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-chef-text">Pantry</h2>
+                  <p className="mt-1 text-sm text-chef-text-muted">
+                    {selectedDish
+                      ? `Showing ingredients linked to ${selectedDish.name}. Tap the dish again to show all.`
+                      : "Stock from processed orders. Tap an item for details."}
+                  </p>
+                </div>
 
                 {kitchen.ingredients.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <label className="block flex-1 text-sm">
-                        <span className="sr-only">Search ingredient name</span>
-                        <input
-                          type="search"
-                          value={pantrySearch}
-                          onChange={(e) => setPantrySearch(e.target.value)}
-                          placeholder="Search ingredient name…"
-                          className="w-full rounded-lg border border-chef-muted bg-white px-3 py-2 text-sm text-chef-text placeholder:text-chef-text-muted/70"
-                        />
-                      </label>
-                      <label className="block shrink-0 text-sm sm:w-44">
-                        <span className="sr-only">Filter by brand</span>
-                        <select
-                          value={brandFilter}
-                          onChange={(e) => setBrandFilter(e.target.value)}
-                          className="w-full rounded-lg border border-chef-muted bg-white px-3 py-2 text-sm text-chef-text"
-                        >
-                          <option value="">All brands</option>
-                          {brandOptions.map((brand) => (
-                            <option key={brand} value={brand}>
-                              {brand}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-chef-text-muted">
-                      <span>
-                        {filteredIngredients.length} of {kitchen.ingredients.length} items
-                      </span>
-                      {pantryFiltersActive && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPantrySearch("");
-                            setBrandFilter("");
-                          }}
-                          className="font-medium text-chef-sage hover:underline"
-                        >
-                          Clear filters
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  <PantryFiltersBar
+                    totalCount={kitchen.ingredients.length}
+                    filteredCount={filteredIngredients.length}
+                    pantrySearch={pantrySearch}
+                    onPantrySearchChange={setPantrySearch}
+                    brandFilters={brandFilters}
+                    onBrandFiltersChange={setBrandFilters}
+                    brandOptions={brandOptions}
+                    departmentFilters={departmentFilters}
+                    onDepartmentFiltersChange={setDepartmentFilters}
+                    departmentOptions={departmentOptions}
+                    categoryFilters={categoryFilters}
+                    onCategoryFiltersChange={setCategoryFilters}
+                    categoryOptions={categoryOptions}
+                    statusFilters={statusFilters}
+                    onStatusFiltersChange={setStatusFilters}
+                    statusOptions={statusOptions}
+                    filtersActive={pantryFiltersActive}
+                    onClearFilters={() => clearPantryFilters(true)}
+                  />
                 )}
 
                 {kitchen.ingredients.length === 0 ? (
@@ -287,7 +1296,9 @@ export default function KitchenControlPage() {
                   </p>
                 ) : filteredIngredients.length === 0 ? (
                   <p className="mt-4 text-sm text-chef-text-muted">
-                    No ingredients match your search or brand filter.
+                    {selectedDish
+                      ? `No linked ingredients for ${selectedDish.name} yet. Double-click the dish to add some.`
+                      : "No ingredients match your search or filters."}
                   </p>
                 ) : (
                   <div className="mt-3 flex max-h-[calc(100vh-16rem)] flex-wrap gap-3 overflow-y-auto pb-2">
@@ -296,7 +1307,8 @@ export default function KitchenControlPage() {
                         key={`${item.slug}:${item.imageUrl ?? ""}:${item.selectedImageIndex ?? 0}`}
                         name={item.name}
                         imageUrl={item.imageUrl}
-                        subtitle={`${item.currentQty} ${item.inventoryUnit}`}
+                        ingredientPantry={ingredientPantryForItem(item)}
+                        label={item.label}
                         onClick={() => setIngredientModal(item)}
                       />
                     ))}
@@ -308,21 +1320,218 @@ export default function KitchenControlPage() {
         )}
       </main>
 
+      {dishModal && (
+        <KitchenDishModal
+          item={dishModal}
+          pantryIngredients={pantryOptions}
+          existingAddOns={addOnOptions}
+          classOptions={dishClassOptions}
+          onClose={() => setDishModal(null)}
+          onSaved={(updated) => {
+            const wasNew = dishModal.isNew;
+            setData((prev) => {
+              if (!prev) return prev;
+              if (wasNew) {
+                return {
+                  ...prev,
+                  menuItems: [
+                    ...prev.menuItems,
+                    {
+                      kind: "dish" as const,
+                      slug: updated.slug,
+                      name: updated.name,
+                      sellPrice: updated.sellPrice,
+                      totalSold: updated.totalSold,
+                      soldThisWeek: 0,
+                      recipeStatus: updated.recipeStatus ?? "new",
+                      category: updated.classification ?? updated.category,
+                      classification: updated.classification ?? updated.category,
+                      description: updated.description,
+                      imageUrl: updated.imageUrl,
+                      imageCandidates: updated.imageCandidates,
+                      selectedImageIndex: updated.selectedImageIndex,
+                      imageGenerationAttempted: updated.imageGenerationAttempted,
+                      missingPhotos: !updated.imageUrl,
+                      ingredientLinks: updated.ingredientLinks ?? [],
+                      linkedAddOnSlugs: updated.linkedAddOnSlugs ?? [],
+                    },
+                  ].sort((a, b) => a.name.localeCompare(b.name)),
+                };
+              }
+              return {
+                ...prev,
+                menuItems: prev.menuItems.map((row) =>
+                  row.kind === "dish" && row.slug === updated.slug
+                    ? {
+                        ...row,
+                        name: updated.name,
+                        category: updated.classification ?? updated.category,
+                        classification: updated.classification ?? updated.category,
+                        sellPrice: updated.sellPrice,
+                        description: updated.description,
+                        imageUrl: updated.imageUrl,
+                        imageCandidates: updated.imageCandidates,
+                        selectedImageIndex: updated.selectedImageIndex,
+                        imageGenerationAttempted: updated.imageGenerationAttempted,
+                        missingPhotos: !updated.imageUrl,
+                        ingredientLinks: updated.ingredientLinks ?? [],
+                        linkedAddOnSlugs: updated.linkedAddOnSlugs ?? [],
+                      }
+                    : row
+                ),
+              };
+            });
+            if (wasNew || dishModal.slug === updated.slug) {
+              setDishModal({ ...updated, isNew: false });
+            }
+            if (selectedDishSlug === dishModal.slug || wasNew) {
+              setSelectedDishSlug(updated.slug);
+            }
+            void load();
+          }}
+          onDeleted={(slug) => {
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    menuItems: prev.menuItems.filter(
+                      (row) => !(row.kind === "dish" && row.slug === slug)
+                    ),
+                  }
+                : prev
+            );
+            setSelectedDishSlug((prev) => (prev === slug ? null : prev));
+            void load();
+          }}
+        />
+      )}
+
+      {addOnModal && (
+        <KitchenAddOnModal
+          item={addOnModal}
+          pantryIngredients={pantryOptions}
+          classOptions={addOnClassOptions}
+          onClose={() => setAddOnModal(null)}
+          onSaved={(addOn) => {
+            const wasNew = addOnModal.isNew || !addOnModal.slug;
+            setData((prev) => {
+              if (!prev) return prev;
+              if (wasNew) {
+                return {
+                  ...prev,
+                  menuItems: [
+                    ...prev.menuItems,
+                    {
+                      kind: "addon" as const,
+                      slug: addOn.slug,
+                      name: addOn.name,
+                      sellPrice: addOn.sellPrice,
+                      totalSold: 0,
+                      soldThisWeek: 0,
+                      recipeStatus: "new",
+                      category: addOn.classification ?? "addon",
+                      classification: addOn.classification ?? "addon",
+                      description: addOn.description,
+                      imageUrl: addOn.imageUrl,
+                      imageCandidates: addOn.imageCandidates,
+                      selectedImageIndex: addOn.selectedImageIndex,
+                      imageGenerationAttempted: addOn.imageGenerationAttempted,
+                      ingredientLinks: addOn.ingredientLinks ?? [],
+                      linkedDishSlugs: addOn.linkedDishSlugs ?? [],
+                    },
+                  ].sort((a, b) => a.name.localeCompare(b.name)),
+                };
+              }
+              return {
+                ...prev,
+                menuItems: prev.menuItems.map((row) =>
+                  row.kind === "addon" && row.slug === addOn.slug
+                    ? {
+                        ...row,
+                        name: addOn.name,
+                        sellPrice: addOn.sellPrice,
+                        category: addOn.classification ?? "addon",
+                        classification: addOn.classification ?? "addon",
+                        description: addOn.description,
+                        imageUrl: addOn.imageUrl,
+                        imageCandidates: addOn.imageCandidates,
+                        selectedImageIndex: addOn.selectedImageIndex,
+                        imageGenerationAttempted: addOn.imageGenerationAttempted,
+                        ingredientLinks: addOn.ingredientLinks ?? [],
+                        linkedDishSlugs: addOn.linkedDishSlugs ?? [],
+                      }
+                    : row
+                ),
+              };
+            });
+            if (wasNew || addOnModal.slug === addOn.slug) {
+              setAddOnModal({
+                slug: addOn.slug,
+                name: addOn.name,
+                classification: addOn.classification,
+                description: addOn.description,
+                sellPrice: addOn.sellPrice,
+                imageUrl: addOn.imageUrl,
+                imageCandidates: addOn.imageCandidates,
+                selectedImageIndex: addOn.selectedImageIndex,
+                imageGenerationAttempted: addOn.imageGenerationAttempted,
+                ingredientLinks: addOn.ingredientLinks ?? [],
+                linkedDishSlugs: addOn.linkedDishSlugs ?? [],
+                isNew: false,
+              });
+            }
+            void load();
+          }}
+          onDeleted={(slug) => {
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    menuItems: prev.menuItems.filter(
+                      (row) => !(row.kind === "addon" && row.slug === slug)
+                    ),
+                  }
+                : prev
+            );
+            void load();
+          }}
+        />
+      )}
+
       {ingredientModal && (
         <KitchenIngredientModal
           item={ingredientModal}
           onClose={() => setIngredientModal(null)}
           onSaved={(updated) => {
-            setData((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    ingredients: prev.ingredients.map((row) =>
-                      row.slug === updated.slug ? { ...row, ...updated } : row
-                    ),
-                  }
-                : prev
-            );
+            const wasNew = ingredientModal.isNew || !ingredientModal.slug;
+            setData((prev) => {
+              if (!prev) return prev;
+              if (wasNew) {
+                return {
+                  ...prev,
+                  ingredients: [
+                    ...prev.ingredients,
+                    {
+                      ...updated,
+                      category: updated.category ?? "misc",
+                    } as IngredientRow,
+                  ].sort((a, b) => a.name.localeCompare(b.name)),
+                };
+              }
+              return {
+                ...prev,
+                ingredients: prev.ingredients.map((row) =>
+                  row.slug === updated.slug ? { ...row, ...updated } : row
+                ),
+              };
+            });
+            if (wasNew || ingredientModal.slug === updated.slug) {
+              setIngredientModal({
+                ...updated,
+                category: updated.category ?? "misc",
+                isNew: false,
+              });
+            }
             void load();
           }}
         />

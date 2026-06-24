@@ -14,6 +14,8 @@ export interface IImageCandidate {
   r2Key?: string;
 }
 
+export type IngredientLabel = "new" | "used" | "unused" | "missing";
+
 export interface IIngredient {
   _id: mongoose.Types.ObjectId;
   restaurantId: mongoose.Types.ObjectId;
@@ -37,6 +39,8 @@ export interface IIngredient {
   /** True after initial image generation was attempted (Process or manual Generate). */
   imageGenerationAttempted?: boolean;
   brandName?: string;
+  /** Pantry status label — new from PO, used in recipes, unused, or missing from recipes */
+  label?: IngredientLabel;
   usageUnits: IUsageUnit[];
 }
 
@@ -70,6 +74,7 @@ const IngredientSchema = new Schema<IIngredient>(
     selectedImageIndex: { type: Number, default: 0 },
     imageGenerationAttempted: { type: Boolean, default: false },
     brandName: String,
+    label: { type: String, enum: ["new", "used", "unused", "missing"], default: undefined },
     source: { type: String, default: "seed" },
     usageUnits: [
       {

@@ -12,6 +12,9 @@ from pydantic import BaseModel, Field
 BillType = Literal["supplier", "customer"]
 
 
+MenuItemKind = Literal["dish", "addon"]
+
+
 class ParsedLineItem(BaseModel):
     rawName: str
     quantity: float = 1
@@ -20,6 +23,10 @@ class ParsedLineItem(BaseModel):
     lineTotal: float = 0
     confidence: float = Field(default=0.8, ge=0, le=1)
     suggestedCategory: Literal["ingredient", "menu_item"]
+    menuItemKind: MenuItemKind | None = None
+    classification: str | None = None
+    ingredientCategory: str | None = None
+    description: str | None = None
 
 
 class ParsedBill(BaseModel):
@@ -35,6 +42,10 @@ class QuickLineItem(BaseModel):
 
     rawName: str
     suggestedCategory: Literal["ingredient", "menu_item"]
+    menuItemKind: MenuItemKind | None = None
+    classification: str | None = None
+    ingredientCategory: str | None = None
+    description: str | None = None
     confidence: float = Field(default=0.8, ge=0, le=1)
 
 
@@ -96,6 +107,10 @@ def merge_quick_into_detail(quick: QuickScanResult, detail: ParsedBill) -> Parse
                 ParsedLineItem(
                     rawName=q.rawName,
                     suggestedCategory=q.suggestedCategory,
+                    menuItemKind=q.menuItemKind,
+                    classification=q.classification,
+                    ingredientCategory=q.ingredientCategory,
+                    description=q.description,
                     confidence=q.confidence,
                 )
             )

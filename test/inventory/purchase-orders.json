@@ -1,0 +1,166 @@
+{
+  "restaurant": "Panera Cafe",
+  "purchaseOrders": [
+    {
+      "id": "SYSCO-4700",
+      "vendor": "Sysco Food Services",
+      "vendorSlug": "Sysco",
+      "invoiceNumber": "4700",
+      "seedDay": 0,
+      "billDay": 6,
+      "title": "Invoice #4700 — May bakery & dairy restock",
+      "lines": [
+        { "description": "Vie de France Butter Croissant 4dz case", "qty": 8, "unitPrice": 20.4, "ingredientSlugs": ["ing-croissant"] },
+        { "description": "Land O Lakes Whole Milk gallon", "qty": 18, "unitPrice": 4.2, "ingredientSlugs": ["ing-whole-milk"] },
+        { "description": "Eggland's Best Large Eggs 15dz case", "qty": 4, "unitPrice": 42.0, "ingredientSlugs": ["ing-egg"] }
+      ]
+    },
+    {
+      "id": "COSTCO-90400",
+      "vendor": "Costco Business Center",
+      "vendorSlug": "Costco",
+      "invoiceNumber": "90400",
+      "seedDay": 3,
+      "billDay": 5,
+      "title": "Receipt #90400 — May beverage restock",
+      "lines": [
+        { "description": "Starbucks Pike Place Whole Bean Coffee 5lb bag", "qty": 8, "unitPrice": 12.5, "ingredientSlugs": ["ing-coffee-beans"] },
+        { "description": "Kirkland Signature Orange Juice 2pk gallon", "qty": 10, "unitPrice": 6.49, "ingredientSlugs": ["ing-orange-juice"] }
+      ]
+    },
+    {
+      "id": "SYSCO-4810",
+      "vendor": "Sysco Food Services",
+      "vendorSlug": "Sysco",
+      "invoiceNumber": "4810",
+      "seedDay": 7,
+      "billDay": 4,
+      "title": "Invoice #4810 — Early June proteins",
+      "lines": [
+        { "description": "Tyson Applewood Smoked Bacon 10lb case", "qty": 5, "unitPrice": 64.9, "ingredientSlugs": ["ing-bacon"] },
+        { "description": "Jimmy Dean Premium Breakfast Sausage 5lb case", "qty": 6, "unitPrice": 24.45, "ingredientSlugs": ["ing-sausage"] },
+        { "description": "Tillamook Medium Cheddar Block 5lb", "qty": 4, "unitPrice": 18.5, "ingredientSlugs": ["ing-cheddar"] }
+      ]
+    },
+    {
+      "id": "USF-77010",
+      "vendor": "US Foods Chef'Store",
+      "vendorSlug": "US-Foods",
+      "invoiceNumber": "77010",
+      "seedDay": 11,
+      "billDay": 3,
+      "title": "Invoice #77010 — Mid-June produce",
+      "lines": [
+        { "description": "Earthbound Farm Organic Baby Spinach 2lb", "qty": 10, "unitPrice": 5.4, "ingredientSlugs": ["ing-spinach"] },
+        { "description": "Roma Tomato 5lb case", "qty": 8, "unitPrice": 4.1, "ingredientSlugs": ["ing-tomato"] },
+        { "description": "Hass Avocado 48ct case", "qty": 4, "unitPrice": 38.0, "ingredientSlugs": ["ing-avocado"] }
+      ]
+    },
+    {
+      "id": "SYSCO-4821",
+      "vendor": "Sysco Food Services",
+      "vendorSlug": "Sysco",
+      "invoiceNumber": "4821",
+      "seedDay": 15,
+      "billDay": 2,
+      "title": "Invoice #4821 — Bakery, proteins, cheese, produce",
+      "lines": [
+        { "description": "Vie de France Butter Croissant 4dz case", "qty": 10, "unitPrice": 20.4, "ingredientSlugs": ["ing-croissant"] },
+        { "description": "La Brea Bakery Sourdough Loaf 24oz", "qty": 36, "unitPrice": 3.2, "ingredientSlugs": ["ing-sourdough-bread"] },
+        { "description": "Thomas' Plain Bagels 3dz case", "qty": 8, "unitPrice": 19.8, "ingredientSlugs": ["ing-bagel"] },
+        { "description": "Thomas' Multigrain Bagels 3dz case", "qty": 6, "unitPrice": 21.4, "ingredientSlugs": ["ing-multigrain-bagel"] },
+        { "description": "Tyson Applewood Smoked Bacon 10lb case", "qty": 6, "unitPrice": 64.9, "ingredientSlugs": ["ing-bacon"] },
+        { "description": "Jimmy Dean Premium Breakfast Sausage 5lb case", "qty": 8, "unitPrice": 24.45, "ingredientSlugs": ["ing-sausage"] },
+        { "description": "Eggland's Best Large Eggs 15dz case", "qty": 5, "unitPrice": 42.0, "ingredientSlugs": ["ing-egg"] },
+        { "description": "Tillamook Medium Cheddar Block 5lb", "qty": 4, "unitPrice": 18.5, "ingredientSlugs": ["ing-cheddar"] },
+        { "description": "Boar's Head Swiss Cheese Slices 2lb", "qty": 6, "unitPrice": 9.8, "ingredientSlugs": ["ing-swiss"] },
+        { "description": "Kraft American Cheese Singles 3lb", "qty": 6, "unitPrice": 8.9, "ingredientSlugs": ["ing-american"] },
+        { "description": "Land O Lakes Unsalted Butter 1lb", "qty": 12, "unitPrice": 4.25, "ingredientSlugs": ["ing-butter"] },
+        { "description": "Earthbound Farm Organic Baby Spinach 2lb", "qty": 8, "unitPrice": 5.4, "ingredientSlugs": ["ing-spinach"] },
+        { "description": "Roma Tomato 5lb case", "qty": 6, "unitPrice": 4.1, "ingredientSlugs": ["ing-tomato"] },
+        { "description": "Green Bell Pepper 3lb case", "qty": 6, "unitPrice": 3.8, "ingredientSlugs": ["ing-bell-pepper"] },
+        { "description": "Hass Avocado 48ct case", "qty": 3, "unitPrice": 38.0, "ingredientSlugs": ["ing-avocado"] }
+      ]
+    },
+    {
+      "id": "SYSCO-4822",
+      "vendor": "Sysco Food Services",
+      "vendorSlug": "Sysco",
+      "invoiceNumber": "4822",
+      "seedDay": 19,
+      "billDay": 2,
+      "title": "Invoice #4822 — Dairy, coffee, syrups, ice",
+      "lines": [
+        { "description": "Lavazza Super Crema Espresso Beans 2.2lb bag", "qty": 12, "unitPrice": 14.0, "ingredientSlugs": ["ing-espresso"] },
+        { "description": "Starbucks Pike Place Whole Bean Coffee 5lb bag", "qty": 10, "unitPrice": 12.5, "ingredientSlugs": ["ing-coffee-beans"] },
+        { "description": "Land O Lakes Whole Milk gallon", "qty": 24, "unitPrice": 4.2, "ingredientSlugs": ["ing-whole-milk"] },
+        { "description": "Land O Lakes Skim Milk gallon", "qty": 12, "unitPrice": 4.1, "ingredientSlugs": ["ing-skim-milk"] },
+        { "description": "Oatly Barista Edition Oat Milk 64oz carton", "qty": 18, "unitPrice": 5.8, "ingredientSlugs": ["ing-oat-milk"] },
+        { "description": "Califia Farms Almond Milk 64oz carton", "qty": 12, "unitPrice": 5.6, "ingredientSlugs": ["ing-almond-milk"] },
+        { "description": "Silk Original Soy Milk 64oz carton", "qty": 12, "unitPrice": 5.4, "ingredientSlugs": ["ing-soy-milk"] },
+        { "description": "Land O Lakes Half & Half quart", "qty": 12, "unitPrice": 3.2, "ingredientSlugs": ["ing-half-and-half"] },
+        { "description": "Monin Dark Chocolate Sauce 750ml bottle", "qty": 6, "unitPrice": 8.5, "ingredientSlugs": ["ing-mocha-syrup"] },
+        { "description": "Monin Vanilla Syrup 750ml bottle", "qty": 6, "unitPrice": 7.9, "ingredientSlugs": ["ing-vanilla-syrup"] },
+        { "description": "Monin Caramel Syrup 750ml bottle", "qty": 6, "unitPrice": 7.9, "ingredientSlugs": ["ing-caramel-syrup"] },
+        { "description": "Monin Hazelnut Syrup 750ml bottle", "qty": 6, "unitPrice": 7.9, "ingredientSlugs": ["ing-hazelnut-syrup"] },
+        { "description": "Reddy Ice Bagged Ice 20lb bag", "qty": 15, "unitPrice": 4.5, "ingredientSlugs": ["ing-ice"] },
+        { "description": "Land O Lakes Heavy Whipping Cream half-gallon", "qty": 8, "unitPrice": 7.8, "ingredientSlugs": ["ing-heavy-cream"] },
+        { "description": "Pacific Barista Series Frothing Milk gallon", "qty": 6, "unitPrice": 5.9, "ingredientSlugs": ["ing-frothing-milk"] }
+      ]
+    },
+    {
+      "id": "COSTCO-90614",
+      "vendor": "Costco Business Center",
+      "vendorSlug": "Costco",
+      "invoiceNumber": "90614",
+      "seedDay": 23,
+      "billDay": 1,
+      "title": "Receipt #90614 — Tea, juice & pantry restock",
+      "lines": [
+        { "description": "Taylors of Harrogate English Breakfast Tea 100ct box", "qty": 6, "unitPrice": 12.99, "ingredientSlugs": ["ing-black-tea"] },
+        { "description": "Twinings Pure Green Tea Bags 100ct box", "qty": 6, "unitPrice": 12.99, "ingredientSlugs": ["ing-green-tea"] },
+        { "description": "Kirkland Signature Orange Juice 2pk gallon", "qty": 12, "unitPrice": 6.49, "ingredientSlugs": ["ing-orange-juice"] },
+        { "description": "Martinelli's Gold Medal Apple Juice gallon", "qty": 8, "unitPrice": 5.99, "ingredientSlugs": ["ing-apple-juice"] },
+        { "description": "Ocean Spray Cranberry Juice Cocktail 96oz bottle", "qty": 10, "unitPrice": 4.89, "ingredientSlugs": ["ing-cranberry-juice"] }
+      ]
+    },
+    {
+      "id": "USF-77102",
+      "vendor": "US Foods Chef'Store",
+      "vendorSlug": "US-Foods",
+      "invoiceNumber": "77102",
+      "seedDay": 27,
+      "billDay": 0,
+      "title": "Invoice #77102 — Proteins & dairy case",
+      "lines": [
+        { "description": "Smithfield Applewood Smoked Bacon 15lb case", "qty": 4, "unitPrice": 58.9, "ingredientSlugs": ["ing-bacon"] },
+        { "description": "Johnsonville Breakfast Sausage Links 5lb case", "qty": 6, "unitPrice": 14.25, "ingredientSlugs": ["ing-sausage"] },
+        { "description": "Clover Sonoma Large Eggs 15dz case", "qty": 4, "unitPrice": 39.5, "ingredientSlugs": ["ing-egg"] },
+        { "description": "Darigold Whole Milk gallon", "qty": 18, "unitPrice": 4.05, "ingredientSlugs": ["ing-whole-milk"] },
+        { "description": "Tillamook Medium Cheddar 2.5lb loaf", "qty": 6, "unitPrice": 11.8, "ingredientSlugs": ["ing-cheddar"] },
+        { "description": "Challenge Unsalted Butter 1lb 4pk", "qty": 8, "unitPrice": 14.99, "ingredientSlugs": ["ing-butter"] }
+      ]
+    },
+    {
+      "id": "SYSCO-4823",
+      "vendor": "Sysco Food Services",
+      "vendorSlug": "Sysco",
+      "invoiceNumber": "4823",
+      "seedDay": 30,
+      "billDay": 0,
+      "title": "Invoice #4823 — Mixed restock",
+      "lines": [
+        { "description": "Vie de France Butter Croissant 4dz case", "qty": 6, "unitPrice": 20.4, "ingredientSlugs": ["ing-croissant"] },
+        { "description": "Tyson Applewood Smoked Bacon 10lb case", "qty": 4, "unitPrice": 64.9, "ingredientSlugs": ["ing-bacon"] },
+        { "description": "Eggland's Best Large Eggs 15dz case", "qty": 3, "unitPrice": 42.0, "ingredientSlugs": ["ing-egg"] },
+        { "description": "Land O Lakes Whole Milk gallon", "qty": 12, "unitPrice": 4.2, "ingredientSlugs": ["ing-whole-milk"] },
+        { "description": "Starbucks Pike Place Whole Bean Coffee 5lb bag", "qty": 6, "unitPrice": 12.5, "ingredientSlugs": ["ing-coffee-beans"] },
+        { "description": "Earthbound Farm Organic Baby Spinach 2lb", "qty": 6, "unitPrice": 5.4, "ingredientSlugs": ["ing-spinach"] },
+        { "description": "Tropicana Pure Premium Orange Juice gallon", "qty": 8, "unitPrice": 6.2, "ingredientSlugs": ["ing-orange-juice"] },
+        { "description": "Monin Vanilla Syrup 750ml bottle", "qty": 4, "unitPrice": 7.9, "ingredientSlugs": ["ing-vanilla-syrup"] },
+        { "description": "Thomas' Plain Bagels 3dz case", "qty": 4, "unitPrice": 19.8, "ingredientSlugs": ["ing-bagel"] },
+        { "description": "Tillamook Medium Cheddar Block 5lb", "qty": 3, "unitPrice": 18.5, "ingredientSlugs": ["ing-cheddar"] }
+      ]
+    }
+  ]
+}

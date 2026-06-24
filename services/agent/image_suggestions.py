@@ -132,14 +132,35 @@ def _ingredient_queries(
     return unique
 
 
-def _dish_queries(name: str, extra_keywords: str = "") -> list[str]:
+def _dish_queries(
+    name: str,
+    extra_keywords: str = "",
+    ingredient_names: list[str] | None = None,
+) -> list[str]:
     extra = extra_keywords.strip()
+    ingredients = [n.strip() for n in (ingredient_names or []) if n and n.strip()]
+    ingredient_hint = ", ".join(ingredients[:8])
+
     queries: list[str] = []
-    if extra:
+    if ingredient_hint and extra:
+        queries.extend(
+            [
+                f"{name} with {ingredient_hint}, {extra}, {DISH_STYLE}",
+                f"{extra} {name} with {ingredient_hint} plated food photo",
+            ]
+        )
+    elif extra:
         queries.extend(
             [
                 f"{name}, {extra}, {DISH_STYLE}",
                 f"{extra} {name} cafe menu photo",
+            ]
+        )
+    if ingredient_hint:
+        queries.extend(
+            [
+                f"{name} with {ingredient_hint}, {DISH_STYLE}",
+                f"{name} {ingredient_hint} restaurant plated food photo",
             ]
         )
     queries.extend(
@@ -193,6 +214,32 @@ def _is_relevant_label(label: str, name: str, brand_name: str) -> bool:
         if any(t in label_norm for t in brand_tokens):
             return True
     return hits >= max(1, len(name_tokens) // 3)
+
+
+def _is_relevant_dish_label(label: str, name: str, ingredient_names: list[str]) -> bool:
+    if _BAD_LABEL_RE.search(label):
+        return False
+    label_norm = _normalize(label)
+    name_tokens = [t for t in _normalize(name).split() if len(t) > 2]
+    if name_tokens and any(t in label_norm for t in name_tokens):
+        return True
+    for ing in ingredient_names:
+        ing_tokens = [t for t in _normalize(ing).split() if len(t) > 2]
+        if ing_tokens and any(t in label_norm for t in ing_tokens):
+            return True
+    return not name_tokens
+
+
+def _dish_heuristic_score(name: str, ingredient_names: list[str], label: str) -> float:
+    name_tokens = set(_normalize(name).split())
+    label_tokens = set(_normalize(label).split())
+    overlap = len(name_tokens & label_tokens)
+    ing_tokens: set[str] = set()
+    for ing in ingredient_names:
+        ing_tokens.update(_normalize(ing).split())
+    ing_overlap = len(ing_tokens & label_tokens)
+    score = 0.15 + overlap * 0.12 + ing_overlap * 0.1
+    return round(min(1.0, score), 3)
 
 
 # Consistent dish photo style appended to searches
@@ -258,42 +305,59 @@ def rate_images(
     item_type: str,
     brand_name: str,
     images: list[ImageSuggestion],
+    *,
+    ingredient_names: list[str] | None = None,
 ) -> list[ImageSuggestion]:
     """Score and sort images — best match first (agent-rated when OpenAI available)."""
     if not images:
         return []
 
+    is_dish = item_type in ("dish", "addon")
+    ingredients = [n.strip() for n in (ingredient_names or []) if n and n.strip()]
     rated: list[ImageSuggestion] = []
 
     if client:
         try:
             payload = [{"i": i, "label": img.label} for i, img in enumerate(images)]
+            if is_dish:
+                user_content = (
+                    f"Menu item type: {item_type}\n"
+                    f"Dish name: {name}\n"
+                    f"Key ingredients: {', '.join(ingredients) if ingredients else 'unknown'}\n\n"
+                    f"Image labels from search:\n{json.dumps(payload)}\n\n"
+                    "Score each label 0.0–1.0 for how likely it shows this prepared dish "
+                    "(plated food or cafe menu photo — not product packaging, brands, or unrelated items).\n"
+                    'Return: {"ratings": [{"i": 0, "score": 0.92}, ...]}'
+                )
+                system_content = (
+                    "You rate web image search labels for a restaurant menu app. "
+                    "Prefer appetizing plated food or cafe menu photos of the named dish. "
+                    "Score 0.0 for packaging, grocery brands, GIFs, memes, or unrelated products. "
+                    "Return only valid JSON."
+                )
+            else:
+                user_content = (
+                    f"Product type: {item_type}\n"
+                    f"Product name: {name}\n"
+                    f"Brand: {brand_name or 'unknown'}\n\n"
+                    f"Image labels from search:\n{json.dumps(payload)}\n\n"
+                    "Score each label 0.0–1.0 for how likely it shows the correct "
+                    "product packaging photo (not liquor, unrelated brands, etc.).\n"
+                    'Return: {"ratings": [{"i": 0, "score": 0.92}, ...]}'
+                )
+                system_content = (
+                    "You rate web image search labels for a restaurant inventory app. "
+                    "Prefer grocery product packaging photos. Score 0.0 for GIFs, memes, "
+                    "police cars, charts, diagrams, or unrelated products. "
+                    "Return only valid JSON."
+                )
             resp = client.chat.completions.create(  # type: ignore[union-attr]
                 model="gpt-4o-mini",
                 temperature=0,
                 response_format={"type": "json_object"},
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You rate web image search labels for a restaurant inventory app. "
-                            "Prefer grocery product packaging photos. Score 0.0 for GIFs, memes, "
-                            "police cars, charts, diagrams, or unrelated products. "
-                            "Return only valid JSON."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Product type: {item_type}\n"
-                            f"Product name: {name}\n"
-                            f"Brand: {brand_name or 'unknown'}\n\n"
-                            f"Image labels from search:\n{json.dumps(payload)}\n\n"
-                            "Score each label 0.0–1.0 for how likely it shows the correct "
-                            "product packaging photo (not liquor, unrelated brands, etc.).\n"
-                            'Return: {"ratings": [{"i": 0, "score": 0.92}, ...]}'
-                        ),
-                    },
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content},
                 ],
             )
             content = resp.choices[0].message.content or "{}"
@@ -304,7 +368,11 @@ def rate_images(
                 if "i" in r and "score" in r
             }
             for i, img in enumerate(images):
-                score = scores.get(i, _heuristic_score(name, brand_name, img.label))
+                if is_dish:
+                    fallback = _dish_heuristic_score(name, ingredients, img.label)
+                else:
+                    fallback = _heuristic_score(name, brand_name, img.label)
+                score = scores.get(i, fallback)
                 rated.append(
                     ImageSuggestion(
                         url=img.url,
@@ -322,7 +390,11 @@ def rate_images(
                 url=img.url,
                 label=img.label,
                 source=img.source,
-                score=_heuristic_score(name, brand_name, img.label),
+                score=(
+                    _dish_heuristic_score(name, ingredients, img.label)
+                    if is_dish
+                    else _heuristic_score(name, brand_name, img.label)
+                ),
             )
             for img in images
         ]
@@ -340,12 +412,22 @@ def suggest_images(
     quantity: float = 0,
     unit: str = "",
     extra_keywords: str = "",
+    ingredient_names: list[str] | None = None,
     use_gpt: bool = False,
     refresh: bool = False,
     exclude_urls: list[str] | None = None,
 ) -> list[ImageSuggestion]:
     """Return IMAGE_COUNT product-packaging style images from web search."""
-    cache_key = f"{item_type}:{name.strip().lower()}:{brand_name.strip().lower()}"
+    is_dish = item_type in ("dish", "addon")
+    ingredients = [n.strip() for n in (ingredient_names or []) if n and n.strip()]
+    if is_dish:
+        cache_key = (
+            f"{item_type}:{name.strip().lower()}:"
+            f"{extra_keywords.strip().lower()}:"
+            f"{','.join(sorted(i.lower() for i in ingredients))}"
+        )
+    else:
+        cache_key = f"{item_type}:{name.strip().lower()}:{brand_name.strip().lower()}"
     if not refresh and cache_key in _image_cache:
         return _image_cache[cache_key]
 
@@ -355,7 +437,7 @@ def suggest_images(
     if item_type == "ingredient":
         queries = _ingredient_queries(name, brand_name, quantity, unit, extra_keywords)
     else:
-        queries = _dish_queries(name, extra_keywords)
+        queries = _dish_queries(name, extra_keywords, ingredients)
 
     seen_urls: set[str] = set()
     pool: list[ImageSuggestion] = []
@@ -364,10 +446,15 @@ def suggest_images(
         for item in _web_image_search(query, limit=IMAGE_COUNT + 6):
             if item.url.lower() in seen_urls or item.url.lower() in excluded:
                 continue
-            if not _is_relevant_label(item.label, name, brand_name):
-                continue
+            if is_dish:
+                if not _is_relevant_dish_label(item.label, name, ingredients):
+                    continue
+                pool.append(item)
+            else:
+                if not _is_relevant_label(item.label, name, brand_name):
+                    continue
+                pool.append(_label_with_context(item, brand_name, pack, quantity, unit))
             seen_urls.add(item.url.lower())
-            pool.append(_label_with_context(item, brand_name, pack, quantity, unit))
             if len(pool) >= IMAGE_COUNT + 4:
                 break
         if len(pool) >= IMAGE_COUNT + 4:
@@ -376,20 +463,33 @@ def suggest_images(
     pool = pool[: IMAGE_COUNT + 4]
 
     if (use_gpt or client) and client and pool:
-        rated = rate_images(client, name, item_type, brand_name, pool)
+        rated = rate_images(
+            client, name, item_type, brand_name, pool, ingredient_names=ingredients
+        )
         result = rated[:IMAGE_COUNT]
         _image_cache[cache_key] = result
         return result
 
-    scored = [
-        ImageSuggestion(
-            url=img.url,
-            label=img.label,
-            source=img.source,
-            score=_heuristic_score(name, brand_name, img.label),
-        )
-        for img in pool
-    ]
+    if is_dish:
+        scored = [
+            ImageSuggestion(
+                url=img.url,
+                label=img.label,
+                source=img.source,
+                score=_dish_heuristic_score(name, ingredients, img.label),
+            )
+            for img in pool
+        ]
+    else:
+        scored = [
+            ImageSuggestion(
+                url=img.url,
+                label=img.label,
+                source=img.source,
+                score=_heuristic_score(name, brand_name, img.label),
+            )
+            for img in pool
+        ]
     scored.sort(key=lambda x: x.score, reverse=True)
     result = scored[:IMAGE_COUNT]
     _image_cache[cache_key] = result

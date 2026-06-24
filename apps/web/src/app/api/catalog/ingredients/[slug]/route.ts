@@ -84,6 +84,7 @@ export async function PATCH(req: Request, context: RouteContext) {
   }
 
   if (body.name != null) ing.name = String(body.name).trim() || ing.name;
+  if (body.category != null) ing.category = String(body.category).trim() || ing.category;
   if (body.brandName != null) ing.brandName = String(body.brandName).trim() || undefined;
   if (body.sku != null) ing.sku = String(body.sku).trim() || undefined;
   if (body.currentQty != null) ing.currentQty = Number(body.currentQty);

@@ -1,6 +1,6 @@
 import { applySelectedImage } from "@/lib/ingredient-enrichment";
 import { isValidProductImageUrl } from "@/lib/image-selection";
-import { persistCatalogImage } from "@/lib/r2-storage";
+import { persistCatalogImageToSlug, type CatalogImageSlot } from "@/lib/r2-storage";
 import type { IImageCandidate, IIngredient } from "@/models/Ingredient";
 import type { HydratedDocument } from "mongoose";
 
@@ -42,15 +42,20 @@ export async function fetchAgentImages(params: {
   return (data.images ?? []).filter((img) => img.url && isValidProductImageUrl(img.url));
 }
 
+function slotForIndex(index: number): CatalogImageSlot {
+  return index === 0 ? "default" : "secondary";
+}
+
 async function persistCandidate(
-  ingredientId: string,
+  slug: string,
   index: number,
   img: AgentImageSuggestion
 ): Promise<IImageCandidate> {
   try {
-    const stored = await persistCatalogImage(
+    const stored = await persistCatalogImageToSlug(
       "ingredients",
-      `${ingredientId}-g${index}-${Date.now()}`,
+      slug,
+      slotForIndex(index),
       img.url
     );
     return {
@@ -103,7 +108,7 @@ export async function regenerateIngredientImages(
       if (!fetched.length) {
         throw new Error("No suitable product images found");
       }
-      const replacement = await persistCandidate(ing._id.toString(), 1, fetched[0]);
+      const replacement = await persistCandidate(ing.slug, 1, fetched[0]);
       const next = [...existing];
       if (selected === 0) next.push(replacement);
       else {
@@ -128,7 +133,7 @@ export async function regenerateIngredientImages(
     }
     const candidates: IImageCandidate[] = [];
     for (let i = 0; i < Math.min(2, fetched.length); i++) {
-      candidates.push(await persistCandidate(ing._id.toString(), i, fetched[i]));
+      candidates.push(await persistCandidate(ing.slug, i, fetched[i]));
     }
     ing.imageCandidates = candidates;
     ing.selectedImageIndex = 0;
@@ -149,7 +154,7 @@ export async function regenerateIngredientImages(
   if (!fetched.length) {
     throw new Error("No suitable product images found");
   }
-  const replacement = await persistCandidate(ing._id.toString(), secondaryIndex, fetched[0]);
+  const replacement = await persistCandidate(ing.slug, secondaryIndex, fetched[0]);
 
   const next = [...existing];
   if (next.length === 0) {

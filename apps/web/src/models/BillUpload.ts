@@ -13,6 +13,16 @@ export interface IBillLine {
   included: boolean;
   matchedIngredientSlug?: string;
   matchedMenuItemSlug?: string;
+  matchedDishSlug?: string;
+  matchedAddOnSlug?: string;
+  /** For menu_item lines: dish vs add-on */
+  menuItemKind?: "dish" | "addon";
+  /** Menu group for dishes/add-ons (sandwich, coffee, cheese, protein, …) */
+  classification?: string;
+  /** Pantry category for supplier ingredient lines */
+  ingredientCategory?: string;
+  /** POS / invoice line context for catalog image generation */
+  description?: string;
 }
 
 export interface IBillUpload {
@@ -47,6 +57,12 @@ const BillLineSchema = new Schema<IBillLine>(
     included: { type: Boolean, default: true },
     matchedIngredientSlug: String,
     matchedMenuItemSlug: String,
+    matchedDishSlug: String,
+    matchedAddOnSlug: String,
+    menuItemKind: { type: String, enum: ["dish", "addon"] },
+    classification: String,
+    ingredientCategory: String,
+    description: String,
   },
   { _id: false }
 );

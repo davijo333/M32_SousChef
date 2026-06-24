@@ -1,5 +1,8 @@
 import { connectDB } from "@/lib/mongodb";
-import { ensureRestaurantForUser } from "@/lib/restaurant-name-server";
+import {
+  ensureRestaurantForUser,
+  resolveSessionUser,
+} from "@/lib/restaurant-name-server";
 import { User } from "@/models/User";
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
@@ -111,9 +114,30 @@ export const authOptions: NextAuthOptions = {
           token.restaurantName = ensured.restaurant.name;
           token.kitchenNameSet = Boolean(ensured.restaurant.kitchenNameSet);
           token.name = ensured.user.name;
+          token.email = ensured.user.email;
         } else {
           token.restaurantId = (user as { restaurantId?: string }).restaurantId;
           token.restaurantName = (user as { restaurantName?: string }).restaurantName;
+        }
+      } else if (token.sub) {
+        await connectDB();
+        const stale = !(await User.findById(token.sub as string));
+        if (stale && token.email) {
+          try {
+            const healedUser = await resolveSessionUser({
+              id: token.sub as string,
+              email: token.email as string,
+              name: (token.name as string) || undefined,
+            });
+            const restaurant = await ensureRestaurantForUser(healedUser._id.toString());
+            token.sub = healedUser._id.toString();
+            token.restaurantId = restaurant._id.toString();
+            token.restaurantName = restaurant.name;
+            token.kitchenNameSet = Boolean(restaurant.kitchenNameSet);
+            token.name = healedUser.name;
+          } catch {
+            /* leave token as-is; API routes will return 401 */
+          }
         }
       }
       return token;

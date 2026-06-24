@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { NewCatalogItem } from "@/lib/extract-new-items";
 import { validateBillFilenameForZone } from "@/lib/bill-filename";
+import { useOrderWorkOptional, type OrderBillType } from "@/components/OrderWorkProvider";
 
 type BillLine = {
   rawName: string;
@@ -46,7 +47,7 @@ type BillEntry = {
   id: string;
   filename: string;
   file?: File;
-  status: "queued" | "parsing" | "parsed" | "error" | "confirmed";
+  status: "queued" | "parsing" | "parsed" | "processing" | "error" | "confirmed";
   error?: string;
   result?: ParseResult;
   expanded: boolean;
@@ -57,14 +58,37 @@ function entryId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+async function readJsonResponse<T extends Record<string, unknown>>(
+  res: Response
+): Promise<{ data: T | null; parseError?: string }> {
+  const text = await res.text();
+  if (!text.trim()) {
+    return {
+      data: null,
+      parseError:
+        res.status === 504 || res.status === 408
+          ? "Processing timed out — try fewer orders at a time, then check Kitchen control."
+          : `Server returned an empty response (${res.status}). Processing may still be running — refresh and check Kitchen control.`,
+    };
+  }
+  try {
+    return { data: JSON.parse(text) as T };
+  } catch {
+    return {
+      data: null,
+      parseError: `Could not read server response (${res.status}). Try again.`,
+    };
+  }
+}
+
 function billLabelFromTitle(title: string, billType: "supplier" | "customer") {
   if (billType === "supplier") return "purchase orders";
   return "sales orders";
 }
 
 const PARSE_TIMEOUT_MS = 95_000;
-/** Upload up to this many bills to the agent at once (matches agent BILL_PIPELINE_PARALLEL). */
-const PARALLEL_BILL_UPLOADS = 5;
+/** Max files attached at once in the staging area. */
+const MAX_STAGED_UPLOADS = 10;
 
 function billFileHref(billId: string) {
   return `/api/bills/${billId}/file`;
@@ -152,6 +176,8 @@ type Props = {
   /** Sales-order column: wait until purchase orders are saved first */
   requiresSupplierFirst?: boolean;
   supplierReady?: boolean;
+  /** Block new uploads while this or another order tab is busy */
+  uploadLocked?: boolean;
   /** Upload page: keep zone clear — only show in-flight files; processed orders go to PO table */
   stagingOnly?: boolean;
   onProcessed?: (billIds: string[]) => void;
@@ -194,55 +220,132 @@ export function BillUploadZone({
   requiresSupplierFirst,
   supplierReady,
   stagingOnly,
+  uploadLocked,
   onProcessed,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const entriesRef = useRef<BillEntry[]>([]);
+  const cancelledRef = useRef<Set<string>>(new Set());
+  const abortRef = useRef<Map<string, AbortController>>(new Map());
+  const queueRef = useRef<string[]>([]);
+  const runningRef = useRef(false);
+  const orderWork = useOrderWorkOptional();
+  const workBillType: OrderBillType = billType;
+
   const [entries, setEntries] = useState<BillEntry[]>([]);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [activeFilename, setActiveFilename] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [removingId, setRemovingId] = useState<string | null>(null);
   const [batchMsg, setBatchMsg] = useState("");
   const [batchError, setBatchError] = useState("");
   const [processStats, setProcessStats] = useState<ProcessStats | null>(null);
   const [uploading, setUploading] = useState(false);
   const billLabel = billLabelFromTitle(title, billType);
 
-  useEffect(() => {
-    if (!initialBills?.length) return;
-    const pending = stagingOnly
-      ? initialBills.filter((b) => b.status !== "confirmed")
-      : initialBills;
-    if (!pending.length) return;
-    setEntries((prev) => {
-      const existingIds = new Set(
-        prev.map((e) => e.result?.billId).filter(Boolean) as string[]
-      );
-      const restored = pending
-        .filter((b) => !existingIds.has(b.billId))
-        .map(billToEntry);
-      return restored.length ? [...restored, ...prev] : prev;
+  function setEntriesLive(next: BillEntry[]) {
+    entriesRef.current = next;
+    setEntries(next);
+    refreshProgress();
+  }
+
+  function isCancelled(id: string) {
+    return cancelledRef.current.has(id);
+  }
+
+  function refreshProgress() {
+    const list = entriesRef.current;
+    const total = list.length;
+    if (!total) {
+      setProgress({ current: 0, total: 0 });
+      return;
+    }
+    const done = list.filter((e) => e.status === "parsed" || e.status === "confirmed").length;
+    const parsing = list.some((e) => e.status === "parsing");
+    setProgress({
+      current: parsing ? Math.min(done + 1, total) : done,
+      total,
     });
-  }, [initialBills, stagingOnly]);
+  }
+
+  function beginWork() {
+    orderWork?.startWork(workBillType);
+    onProcessingChange?.(true);
+  }
+
+  function finishWork() {
+    orderWork?.endWork(workBillType);
+    onProcessingChange?.(false);
+  }
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  // Non-staging zones may restore saved bills from the server once on load.
+  useEffect(() => {
+    if (stagingOnly || !initialBills?.length) return;
+    const pending = initialBills.filter((b) => b.status !== "confirmed");
+    if (!pending.length) return;
+    setEntriesLive(pending.map(billToEntry));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once when initialBills arrives
+  }, [stagingOnly, initialBills?.length]);
 
   useEffect(() => {
     if (!processedBillIds?.length) return;
     const idSet = new Set(processedBillIds);
-    setEntries((prev) =>
-      prev.map((e) =>
+    setEntriesLive(
+      entriesRef.current.map((e) =>
         e.result && idSet.has(e.result.billId) ? { ...e, status: "confirmed" as const } : e
       )
     );
   }, [processedBillIds]);
 
+  // Recover parsed bills still on the server (e.g. after refresh) — canceled bills are deleted server-side.
+  useEffect(() => {
+    if (!stagingOnly) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetch("/api/bills/session");
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as {
+        supplier?: SavedBill[];
+        customer?: SavedBill[];
+      };
+      const pending = (
+        (billType === "supplier" ? data.supplier : data.customer) ?? []
+      ).filter((b) => b.status === "pending_review");
+      if (!pending.length) return;
+      const prev = entriesRef.current;
+      const existingBillIds = new Set(
+        prev.map((e) => e.result?.billId).filter(Boolean) as string[]
+      );
+      const restored = pending
+        .filter((b) => !existingBillIds.has(b.billId))
+        .map(billToEntry);
+      if (restored.length) setEntriesLive([...restored, ...prev]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stagingOnly, billType]);
+
   function updateEntry(id: string, patch: Partial<BillEntry>) {
-    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+    setEntriesLive(entriesRef.current.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   }
 
   function toggleExpanded(id: string) {
     setEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, expanded: !e.expanded } : e))
     );
+  }
+
+  async function deleteBill(billId: string) {
+    try {
+      const res = await fetch(`/api/bills/${billId}`, { method: "DELETE" });
+      if (res.ok) onBillRemoved?.(billId);
+    } catch {
+      /* best-effort cleanup */
+    }
   }
 
   async function parseFile(
@@ -252,22 +355,39 @@ export function BillUploadZone({
     result: ParseResult;
     newCatalogItems: { ingredients: NewCatalogItem[]; dishes: NewCatalogItem[] };
   } | null> {
-    updateEntry(id, { status: "parsing" });
+    if (isCancelled(id)) return null;
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("billType", billType);
+    updateEntry(id, { status: "parsing" });
+    if (isCancelled(id)) return null;
 
     const controller = new AbortController();
+    abortRef.current.set(id, controller);
     const timer = setTimeout(() => controller.abort(), PARSE_TIMEOUT_MS);
 
     try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("billType", billType);
+
       const res = await fetch("/api/bills/parse", {
         method: "POST",
         body: form,
         signal: controller.signal,
       });
-      const data = await res.json();
+      const { data, parseError } = await readJsonResponse<{
+        error?: string;
+        newCatalogItems?: { ingredients: NewCatalogItem[]; dishes: NewCatalogItem[] };
+      } & ParseResult>(res);
+
+      if (isCancelled(id)) {
+        if (data?.billId) void deleteBill(data.billId);
+        return null;
+      }
+
+      if (parseError || !data) {
+        updateEntry(id, { status: "error", error: parseError ?? "Could not read this order" });
+        return null;
+      }
 
       if (res.status === 401) {
         updateEntry(id, {
@@ -279,14 +399,17 @@ export function BillUploadZone({
       }
 
       if (!res.ok) {
-        updateEntry(id, {
-          status: "error",
-          error: data.error ?? "Could not read this order",
-        });
+        updateEntry(id, { status: "error", error: data.error ?? "Could not read this order" });
         return null;
       }
 
-      updateEntry(id, { status: "parsed", result: data, expanded: false });
+      setEntriesLive(
+        entriesRef.current.map((e) =>
+          e.id === id
+            ? { ...e, status: "parsed" as const, result: data, expanded: false, file: undefined }
+            : e
+        )
+      );
       return {
         result: data as ParseResult,
         newCatalogItems: (data.newCatalogItems ?? {
@@ -295,54 +418,77 @@ export function BillUploadZone({
         }) as { ingredients: NewCatalogItem[]; dishes: NewCatalogItem[] },
       };
     } catch (err) {
-      const timedOut = err instanceof Error && err.name === "AbortError";
-      updateEntry(id, {
-        status: "error",
-        error: timedOut
-          ? "Timed out — try uploading fewer files at once"
-          : "Network error",
-      });
+      if (isCancelled(id)) return null;
+      if (err instanceof Error && err.name === "AbortError") return null;
+      updateEntry(id, { status: "error", error: "Network error" });
       return null;
     } finally {
+      abortRef.current.delete(id);
       clearTimeout(timer);
     }
   }
 
-  async function retryEntry(entry: BillEntry) {
-    if (!entry.file || isBusy) return;
+  function enqueueIds(ids: string[]) {
+    const pending = ids.filter((id) => !isCancelled(id));
+    if (!pending.length) return;
+    queueRef.current.push(...pending);
+    void runQueue();
+  }
 
+  async function runQueue() {
+    if (runningRef.current) return;
+    runningRef.current = true;
     setUploading(true);
-    onProcessingChange?.(true);
-    setActiveFilename(entry.filename);
+    beginWork();
+
     try {
-      const parsed = await parseFile(entry.file, entry.id);
-      if (parsed?.newCatalogItems) {
-        const hasNew =
-          parsed.newCatalogItems.ingredients.length > 0 ||
-          parsed.newCatalogItems.dishes.length > 0;
-        if (hasNew) {
-          onNewItemsDiscovered?.(parsed.newCatalogItems, billType);
+      while (queueRef.current.length > 0) {
+        const id = queueRef.current.shift()!;
+        if (isCancelled(id)) continue;
+
+        const entry = entriesRef.current.find((e) => e.id === id);
+        if (!entry?.file) {
+          updateEntry(id, {
+            status: "error",
+            error: "Upload interrupted — attach this file again",
+            file: undefined,
+          });
+          continue;
+        }
+
+        setActiveFilename(entry.filename);
+        refreshProgress();
+
+        const parsed = await parseFile(entry.file, id);
+        if (parsed?.newCatalogItems) {
+          const hasNew =
+            parsed.newCatalogItems.ingredients.length > 0 ||
+            parsed.newCatalogItems.dishes.length > 0;
+          if (hasNew) onNewItemsDiscovered?.(parsed.newCatalogItems, billType);
         }
       }
     } finally {
+      runningRef.current = false;
       setUploading(false);
-      onProcessingChange?.(false);
       setActiveFilename("");
+      refreshProgress();
+      finishWork();
+      if (queueRef.current.length > 0) void runQueue();
     }
   }
 
   function queueFiles(files: FileList | File[]) {
     const list = Array.from(files);
-    if (!list.length || uploading || confirming) return;
+    if (!list.length || uploadLocked || confirming) return;
 
     setBatchMsg("");
     setBatchError("");
     setProcessStats(null);
 
-    const inFlight = entries.filter(
+    const staged = entriesRef.current.filter(
       (e) => e.status === "queued" || e.status === "parsing" || e.status === "parsed"
     ).length;
-    const slotsLeft = Math.max(0, PARALLEL_BILL_UPLOADS - inFlight);
+    const slotsLeft = Math.max(0, MAX_STAGED_UPLOADS - staged);
 
     const accepted: BillEntry[] = [];
     const rejected: BillEntry[] = [];
@@ -375,21 +521,21 @@ export function BillUploadZone({
 
     if (overflow.length) {
       setBatchError(
-        `Only ${PARALLEL_BILL_UPLOADS} files at a time — ${overflow.length} file${overflow.length !== 1 ? "s" : ""} not queued. Process or remove current files first.`
+        `Max ${MAX_STAGED_UPLOADS} files in the list — not added: ${overflow.join(", ")}. Process or remove files first, then attach the rest.`
       );
     }
 
     if (accepted.length) {
-      setEntries((prev) => [...accepted, ...prev]);
-      void uploadQueued(accepted);
+      setEntriesLive([...accepted, ...entriesRef.current]);
+      enqueueIds(accepted.map((e) => e.id));
     }
     if (rejected.length) {
-      setEntries((prev) => [...rejected, ...prev]);
+      setEntriesLive([...rejected, ...entriesRef.current]);
       if (!overflow.length) {
         setBatchError(
           rejected.length === 1
             ? rejected[0].error!
-            : `${rejected.length} files rejected — use the correct column (purchase order: .s_bill., sales order: .c_bill.).`
+            : `${rejected.length} files rejected — use PDF or PNG in the correct tab.`
         );
       }
     }
@@ -397,78 +543,22 @@ export function BillUploadZone({
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  async function uploadQueued(toUpload: BillEntry[]) {
-    if (!toUpload.length) return;
-
-    setUploading(true);
-    onProcessingChange?.(true);
-    setProgress({ current: 0, total: toUpload.length });
-
-    let completed = 0;
-    let index = 0;
-    const workers = Math.min(PARALLEL_BILL_UPLOADS, toUpload.length);
-
-    async function worker() {
-      while (true) {
-        const i = index++;
-        if (i >= toUpload.length) break;
-        const entry = toUpload[i];
-        setActiveFilename(entry.filename);
-        if (entry.file) {
-          const parsed = await parseFile(entry.file, entry.id);
-          if (parsed?.newCatalogItems) {
-            const hasNew =
-              parsed.newCatalogItems.ingredients.length > 0 ||
-              parsed.newCatalogItems.dishes.length > 0;
-            if (hasNew) {
-              onNewItemsDiscovered?.(parsed.newCatalogItems, billType);
-            }
-          }
-        }
-        completed += 1;
-        setProgress({ current: completed, total: toUpload.length });
-      }
-    }
-
-    try {
-      await Promise.all(Array.from({ length: workers }, () => worker()));
-    } finally {
-      setUploading(false);
-      onProcessingChange?.(false);
-      setActiveFilename("");
-    }
+  async function retryEntry(entry: BillEntry) {
+    if (!entry.file || runningRef.current) return;
+    updateEntry(entry.id, { status: "queued", error: undefined });
+    enqueueIds([entry.id]);
   }
 
-  async function removeEntry(entry: BillEntry) {
-    if (entry.status === "parsing" || entry.status === "confirmed" || entry.removing) return;
+  function cancelEntry(entry: BillEntry) {
+    if (entry.status === "processing" || entry.status === "confirmed") return;
 
-    if (entry.result?.billId) {
-      setRemovingId(entry.id);
-      updateEntry(entry.id, { removing: true });
+    const billId = entry.result?.billId;
+    cancelledRef.current.add(entry.id);
+    abortRef.current.get(entry.id)?.abort();
+    queueRef.current = queueRef.current.filter((id) => id !== entry.id);
+    setEntriesLive(entriesRef.current.filter((e) => e.id !== entry.id));
 
-      try {
-        const res = await fetch(`/api/bills/${entry.result.billId}`, { method: "DELETE" });
-        const data = await res.json();
-        if (!res.ok) {
-          updateEntry(entry.id, {
-            removing: false,
-            error: data.error ?? "Could not remove this order",
-          });
-          return;
-        }
-        onBillRemoved?.(entry.result.billId);
-      } catch {
-        updateEntry(entry.id, {
-          removing: false,
-          error: "Network error — could not remove",
-        });
-        return;
-      } finally {
-        setRemovingId(null);
-      }
-    }
-
-    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    if (billId) void deleteBill(billId);
   }
 
   async function processAll() {
@@ -483,7 +573,13 @@ export function BillUploadZone({
     setBatchError("");
     setBatchMsg("");
     setProcessStats(null);
-    onProcessingChange?.(true);
+    const toProcessIds = new Set(toProcess.map((e) => e.id));
+    setEntries((prev) =>
+      prev.map((e) =>
+        toProcessIds.has(e.id) ? { ...e, status: "processing" as const } : e
+      )
+    );
+    beginWork();
     setProgress({ current: 0, total: toProcess.length });
     setActiveFilename("");
 
@@ -496,14 +592,43 @@ export function BillUploadZone({
         body: JSON.stringify({ billIds }),
       });
 
-      const data = await res.json();
+      const { data, parseError } = await readJsonResponse<{
+        error?: string;
+        message?: string;
+        results?: Array<{ billId: string; ok: boolean; error?: string }>;
+        updatedIngredients?: number;
+        createdIngredients?: number;
+        confirmed?: number;
+        failed?: number;
+        newCatalogItems?: { ingredients: NewCatalogItem[]; dishes: NewCatalogItem[] };
+        missingIngredients?: NewCatalogItem[];
+      }>(res);
 
-      if (!res.ok) {
-        setBatchError(data.error ?? "Processing failed");
+      if (parseError || !data) {
+        setBatchError(parseError ?? "Processing failed — no response from server");
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.status === "processing" ? { ...e, status: "parsed" as const } : e
+          )
+        );
         return;
       }
 
-      const results = data.results as Array<{ billId: string; ok: boolean; error?: string }>;
+      if (!res.ok) {
+        setBatchError(
+          data.error?.includes("E11000")
+            ? "An ingredient already exists in your kitchen — try Process again."
+            : (data.error ?? "Processing failed")
+        );
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.status === "processing" ? { ...e, status: "parsed" as const } : e
+          )
+        );
+        return;
+      }
+
+      const results = data.results ?? [];
       const resultByBillId = new Map(results.map((r) => [r.billId, r]));
       const alreadyProcessed = "Order already processed";
       const confirmedBillIds = results
@@ -542,11 +667,11 @@ export function BillUploadZone({
         setProcessStats({ totalUpdated, totalNewAdded, billsProcessed });
       }
 
-      if (data.failed > 0) {
+      if ((data.failed ?? 0) > 0) {
         const failedRows = results.filter((r) => !r.ok);
         const onlyAlreadySaved = failedRows.every((r) => r.error === alreadyProcessed);
         if (!onlyAlreadySaved) {
-          setBatchError(data.message);
+          setBatchError(data.message ?? "Some orders failed to process.");
         } else if (data.confirmed === 0) {
           setBatchMsg("All selected orders were already processed.");
         }
@@ -569,9 +694,18 @@ export function BillUploadZone({
           billType
         );
       }
+    } catch {
+      setBatchError(
+        "Network error while processing — check Kitchen control in case inventory updated, then retry if needed."
+      );
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.status === "processing" ? { ...e, status: "parsed" as const } : e
+        )
+      );
     } finally {
       setConfirming(false);
-      onProcessingChange?.(false);
+      finishWork();
       setActiveFilename("");
     }
   }
@@ -582,12 +716,20 @@ export function BillUploadZone({
 
   const queuedCount = visibleEntries.filter((e) => e.status === "queued").length;
   const parsingCount = visibleEntries.filter((e) => e.status === "parsing").length;
+  const processingCount = visibleEntries.filter((e) => e.status === "processing").length;
   const parsedCount = visibleEntries.filter((e) => e.status === "parsed").length;
-  const processCount = parsedCount;
   const confirmedCount = entries.filter((e) => e.status === "confirmed").length;
   const errorCount = visibleEntries.filter((e) => e.status === "error").length;
   const retryCount = visibleEntries.filter((e) => e.status === "error" && e.file).length;
-  const isBusy = uploading || confirming || parsingCount > 0;
+
+  const allReady =
+    visibleEntries.length > 0 &&
+    visibleEntries.every((e) => e.status === "parsed") &&
+    !uploading &&
+    !confirming;
+
+  const isBusy = uploading || confirming || parsingCount > 0 || processingCount > 0;
+  const uploadsBlocked = confirming || processingCount > 0 || Boolean(uploadLocked);
 
   return (
     <div className="sc-card p-5 sm:p-6">
@@ -613,20 +755,28 @@ export function BillUploadZone({
 
       <button
         type="button"
-        disabled={isBusy || confirming}
+        disabled={uploadsBlocked}
         onClick={() => inputRef.current?.click()}
-        className="mt-4 w-full rounded-xl border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 disabled:opacity-50 sm:p-6"
+        className="mt-4 w-full rounded-xl border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 disabled:cursor-not-allowed disabled:opacity-50 sm:p-6"
       >
-        {uploading || parsingCount > 0 ? (
+        {isBusy ? (
           <span className="flex flex-col items-center justify-center gap-2">
             <LoadingSpinner className="h-6 w-6" />
             <span className="font-medium">
-              Uploading {billLabel} (up to {PARALLEL_BILL_UPLOADS} at a time)
-              {progress.total > 1 ? ` — ${progress.current} of ${progress.total} done` : ""}
+              {confirming || processingCount > 0
+                ? `Processing ${billLabel}…`
+                : progress.total > 1
+                  ? `Uploading ${billLabel} — file ${progress.current} of ${progress.total}`
+                  : `Uploading ${billLabel}…`}
             </span>
             {activeFilename && (
               <span className="max-w-full truncate text-sm text-chef-text-muted">{activeFilename}</span>
             )}
+          </span>
+        ) : uploadLocked ? (
+          <span className="flex flex-col items-center justify-center gap-2 text-chef-text-muted">
+            <span className="font-medium">Uploads paused</span>
+            <span className="text-sm">Wait for the other tab to finish.</span>
           </span>
         ) : (
           <span>
@@ -646,9 +796,7 @@ export function BillUploadZone({
           <span className="min-w-0 truncate">
             {confirming
               ? "Processing orders and updating inventory…"
-              : uploading || parsingCount > 0
-                ? `Uploading ${billLabel}${activeFilename ? ` — ${activeFilename}` : "…"}`
-                : "Working…"}
+              : `Uploading ${billLabel}${activeFilename ? ` — ${activeFilename}` : "…"}`}
           </span>
         </div>
       )}
@@ -692,22 +840,28 @@ export function BillUploadZone({
               {visibleEntries.length} file{visibleEntries.length !== 1 ? "s" : ""}
               {queuedCount > 0 && ` · ${queuedCount} waiting`}
               {parsingCount > 0 && ` · ${parsingCount} uploading`}
+              {processingCount > 0 && ` · ${processingCount} processing`}
               {parsedCount > 0 && ` · ${parsedCount} ready to process`}
               {!stagingOnly && confirmedCount > 0 && ` · ${confirmedCount} processed`}
               {retryCount > 0 && ` · ${retryCount} to retry`}
               {errorCount > retryCount && ` · ${errorCount - retryCount} invalid`}
             </span>
-            {processCount > 0 && (
+            {visibleEntries.length > 0 && (
               <button
                 type="button"
                 onClick={processAll}
                 disabled={
+                  !allReady ||
                   confirming ||
                   (requiresSupplierFirst === true && supplierReady === false)
                 }
-                className="sc-btn-primary py-2 text-sm"
+                className="sc-btn-primary py-2 text-sm disabled:opacity-50"
               >
-                {confirming ? "Processing…" : `Process (${processCount})`}
+                {confirming
+                  ? "Processing…"
+                  : allReady
+                    ? `Process (${parsedCount})`
+                    : "Process"}
               </button>
             )}
             {errorCount > 0 && (
@@ -729,7 +883,7 @@ export function BillUploadZone({
               <div
                 key={entry.id}
                 className={`rounded-xl border transition-colors ${
-                  entry.status === "parsing"
+                  entry.status === "parsing" || entry.status === "processing"
                     ? "border-chef-sage/40 bg-chef-sage-light/40"
                     : entry.status === "error"
                       ? "border-chef-amber/40 bg-chef-amber-light/30"
@@ -745,14 +899,18 @@ export function BillUploadZone({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-medium text-chef-text">{entry.filename}</p>
-                    {(entry.status === "queued" || entry.status === "parsing") && (
+                    {(entry.status === "queued" ||
+                      entry.status === "parsing" ||
+                      entry.status === "processing") && (
                       <p className="mt-1 flex items-center gap-2 text-sm text-chef-text-muted">
-                        {entry.status === "parsing" && (
+                        {(entry.status === "parsing" || entry.status === "processing") && (
                           <LoadingSpinner className="h-4 w-4 shrink-0" />
                         )}
-                        {entry.status === "parsing"
-                          ? `Uploading ${billLabel}…`
-                          : "Waiting to upload"}
+                        {entry.status === "processing"
+                          ? `Processing ${billLabel}…`
+                          : entry.status === "parsing"
+                            ? `Uploading ${billLabel}…`
+                            : "Waiting to upload"}
                       </p>
                     )}
                     {entry.result && (
@@ -787,11 +945,12 @@ export function BillUploadZone({
                     )}
                   </div>
                   <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-chef-text-muted">
-                    {entry.status === "parsing" && (
+                    {(entry.status === "parsing" || entry.status === "processing") && (
                       <LoadingSpinner className="h-4 w-4" />
                     )}
                     {entry.status === "queued" && "Queued"}
                     {entry.status === "parsing" && "Uploading…"}
+                    {entry.status === "processing" && "Processing…"}
                     {entry.status === "parsed" && (
                       <span className="text-chef-amber">Ready</span>
                     )}
@@ -815,26 +974,25 @@ export function BillUploadZone({
                   </button>
                 )}
                 {(entry.status === "queued" ||
+                  entry.status === "parsing" ||
                   entry.status === "parsed" ||
                   entry.status === "error") && (
                   <button
                     type="button"
-                    onClick={() => removeEntry(entry)}
-                    disabled={
-                      isBusy ||
-                      confirming ||
-                      entry.removing ||
-                      removingId === entry.id
+                    onClick={() => cancelEntry(entry)}
+                    className="shrink-0 px-3 py-3 text-sm font-medium text-chef-text-muted transition hover:text-red-700"
+                    aria-label={
+                      entry.status === "queued" || entry.status === "parsing"
+                        ? `Cancel ${entry.filename}`
+                        : `Remove ${entry.filename}`
                     }
-                    className="shrink-0 px-3 py-3 text-sm font-medium text-chef-text-muted transition hover:text-red-700 disabled:opacity-40"
-                    aria-label={`Remove ${entry.filename}`}
-                    title="Remove"
+                    title={
+                      entry.status === "queued" || entry.status === "parsing"
+                        ? "Cancel"
+                        : "Remove"
+                    }
                   >
-                    {entry.removing || removingId === entry.id ? (
-                      <LoadingSpinner className="h-4 w-4" />
-                    ) : (
-                      "✕"
-                    )}
+                    ✕
                   </button>
                 )}
                 </div>

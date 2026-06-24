@@ -1,0 +1,388 @@
+{
+  "restaurant": "Panera Cafe",
+  "posVendor": "Square POS \u2014 Panera Cafe",
+  "salesOrders": [
+    {
+      "id": "SQ-20260519-FRI",
+      "seedDay": 0,
+      "billDay": 6,
+      "title": "Friday breakfast rush",
+      "lines": [
+        {
+          "dishSlug": "dish-sunrise-stack",
+          "posName": "Sunrise Stack\u2122",
+          "qty": 5,
+          "unitPrice": 9.12
+        },
+        {
+          "dishSlug": "dish-hot-coffee",
+          "posName": "Starbucks Pike Place Coffee 16oz",
+          "qty": 8,
+          "unitPrice": 2.99
+        },
+        {
+          "addOnSlug": "addon-bacon",
+          "posName": "Extra Tyson Applewood Bacon",
+          "qty": 3,
+          "unitPrice": 3.25
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260602-MON",
+      "seedDay": 4,
+      "billDay": 5,
+      "title": "Early June brunch",
+      "lines": [
+        {
+          "dishSlug": "dish-garden-morning-croissant",
+          "posName": "Garden Morning Croissant",
+          "qty": 4,
+          "unitPrice": 7.87
+        },
+        {
+          "dishSlug": "dish-classic-bagel",
+          "posName": "Classic Bagel \u2014 Thomas' Plain",
+          "qty": 6,
+          "unitPrice": 3.49
+        },
+        {
+          "dishSlug": "dish-orange-juice",
+          "posName": "Kirkland Signature Orange Juice 16oz",
+          "qty": 3,
+          "unitPrice": 3.49
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260609-MON",
+      "seedDay": 9,
+      "billDay": 4,
+      "title": "Coffee & sandwiches",
+      "lines": [
+        {
+          "dishSlug": "dish-lavazza-house-coffee",
+          "posName": "Lavazza House Hot Coffee 12oz",
+          "qty": 6,
+          "unitPrice": 3.18
+        },
+        {
+          "dishSlug": "dish-hazelnut-mocha",
+          "posName": "Monin Dark Chocolate Mocha 16oz",
+          "qty": 4,
+          "unitPrice": 6.45
+        },
+        {
+          "dishSlug": "dish-farmers-double",
+          "posName": "Farmer's Double",
+          "qty": 3,
+          "unitPrice": 9.98
+        },
+        {
+          "addOnSlug": "addon-cheese",
+          "posName": "Tillamook Cheddar Slice",
+          "qty": 2,
+          "unitPrice": 0.99
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260616-MON",
+      "seedDay": 13,
+      "billDay": 3,
+      "title": "Mid-June lunch service",
+      "lines": [
+        {
+          "dishSlug": "dish-veggie-croissant",
+          "posName": "Veggie Croissant",
+          "qty": 3,
+          "unitPrice": 4.49
+        },
+        {
+          "dishSlug": "dish-loaded-bagel",
+          "posName": "Loaded Bagel",
+          "qty": 2,
+          "unitPrice": 7.33
+        },
+        {
+          "dishSlug": "dish-green-tea",
+          "posName": "Twinings Pure Green Tea 20oz",
+          "qty": 2,
+          "unitPrice": 2.49
+        },
+        {
+          "dishSlug": "dish-apple-juice",
+          "posName": "Martinelli's Gold Medal Apple Juice 16oz",
+          "qty": 3,
+          "unitPrice": 3.49
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260622-AM",
+      "seedDay": 18,
+      "billDay": 2,
+      "title": "Breakfast sandwiches \u2014 morning shift",
+      "lines": [
+        {
+          "dishSlug": "dish-sunrise-stack",
+          "posName": "Sunrise Stack\u2122 \u2014 Tyson Bacon, Eggland's Egg, Tillamook Cheddar on Vie de France Croissant",
+          "qty": 3,
+          "unitPrice": 9.12
+        },
+        {
+          "addOnSlug": "addon-bacon",
+          "posName": "Extra Tyson Applewood Bacon",
+          "qty": 2,
+          "unitPrice": 3.25
+        },
+        {
+          "dishSlug": "dish-garden-morning-croissant",
+          "posName": "Garden Morning Croissant \u2014 Earthbound Spinach, Roma Tomato, Hass Avocado",
+          "qty": 2,
+          "unitPrice": 7.87
+        },
+        {
+          "addOnSlug": "addon-veggies",
+          "posName": "Earthbound Spinach, Roma Tomato, Bell Pepper",
+          "qty": 1,
+          "unitPrice": 1.65
+        },
+        {
+          "dishSlug": "dish-farmers-double",
+          "posName": "Farmer's Double \u2014 Jimmy Dean Sausage, Egg, Kraft American on La Brea Sourdough",
+          "qty": 1,
+          "unitPrice": 9.98
+        },
+        {
+          "addOnSlug": "addon-american-cheese",
+          "posName": "Kraft American Cheese Slice",
+          "qty": 1,
+          "unitPrice": 0.99
+        },
+        {
+          "dishSlug": "dish-build-your-own-croissant",
+          "posName": "Build-Your-Own Croissant \u2014 Tyson Bacon, Fried Egg, Boar's Head Swiss",
+          "qty": 2,
+          "unitPrice": 7.1
+        },
+        {
+          "addOnSlug": "addon-swiss",
+          "posName": "Boar's Head Swiss Slice",
+          "qty": 2,
+          "unitPrice": 1.23
+        },
+        {
+          "dishSlug": "dish-build-your-own-sourdough",
+          "posName": "Build-Your-Own Sourdough \u2014 Jimmy Dean Sausage, Eggland's Egg",
+          "qty": 1,
+          "unitPrice": 5.62
+        },
+        {
+          "addOnSlug": "addon-egg",
+          "posName": "Fried Eggland's Best Egg",
+          "qty": 1,
+          "unitPrice": 0.99
+        },
+        {
+          "dishSlug": "dish-build-your-own-bagel",
+          "posName": "Build-Your-Own Bagel \u2014 Tyson Bacon, Baby Spinach, Roma Tomato",
+          "qty": 1,
+          "unitPrice": 7.17
+        },
+        {
+          "dishSlug": "dish-classic-bagel",
+          "posName": "Classic Bagel \u2014 Thomas' Plain",
+          "qty": 2,
+          "unitPrice": 3.49
+        },
+        {
+          "addOnSlug": "addon-bacon",
+          "posName": "Extra Tyson Applewood Bacon",
+          "qty": 2,
+          "unitPrice": 3.25
+        },
+        {
+          "addOnSlug": "addon-cheese",
+          "posName": "Tillamook Cheddar Slice",
+          "qty": 2,
+          "unitPrice": 0.99
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260622-COF",
+      "seedDay": 22,
+      "billDay": 1,
+      "title": "Coffee bar \u2014 specialty drinks",
+      "lines": [
+        {
+          "dishSlug": "dish-lavazza-house-coffee",
+          "posName": "Lavazza House Hot Coffee 12oz \u2014 Black",
+          "qty": 2,
+          "unitPrice": 3.18
+        },
+        {
+          "dishSlug": "dish-hot-coffee",
+          "posName": "Starbucks Pike Place Coffee 16oz \u2014 Land O Lakes Whole Milk",
+          "qty": 4,
+          "unitPrice": 2.99
+        },
+        {
+          "dishSlug": "dish-oat-vanilla-coffee",
+          "posName": "House Hot Coffee 20oz \u2014 Oatly Barista Oat + Monin Vanilla Syrup",
+          "qty": 2,
+          "unitPrice": 5.47
+        },
+        {
+          "dishSlug": "dish-skim-frappe",
+          "posName": "Iced Land O Lakes Skim Milk Frappe 16oz",
+          "qty": 1,
+          "unitPrice": 5.52
+        },
+        {
+          "dishSlug": "dish-caramel-almond-frappe",
+          "posName": "Iced Monin Caramel Frappe 24oz \u2014 Califia Farms Almond Milk",
+          "qty": 2,
+          "unitPrice": 9.35
+        },
+        {
+          "addOnSlug": "addon-extra-shot",
+          "posName": "Extra Lavazza Espresso Shot",
+          "qty": 2,
+          "unitPrice": 1.59
+        },
+        {
+          "dishSlug": "dish-hazelnut-mocha",
+          "posName": "Monin Dark Chocolate Mocha 16oz \u2014 Whole Milk + Monin Hazelnut",
+          "qty": 3,
+          "unitPrice": 6.45
+        },
+        {
+          "dishSlug": "dish-vanilla-cappuccino",
+          "posName": "Classic Cappuccino 20oz \u2014 Land O Lakes Half & Half + Monin Vanilla",
+          "qty": 2,
+          "unitPrice": 5.77
+        },
+        {
+          "addOnSlug": "addon-whipped-cream",
+          "posName": "Extra Land O Lakes Heavy Cream Whipped Topping",
+          "qty": 2,
+          "unitPrice": 0.99
+        }
+      ]
+    },
+    {
+      "id": "TST-20260622-BEV",
+      "seedDay": 26,
+      "billDay": 1,
+      "title": "Tea, juice & caf\u00e9 drinks",
+      "lines": [
+        {
+          "dishSlug": "dish-english-breakfast-tea",
+          "posName": "Taylors of Harrogate English Breakfast Tea 12oz",
+          "qty": 1,
+          "unitPrice": 2.49
+        },
+        {
+          "dishSlug": "dish-english-breakfast-tea",
+          "posName": "Taylors of Harrogate English Breakfast Tea 16oz",
+          "qty": 1,
+          "unitPrice": 2.49
+        },
+        {
+          "dishSlug": "dish-green-tea",
+          "posName": "Twinings Pure Green Tea 20oz",
+          "qty": 1,
+          "unitPrice": 2.49
+        },
+        {
+          "dishSlug": "dish-orange-juice",
+          "posName": "Kirkland Signature Orange Juice 16oz",
+          "qty": 2,
+          "unitPrice": 3.49
+        },
+        {
+          "dishSlug": "dish-apple-juice",
+          "posName": "Martinelli's Gold Medal Apple Juice 16oz",
+          "qty": 2,
+          "unitPrice": 3.49
+        },
+        {
+          "dishSlug": "dish-cranberry-juice",
+          "posName": "Ocean Spray Cranberry Juice Cocktail 20oz",
+          "qty": 2,
+          "unitPrice": 4.08
+        },
+        {
+          "dishSlug": "dish-soy-coffee",
+          "posName": "House Coffee 16oz \u2014 Silk Original Soy Milk",
+          "qty": 1,
+          "unitPrice": 3.2
+        }
+      ]
+    },
+    {
+      "id": "SQ-20260623-MIX",
+      "seedDay": 30,
+      "billDay": 0,
+      "title": "Afternoon \u2014 sandwiches & blended drinks",
+      "lines": [
+        {
+          "dishSlug": "dish-veggie-croissant",
+          "posName": "Veggie Croissant \u2014 Earthbound Spinach, Roma Tomato, Green Bell Pepper",
+          "qty": 2,
+          "unitPrice": 4.49
+        },
+        {
+          "addOnSlug": "addon-veggies",
+          "posName": "Earthbound Spinach, Roma Tomato, Bell Pepper",
+          "qty": 1,
+          "unitPrice": 1.65
+        },
+        {
+          "dishSlug": "dish-sourdough-melt",
+          "posName": "La Brea Sourdough Melt \u2014 Tyson Applewood Bacon, Tillamook Cheddar",
+          "qty": 1,
+          "unitPrice": 8.09
+        },
+        {
+          "addOnSlug": "addon-cheese",
+          "posName": "Tillamook Cheddar Slice",
+          "qty": 1,
+          "unitPrice": 0.99
+        },
+        {
+          "dishSlug": "dish-loaded-bagel",
+          "posName": "Thomas' Bagel \u2014 Jimmy Dean Sausage, Eggland's Egg, Kraft American",
+          "qty": 1,
+          "unitPrice": 7.33
+        },
+        {
+          "dishSlug": "dish-multigrain-bagel",
+          "posName": "Multigrain Bagel \u2014 Thomas' 12 Grain",
+          "qty": 2,
+          "unitPrice": 3.49
+        },
+        {
+          "addOnSlug": "addon-sausage",
+          "posName": "Extra Jimmy Dean Sausage",
+          "qty": 2,
+          "unitPrice": 2.85
+        },
+        {
+          "addOnSlug": "addon-egg",
+          "posName": "Fried Eggland's Best Egg",
+          "qty": 2,
+          "unitPrice": 0.99
+        },
+        {
+          "dishSlug": "dish-oat-mocha",
+          "posName": "Oatly Oat Milk Monin Mocha 12oz",
+          "qty": 2,
+          "unitPrice": 8.15
+        }
+      ]
+    }
+  ]
+}
