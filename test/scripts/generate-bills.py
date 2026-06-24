@@ -28,7 +28,7 @@ CUSTOMER_POS_VENDOR = "Square POS — Panera Cafe"
 SEED_PERIOD_DAYS = 30
 SEED_END_DAYS_AGO = 7
 BILL_PERIOD_DAYS = 7
-BILL_MAX_DAYS_AGO = BILL_PERIOD_DAYS - 1
+BILL_MAX_DAYS_AGO = BILL_PERIOD_DAYS  # billDay 0 = today, billDay 7 = today − 7
 
 
 def clamp_day(value: int, minimum: int, maximum: int) -> int:

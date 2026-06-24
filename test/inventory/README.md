@@ -49,3 +49,16 @@ python3 test/scripts/generate-bills.py
 - **Add-ons** → `AddOn` collection (`classification`, `linkedDishSlugs` from `linkedDishClassifications`)
 
 Use `POST /api/seed?force=1` to replace an existing demo catalog.
+
+## Date windows (relative to load / generate day)
+
+All catalog content (dishes, ingredients, lines, prices) is stable in JSON. Only **dates** are computed at runtime:
+
+| Flow | Range | JSON field |
+|------|--------|------------|
+| **Load test data** (`POST /api/seed`) — sales & purchase orders in MongoDB | **today − 37d** → **today − 7d** | `seedDay` 0…30 on `sales-orders.json` / `purchase-orders.json` |
+| **Generate bills** (`python3 test/scripts/generate-bills.py`) — PDF/PNG fixtures | **today − 7d** → **today** | `billDay` 0…7 on the same order files |
+| Ingredient expiry (seed) | **today + N days** | `expiryDaysFromNow` on `ingredients.json` |
+
+`seedDay` 0 = oldest order (37 days ago); `seedDay` 30 = newest seeded order (7 days ago).  
+`billDay` 0 = today; `billDay` 7 = seven days ago.

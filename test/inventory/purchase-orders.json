@@ -7,7 +7,7 @@
       "vendorSlug": "Sysco",
       "invoiceNumber": "4700",
       "seedDay": 0,
-      "billDay": 6,
+      "billDay": 7,
       "title": "Invoice #4700 — May bakery & dairy restock",
       "lines": [
         { "description": "Vie de France Butter Croissant 4dz case", "qty": 8, "unitPrice": 20.4, "ingredientSlugs": ["ing-croissant"] },

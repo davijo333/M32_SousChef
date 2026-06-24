@@ -118,7 +118,7 @@
       "currentQty": 3,
       "reorderThreshold": 2,
       "lastPurchasePrice": 2.7,
-      "expiryDate": "2026-06-25"
+      "expiryDaysFromNow": 2
     },
     {
       "slug": "ing-tomato",
@@ -128,7 +128,7 @@
       "category": "produce",
       "currentQty": 4,
       "reorderThreshold": 2,
-      "expiryDate": "2026-06-28",
+      "expiryDaysFromNow": 5,
       "lastPurchasePrice": 0.82
     },
     {
@@ -139,7 +139,7 @@
       "category": "produce",
       "currentQty": 3,
       "reorderThreshold": 2,
-      "expiryDate": "2026-06-29",
+      "expiryDaysFromNow": 6,
       "lastPurchasePrice": 1.27
     },
     {
@@ -150,7 +150,7 @@
       "category": "produce",
       "currentQty": 2,
       "reorderThreshold": 3,
-      "expiryDate": "2026-06-27",
+      "expiryDaysFromNow": 4,
       "lastPurchasePrice": 38.0
     },
     {

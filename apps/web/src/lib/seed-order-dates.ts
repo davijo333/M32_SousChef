@@ -1,11 +1,11 @@
-/** One-month seed window ends one week before today. */
+/** One-month seed window: from (today − 37d) through (today − 7d), inclusive. */
 export const SEED_PERIOD_DAYS = 30;
 export const SEED_END_DAYS_AGO = 7;
 export const SEED_START_DAYS_AGO = SEED_END_DAYS_AGO + SEED_PERIOD_DAYS;
 
-/** Bill PDF/PNG files use dates within the last 7 days only. */
+/** Bill fixtures: from (today − 7d) through today, inclusive (billDay 0 = today). */
 export const BILL_PERIOD_DAYS = 7;
-export const BILL_MAX_DAYS_AGO = BILL_PERIOD_DAYS - 1;
+export const BILL_MAX_DAYS_AGO = BILL_PERIOD_DAYS;
 
 export const FINANCE_WEEK_PERIOD_COUNT = Math.ceil(SEED_START_DAYS_AGO / 7);
 export const FINANCE_MONTH_PERIOD_COUNT = 2;

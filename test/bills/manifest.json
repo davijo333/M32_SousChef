@@ -11,7 +11,7 @@
       "format": "pdf",
       "filename": "1.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-18",
+      "date": "2026-06-17",
       "title": "Friday breakfast rush \u2014 lines 1\u20131",
       "parentId": "SQ-20260519-FRI",
       "covers": [
@@ -28,7 +28,7 @@
       "format": "png",
       "filename": "2.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-18",
+      "date": "2026-06-17",
       "title": "Friday breakfast rush \u2014 lines 2\u20133",
       "parentId": "SQ-20260519-FRI",
       "covers": [
@@ -343,7 +343,7 @@
       "format": "pdf",
       "filename": "Bill-1_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-18",
+      "date": "2026-06-17",
       "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 1\u20131",
       "parentId": "SYSCO-4700",
       "covers": [
@@ -360,7 +360,7 @@
       "format": "png",
       "filename": "Bill-2_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-18",
+      "date": "2026-06-17",
       "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 2\u20133",
       "parentId": "SYSCO-4700",
       "covers": [

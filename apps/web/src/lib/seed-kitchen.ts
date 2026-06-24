@@ -30,6 +30,8 @@ type SeedIngredient = {
   reorderThreshold?: number;
   lastPurchasePrice?: number;
   expiryDate?: string;
+  /** Days from load date until expiry (preferred over fixed expiryDate). */
+  expiryDaysFromNow?: number;
   label?: IngredientLabel;
 };
 
@@ -212,11 +214,6 @@ export async function seedKitchenCatalog(restaurantId: string): Promise<SeedKitc
     Recipe.deleteMany({ restaurantId }),
   ]);
 
-  const soon = new Date();
-  soon.setHours(soon.getHours() + 36);
-  const expiringSoon = new Date();
-  expiringSoon.setDate(expiringSoon.getDate() + 5);
-
   const usedIngredientSlugs = new Set<string>();
   for (const dish of dishesDoc.dishes) {
     for (const slug of dish.ingredientSlugs ?? []) {
@@ -231,14 +228,22 @@ export async function seedKitchenCatalog(restaurantId: string): Promise<SeedKitc
 
   for (const ing of ingredientsDoc.ingredients) {
     const category = ing.category;
-    const expiryDate =
-      ing.expiryDate != null
-        ? new Date(ing.expiryDate)
-        : ing.slug === "ing-spinach"
-          ? soon
-          : ing.slug === "ing-tomato" || ing.slug === "ing-bell-pepper"
-            ? expiringSoon
-            : null;
+    const anchor = new Date();
+    anchor.setHours(12, 0, 0, 0);
+
+    let expiryDate: Date | null = null;
+    if (typeof ing.expiryDaysFromNow === "number" && Number.isFinite(ing.expiryDaysFromNow)) {
+      expiryDate = new Date(anchor);
+      expiryDate.setDate(expiryDate.getDate() + Math.max(0, Math.round(ing.expiryDaysFromNow)));
+    } else if (ing.expiryDate != null) {
+      expiryDate = new Date(ing.expiryDate);
+    } else if (ing.slug === "ing-spinach") {
+      expiryDate = new Date(anchor);
+      expiryDate.setHours(expiryDate.getHours() + 36);
+    } else if (ing.slug === "ing-tomato" || ing.slug === "ing-bell-pepper") {
+      expiryDate = new Date(anchor);
+      expiryDate.setDate(expiryDate.getDate() + 5);
+    }
     const sku = buildIngredientSku({
       brandName: ing.brand,
       name: ing.name,

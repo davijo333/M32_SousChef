@@ -54,7 +54,7 @@ M32_SousChef/
 
 ```bash
 python3 -m pip install -r test/scripts/requirements.txt
-python3 test/scripts/generate-bills.py
+npm run regenerate:bills
 ```
 
 Fixtures land in `test/bills/supplier/` (`Bill-1_Sysco.pdf` …) and `test/bills/customer/`. Line content is driven by [`test/inventory/`](../inventory/) — edit those JSON files, then regenerate bills.

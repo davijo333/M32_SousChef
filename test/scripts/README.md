@@ -4,6 +4,8 @@
 
 Creates PDF/PNG purchase and sales order files under `test/bills/` from [`test/inventory/`](../inventory/) JSON (dishes, add-ons, ingredients, purchase-orders, sales-orders).
 
+Bill **dates** are stamped at generation time: `billDay` 0 = today through `billDay` 7 = today − 7 days (see [inventory README](../inventory/README.md#date-windows-relative-to-load--generate-day)).
+
 ```bash
 python3 -m pip install -r test/scripts/requirements.txt
 python3 test/scripts/generate-bills.py
