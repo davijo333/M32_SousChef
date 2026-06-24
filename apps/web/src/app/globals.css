@@ -14,7 +14,7 @@ body {
 
 @layer components {
   .sc-card {
-    @apply rounded-2xl border border-chef-border bg-chef-surface shadow-sm;
+    @apply rounded-2xl border border-chef-border bg-chef-surface shadow-[0_1px_3px_rgba(42,38,34,0.06)];
   }
 
   .sc-label {
@@ -34,15 +34,63 @@ body {
   }
 
   .sc-btn-primary {
-    @apply rounded-xl bg-chef-sage px-5 py-2.5 text-base font-semibold text-white transition hover:bg-chef-sage-dark disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-chef-sage px-5 py-2.5 text-base font-semibold text-white transition hover:bg-chef-sage-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .sc-btn-secondary {
-    @apply rounded-xl border border-chef-border bg-white px-5 py-2.5 text-base font-medium text-chef-text transition hover:bg-chef-muted;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-chef-border bg-white px-5 py-2.5 text-base font-medium text-chef-text transition hover:bg-chef-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/25 focus-visible:ring-offset-2;
+  }
+
+  .sc-icon-btn {
+    @apply inline-flex shrink-0 items-center justify-center rounded-lg p-2 text-chef-text-muted transition-colors hover:bg-chef-muted hover:text-chef-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30 disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   .sc-section-title {
-    @apply text-lg font-semibold text-chef-text;
+    @apply text-lg font-semibold tracking-tight text-chef-text;
+  }
+
+  .sc-page-title {
+    @apply text-2xl font-semibold tracking-tight text-chef-text sm:text-3xl;
+  }
+
+  .sc-page-lead {
+    @apply mt-2 text-base leading-relaxed text-chef-text-muted;
+  }
+
+  .sc-callout {
+    @apply flex gap-3 rounded-xl border border-chef-border bg-chef-muted/50 px-4 py-3 text-sm text-chef-text-muted;
+  }
+
+  .sc-callout-amber {
+    @apply sc-callout border-chef-amber/30 bg-chef-amber-light/60 text-chef-amber;
+  }
+
+  .sc-badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+
+  .sc-badge-sage {
+    @apply sc-badge bg-chef-sage-light text-chef-sage-dark;
+  }
+
+  .sc-badge-amber {
+    @apply sc-badge bg-chef-amber-light text-chef-amber;
+  }
+
+  .sc-badge-muted {
+    @apply sc-badge bg-chef-muted text-chef-text-muted;
+  }
+
+  .sc-empty-state {
+    @apply mt-4 rounded-xl border border-dashed border-chef-border bg-chef-muted/30 px-4 py-10 text-center text-sm text-chef-text-muted;
+  }
+
+  .sc-table-wrap {
+    @apply mt-4 overflow-x-auto rounded-xl border border-chef-border bg-chef-surface shadow-sm;
+  }
+
+  .sc-nav-link {
+    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30;
   }
 
   .sc-main-with-nav {

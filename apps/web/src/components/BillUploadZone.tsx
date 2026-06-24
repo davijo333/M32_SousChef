@@ -1,9 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  Play,
+  RotateCw,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import type { NewCatalogItem } from "@/lib/extract-new-items";
 import { validateBillFilenameForZone } from "@/lib/bill-filename";
 import { useOrderWorkOptional, type OrderBillType } from "@/components/OrderWorkProvider";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type BillLine = {
   rawName: string;
@@ -119,49 +129,7 @@ type ProcessStats = {
 };
 
 function LoadingSpinner({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      className={`animate-spin text-chef-sage ${className}`}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-      />
-    </svg>
-  );
-}
-
-function RetryIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  );
+  return <Loader2 className={`animate-spin text-chef-sage ${className}`} aria-hidden />;
 }
 
 type Props = {
@@ -816,7 +784,7 @@ export function BillUploadZone({
         type="button"
         disabled={uploadsBlocked}
         onClick={() => inputRef.current?.click()}
-        className="mt-4 w-full rounded-xl border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 disabled:cursor-not-allowed disabled:opacity-50 sm:p-6"
+        className="mt-4 w-full rounded-xl border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30 disabled:cursor-not-allowed disabled:opacity-50 sm:p-6"
       >
         {isBusy ? (
           <span className="flex flex-col items-center justify-center gap-2">
@@ -843,12 +811,15 @@ export function BillUploadZone({
             <span className="text-sm">Process or remove files to add more.</span>
           </span>
         ) : (
-          <span>
-            <span className="font-semibold text-chef-sage">Choose files</span>
-            <span className="text-chef-text-muted">
-              {" "}
-              — PDF or photo, up to {MAX_STAGED_UPLOADS} at a time
-              {stagedCount > 0 ? ` (${stagedCount}/${MAX_STAGED_UPLOADS})` : ""}
+          <span className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-3">
+            <UploadCloud className="h-6 w-6 text-chef-sage" aria-hidden />
+            <span>
+              <span className="font-semibold text-chef-sage">Choose files</span>
+              <span className="text-chef-text-muted">
+                {" "}
+                — PDF or photo, up to {MAX_STAGED_UPLOADS} at a time
+                {stagedCount > 0 ? ` (${stagedCount}/${MAX_STAGED_UPLOADS})` : ""}
+              </span>
             </span>
           </span>
         )}
@@ -915,34 +886,52 @@ export function BillUploadZone({
               {errorCount > retryCount && ` · ${errorCount - retryCount} invalid`}
             </span>
             {visibleEntries.length > 0 && (
-              <button
-                type="button"
-                onClick={processAll}
-                disabled={
-                  !allReady ||
-                  confirming ||
-                  (requiresSupplierFirst === true && supplierReady === false)
+              <Tooltip
+                content={
+                  allReady
+                    ? "Apply parsed orders to inventory"
+                    : "Wait until all files finish uploading"
                 }
-                className="sc-btn-primary py-2 text-sm disabled:opacity-50"
               >
-                {confirming
-                  ? "Processing…"
-                  : allReady
-                    ? `Process (${parsedCount})`
-                    : "Process"}
-              </button>
+                <button
+                  type="button"
+                  onClick={processAll}
+                  disabled={
+                    !allReady ||
+                    confirming ||
+                    (requiresSupplierFirst === true && supplierReady === false)
+                  }
+                  className="sc-btn-primary py-2 text-sm"
+                >
+                  {confirming ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      Processing…
+                    </>
+                  ) : allReady ? (
+                    <>
+                      <Play className="h-4 w-4" aria-hidden />
+                      Process ({parsedCount})
+                    </>
+                  ) : (
+                    "Process"
+                  )}
+                </button>
+              </Tooltip>
             )}
             {errorCount > 0 && (
-              <button
-                type="button"
-                onClick={() =>
-                  setEntries((prev) => prev.filter((e) => e.status !== "error"))
-                }
-                disabled={isBusy || confirming}
-                className="rounded-lg border border-chef-border px-3 py-2 text-sm text-chef-text-muted hover:bg-chef-muted"
-              >
-                Clear failed
-              </button>
+              <Tooltip content="Remove invalid files from the queue">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEntries((prev) => prev.filter((e) => e.status !== "error"))
+                  }
+                  disabled={isBusy || confirming}
+                  className="sc-btn-secondary py-2 text-sm"
+                >
+                  Clear failed
+                </button>
+              </Tooltip>
             )}
           </div>
 
@@ -1016,52 +1005,57 @@ export function BillUploadZone({
                     {(entry.status === "parsing" || entry.status === "processing") && (
                       <LoadingSpinner className="h-4 w-4" />
                     )}
-                    {entry.status === "queued" && "Queued"}
-                    {entry.status === "parsing" && "Uploading…"}
-                    {entry.status === "processing" && "Processing…"}
-                    {entry.status === "parsed" && (
-                      <span className="text-chef-amber">Ready</span>
-                    )}
-                    {entry.status === "confirmed" && (
-                      <span className="text-chef-sage">Processed</span>
-                    )}
-                    {entry.status === "error" && !entry.file && "Invalid"}
-                    {entry.result && (entry.expanded ? " ▲" : " ▼")}
+                    {entry.status === "queued" && <span className="sc-badge-muted">Queued</span>}
+                    {entry.status === "parsing" && <span className="sc-badge-muted">Uploading…</span>}
+                    {entry.status === "processing" && <span className="sc-badge-muted">Processing…</span>}
+                    {entry.status === "parsed" && <span className="sc-badge-amber">Ready</span>}
+                    {entry.status === "confirmed" && <span className="sc-badge-sage">Processed</span>}
+                    {entry.status === "error" && !entry.file && <span className="sc-badge-amber">Invalid</span>}
+                    {entry.result &&
+                      (entry.expanded ? (
+                        <ChevronUp className="h-4 w-4" aria-hidden />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" aria-hidden />
+                      ))}
                   </span>
                 </button>
                 {entry.status === "error" && entry.file && (
-                  <button
-                    type="button"
-                    onClick={() => void retryEntry(entry)}
-                    disabled={isBusy || confirming}
-                    className="flex shrink-0 items-center justify-center px-3 py-3 text-chef-sage transition hover:bg-chef-sage-light/60 hover:text-chef-sage-dark disabled:opacity-40"
-                    aria-label={`Retry ${entry.filename}`}
-                    title="Retry upload"
-                  >
-                    <RetryIcon />
-                  </button>
+                  <Tooltip content="Retry upload">
+                    <button
+                      type="button"
+                      onClick={() => void retryEntry(entry)}
+                      disabled={isBusy || confirming}
+                      className="sc-icon-btn px-3 py-3 text-chef-sage hover:bg-chef-sage-light/60 hover:text-chef-sage-dark"
+                      aria-label={`Retry ${entry.filename}`}
+                    >
+                      <RotateCw className="h-4 w-4" aria-hidden />
+                    </button>
+                  </Tooltip>
                 )}
                 {(entry.status === "queued" ||
                   entry.status === "parsing" ||
                   entry.status === "parsed" ||
                   entry.status === "error") && (
-                  <button
-                    type="button"
-                    onClick={() => cancelEntry(entry)}
-                    className="shrink-0 px-3 py-3 text-sm font-medium text-chef-text-muted transition hover:text-red-700"
-                    aria-label={
+                  <Tooltip
+                    content={
                       entry.status === "queued" || entry.status === "parsing"
-                        ? `Cancel ${entry.filename}`
-                        : `Remove ${entry.filename}`
-                    }
-                    title={
-                      entry.status === "queued" || entry.status === "parsing"
-                        ? "Cancel"
-                        : "Remove"
+                        ? "Cancel upload"
+                        : "Remove from queue"
                     }
                   >
-                    ✕
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => cancelEntry(entry)}
+                      className="sc-icon-btn px-3 py-3 hover:text-red-700"
+                      aria-label={
+                        entry.status === "queued" || entry.status === "parsing"
+                          ? `Cancel ${entry.filename}`
+                          : `Remove ${entry.filename}`
+                      }
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </button>
+                  </Tooltip>
                 )}
                 </div>
 

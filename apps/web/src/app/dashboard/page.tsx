@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { CreateChefChat } from "@/components/CreateChefChat";
+import { ChevronRight } from "lucide-react";
 import { DashboardChefChat } from "@/components/DashboardChefChat";
 import { MarginRankingChart } from "@/components/MarginRankingChart";
 import { Nav } from "@/components/Nav";
@@ -120,18 +120,12 @@ function businessTabClass(active: boolean): string {
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
+    <ChevronRight
       className={`mt-0.5 h-5 w-5 shrink-0 text-chef-text-muted transition-transform duration-200 ${
         open ? "rotate-90" : ""
       }`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
       aria-hidden
-    >
-      <path d="M9 18l6-6-6-6" />
-    </svg>
+    />
   );
 }
 
@@ -666,7 +660,7 @@ export default function DashboardPage() {
                 <span className="font-medium text-chef-text">add it</span> to save to Suggested.
               </p>
             </div>
-            <CreateChefChat />
+            <DashboardChefChat context="create" showCues />
           </section>
         )}
       </main>

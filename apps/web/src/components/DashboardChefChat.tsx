@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, MessageSquarePlus, Minimize2, Send, X } from "lucide-react";
 import type { CreateCue } from "@/lib/create-cues";
 import { MAX_CHAT_SESSIONS } from "@/lib/chat-retention";
 import {
@@ -11,6 +12,7 @@ import {
   CHAT_PLACEHOLDER,
   type DashboardChatContext,
 } from "@/lib/dashboard-chat";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -42,14 +44,6 @@ function sessionTabShellClass(active: boolean): string {
   }`;
 }
 
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <path d="M18 6L6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
 function SessionTab({
   title,
   active,
@@ -65,29 +59,32 @@ function SessionTab({
 }) {
   return (
     <div className={sessionTabShellClass(active)}>
-      <button
-        type="button"
-        onClick={onSelect}
-        disabled={deleting}
-        className="min-w-0 flex-1 truncate px-2.5 py-1.5 text-left text-xs font-medium"
-        title={title}
-      >
-        {title}
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onDelete();
-        }}
-        disabled={deleting}
-        aria-label={`Delete chat: ${title}`}
-        className={`mr-1 rounded p-0.5 transition hover:bg-black/10 disabled:opacity-50 ${
-          active ? "text-white/90 hover:text-white" : "text-chef-text-muted hover:text-chef-text"
-        }`}
-      >
-        <CloseIcon />
-      </button>
+      <Tooltip content={title}>
+        <button
+          type="button"
+          onClick={onSelect}
+          disabled={deleting}
+          className="min-w-0 flex-1 truncate px-2.5 py-1.5 text-left text-xs font-medium"
+        >
+          {title}
+        </button>
+      </Tooltip>
+      <Tooltip content="Delete chat">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+          disabled={deleting}
+          aria-label={`Delete chat: ${title}`}
+          className={`sc-icon-btn mr-0.5 h-7 w-7 p-0 ${
+            active ? "text-white/90 hover:bg-white/15 hover:text-white" : ""
+          }`}
+        >
+          <X className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </Tooltip>
     </div>
   );
 }
@@ -368,9 +365,10 @@ export function DashboardChefChat({
             <button
               type="button"
               onClick={openChat}
-              className="shrink-0 rounded-xl bg-chef-sage px-4 py-2.5 text-sm font-semibold text-white hover:bg-chef-sage-dark"
+              className="sc-btn-primary shrink-0 px-4 py-2.5 text-sm"
             >
-              Send
+              <Send className="h-4 w-4" aria-hidden />
+              <span className="sr-only sm:not-sr-only">Send</span>
             </button>
           </div>
         ) : (
@@ -387,20 +385,26 @@ export function DashboardChefChat({
                   </span>
                 </p>
                 <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setExpanded(false)}
-                    className="rounded-md border border-chef-border bg-white px-2.5 py-1 text-xs font-medium text-chef-text-muted hover:text-chef-text"
-                  >
-                    Minimize
-                  </button>
-                  <button
-                    type="button"
-                    onClick={startNewChat}
-                    className="rounded-md border border-chef-border bg-white px-2.5 py-1 text-xs font-medium text-chef-text hover:bg-chef-muted"
-                  >
-                    + New chat
-                  </button>
+                  <Tooltip content="Collapse chat">
+                    <button
+                      type="button"
+                      onClick={() => setExpanded(false)}
+                      className="sc-btn-secondary px-2.5 py-1 text-xs"
+                    >
+                      <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+                      Minimize
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={`Start a new chat (up to ${MAX_CHAT_SESSIONS} saved)`}>
+                    <button
+                      type="button"
+                      onClick={startNewChat}
+                      className="sc-btn-secondary px-2.5 py-1 text-xs"
+                    >
+                      <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
+                      New chat
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
               {(sessions.length > 0 || draftNewChat) && (
@@ -470,7 +474,10 @@ export function DashboardChefChat({
               )}
 
               {sending && (
-                <p className="text-sm text-chef-text-muted">{profile.name} is thinking…</p>
+                <p className="flex items-center gap-2 text-sm text-chef-text-muted">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  {profile.name} is thinking…
+                </p>
               )}
             </div>
 
@@ -500,9 +507,14 @@ export function DashboardChefChat({
               <button
                 type="submit"
                 disabled={sending || !input.trim()}
-                className="shrink-0 rounded-xl bg-chef-sage px-4 py-2.5 text-sm font-semibold text-white hover:bg-chef-sage-dark disabled:opacity-50"
+                className="sc-btn-primary shrink-0 px-4 py-2.5 text-sm"
               >
-                Send
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden />
+                )}
+                <span className="sr-only sm:not-sr-only">Send</span>
               </button>
             </form>
           </>

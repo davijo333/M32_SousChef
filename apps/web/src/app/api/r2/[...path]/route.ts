@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
-import { isUserBillR2Key, resolveR2Path } from "@/lib/r2-storage";
+import { isCatalogSlugImageKey, isUserBillR2Key, resolveR2Path } from "@/lib/r2-storage";
 
 const MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -20,6 +20,7 @@ export async function GET(
 ) {
   const relativeKey = params.path.join("/");
   const isCatalogImage =
+    isCatalogSlugImageKey(relativeKey) ||
     /^dishes\/[^/]+\/image\./.test(relativeKey) ||
     /^ingredients\/[^/]+\/image\./.test(relativeKey) ||
     relativeKey.includes("/image/");

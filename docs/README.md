@@ -1,6 +1,6 @@
 # Documentation
 
-Human-readable reference for the active Sous Chef app (purchase orders + ingredients).
+Reference for the active Sous Chef app.
 
 | Folder | Contents |
 |--------|----------|
@@ -10,14 +10,17 @@ Human-readable reference for the active Sous Chef app (purchase orders + ingredi
 | [Inventory/](./Inventory/) | Dishes, add-ons, ingredients (with samples) |
 | [Recipes/](./Recipes/) | Classifications, workflow, test recipes |
 
-Historical docs for the full pre-slim app live in [`archive/docs/`](../archive/docs/).
-
 ## Terminology
 
 | User-facing | Internal (code / DB) |
 |-------------|----------------------|
 | Purchase order | `billType: "supplier"`, `BillUpload` |
-| Sales order | `billType: "customer"` (archive / future) |
+| Sales order | `billType: "customer"`, `BillUpload` |
 | Upload orders | Route `/upload-orders`, API `/api/bills/*` |
 
-Upload accepts any **PDF or PNG** wholesaler or POS file (e.g. `Bill-1_Costco.pdf`). Legacy test sales files may use `.c_bill.` in the name.
+Upload accepts **PDF or PNG** wholesaler invoices and POS receipts (e.g. `Bill-1_Costco.pdf`, `3.c_bill.pdf`).
+
+## Test data
+
+- Generate bills: `npm run regenerate:bills` (see [test/scripts/README.md](../test/scripts/README.md))
+- Load demo kitchen: Dashboard → Load test data, or `POST /api/seed?force=1`

@@ -83,6 +83,33 @@ export type CatalogImageSlot = "default" | "secondary";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"] as const;
 
+/** Stable slug paths: dishes/my-dish/default.jpg */
+const CATALOG_SLUG_IMAGE_RE =
+  /^(dishes|ingredients|addons)\/[^/]+\/(default|secondary)\.(jpe?g|png|webp|gif)$/i;
+
+export function isCatalogSlugImageKey(relativeKey: string): boolean {
+  return CATALOG_SLUG_IMAGE_RE.test(relativeKey.replace(/^\/+/, ""));
+}
+
+function isValidImageBuffer(buffer: Buffer): boolean {
+  if (buffer.length < 512) return false;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return true;
+  }
+  if (buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP") {
+    return true;
+  }
+  if (buffer.toString("ascii", 0, 3) === "GIF") return true;
+  return false;
+}
+
+function isImageContentType(contentType: string | null): boolean {
+  if (!contentType) return false;
+  const lower = contentType.toLowerCase();
+  return lower.startsWith("image/") && !lower.includes("svg");
+}
+
 /** @deprecated use buildSlugCatalogImageKey */
 export function buildR2RelativeKey(kind: CatalogKind, slug: string, ext: string) {
   return `${kind}/${slug}/image/selected.${ext}`;
@@ -137,8 +164,17 @@ export async function persistCatalogImageToSlug(
     throw new Error(`Failed to download image (${res.status})`);
   }
 
+  const contentType = res.headers.get("content-type");
+  if (!isImageContentType(contentType)) {
+    throw new Error(`Remote URL is not an image (${contentType ?? "unknown type"})`);
+  }
+
   const buffer = Buffer.from(await res.arrayBuffer());
-  const ext = guessExtension(res.headers.get("content-type"), sourceUrl);
+  if (!isValidImageBuffer(buffer)) {
+    throw new Error("Downloaded file is not a valid image");
+  }
+
+  const ext = guessExtension(contentType, sourceUrl);
   const r2Key = buildSlugCatalogImageKey(collection, slug, slot, ext);
   const dest = resolveR2Path(r2Key);
 

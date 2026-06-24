@@ -3,7 +3,7 @@
 **Model:** `apps/web/src/models/BillUpload.ts`  
 **Collection:** `billuploads`
 
-Temporary session for an uploaded **purchase order** (or sales order in archive) between upload and Process.
+Temporary session for an uploaded **purchase order** or **sales order** between upload and Process.
 
 > **Naming:** User-facing term is *purchase order* / *sales order*. The Mongo collection and model name `BillUpload` are kept for backward compatibility. `billType: "supplier"` = purchase order; `"customer"` = sales order.
 

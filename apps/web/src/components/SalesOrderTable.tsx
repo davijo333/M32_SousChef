@@ -1,6 +1,8 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, Receipt } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export type SalesOrderRow = {
   soId: string;
@@ -73,13 +75,16 @@ export function SalesOrderTable({ refreshKey = 0 }: Props) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-semibold text-chef-text">Processed sales orders</h2>
+      <h2 className="sc-section-title">Processed sales orders</h2>
       <p className="mt-1 text-sm text-chef-text-muted">
         Customer receipts appear here after you click Process.
       </p>
 
       {loading && (
-        <p className="mt-4 text-sm text-chef-text-muted">Loading sales orders…</p>
+        <p className="mt-4 flex items-center gap-2 text-sm text-chef-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading sales orders…
+        </p>
       )}
 
       {authError && (
@@ -87,19 +92,24 @@ export function SalesOrderTable({ refreshKey = 0 }: Props) {
       )}
 
       {!loading && !authError && orders.length === 0 && (
-        <p className="mt-4 text-sm text-chef-text-muted">No processed sales orders yet.</p>
+        <div className="sc-empty-state">
+          <Receipt className="mx-auto h-8 w-8 text-chef-text-muted/50" aria-hidden />
+          <p className="mt-3">No processed sales orders yet.</p>
+          <p className="mt-1 text-xs">Upload receipts above, then click Process.</p>
+        </div>
       )}
 
       {!loading && orders.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-chef-border">
+        <div className="sc-table-wrap">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-chef-muted/60 text-chef-text-muted">
+            <thead className="border-b border-chef-border bg-chef-muted/60 text-chef-text-muted">
               <tr>
-                <th className="px-3 py-2 font-medium">Order</th>
-                <th className="px-3 py-2 font-medium">File</th>
-                <th className="px-3 py-2 font-medium">Sale date</th>
-                <th className="px-3 py-2 font-medium">Items</th>
-                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Order</th>
+                <th className="px-4 py-3 font-medium">File</th>
+                <th className="px-4 py-3 font-medium">Sale date</th>
+                <th className="px-4 py-3 font-medium">Items</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -109,33 +119,51 @@ export function SalesOrderTable({ refreshKey = 0 }: Props) {
                 const addonCount = order.items.filter((i) => i.itemKind === "addon").length;
                 return (
                   <Fragment key={order.soId}>
-                    <tr
-                      className="cursor-pointer border-t border-chef-border hover:bg-chef-surface/60"
-                      onClick={() => toggleRow(order.soId)}
-                    >
-                      <td className="px-3 py-2 font-medium text-chef-text">{order.soId}</td>
-                      <td className="max-w-[12rem] truncate px-3 py-2 text-chef-text-muted">
-                        {order.filename}
+                    <tr className="border-b border-chef-border transition-colors hover:bg-chef-muted/30">
+                      <td className="px-4 py-3 font-mono text-xs font-medium text-chef-text">
+                        {order.soId}
                       </td>
-                      <td className="px-3 py-2 text-chef-text-muted">
+                      <td className="max-w-[12rem] truncate px-4 py-3 text-chef-text-muted">
+                        <Tooltip content={order.filename}>
+                          <span className="block truncate">{order.filename}</span>
+                        </Tooltip>
+                      </td>
+                      <td className="px-4 py-3 text-chef-text-muted">
                         {formatDate(order.saleDate)}
                       </td>
-                      <td className="px-3 py-2 text-chef-text-muted">
+                      <td className="px-4 py-3 text-chef-text-muted">
                         {dishCount} dish{dishCount === 1 ? "" : "es"}
                         {addonCount > 0 ? `, ${addonCount} add-on${addonCount === 1 ? "" : "s"}` : ""}
                       </td>
-                      <td className="px-3 py-2 capitalize text-chef-sage">{order.status}</td>
+                      <td className="px-4 py-3">
+                        <span className="sc-badge-sage capitalize">{order.status}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Tooltip content={isOpen ? "Hide line items" : "View line items"}>
+                          <button
+                            type="button"
+                            onClick={() => toggleRow(order.soId)}
+                            className="sc-icon-btn text-chef-sage hover:text-chef-sage-dark"
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? `Hide ${order.soId}` : `View ${order.soId}`}
+                          >
+                            {isOpen ? (
+                              <ChevronUp className="h-4 w-4" aria-hidden />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" aria-hidden />
+                            )}
+                          </button>
+                        </Tooltip>
+                      </td>
                     </tr>
                     {isOpen && (
-                      <tr className="border-t border-chef-border bg-chef-surface/40">
-                        <td colSpan={5} className="px-3 py-3">
+                      <tr className="border-b border-chef-border bg-chef-muted/40">
+                        <td colSpan={6} className="px-4 py-3">
                           <ul className="space-y-1 text-sm">
                             {order.items.map((item, idx) => (
                               <li key={`${order.soId}-${idx}`} className="flex justify-between gap-4">
                                 <span>
-                                  <span className="mr-2 rounded bg-chef-muted px-1.5 py-0.5 text-xs uppercase text-chef-text-muted">
-                                    {item.itemKind}
-                                  </span>
+                                  <span className="sc-badge-muted mr-2 uppercase">{item.itemKind}</span>
                                   {item.name}
                                 </span>
                                 <span className="shrink-0 text-chef-text-muted">

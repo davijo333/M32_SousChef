@@ -2,16 +2,18 @@
 
 ## Dashboard
 
-**Route:** `/dashboard`
+**Route:** `/dashboard`  
+**File:** `apps/web/src/app/dashboard/page.tsx`
 
-Overview cards for the kitchen:
+Three sections, each with a dedicated assistant chat (up to 5 saved sessions per context):
 
-- Total ingredients in pantry
-- Pending purchase orders awaiting Process
-- Confirmed / processed orders count
-- Low-stock and expiring-soon ingredient counts
+| Section | Focus |
+|---------|--------|
+| **Inventory** | Low stock, expiring ingredients, pantry assistant |
+| **Business** | Sales & margin analytics, finance assistant |
+| **Create** | Recipe ideas and suggestions (saved to Recipes → Suggested) |
 
-**API:** `GET /api/dashboard`
+**API:** `GET /api/dashboard`, `GET/POST/DELETE /api/dashboard/chat`
 
 ---
 
@@ -19,18 +21,19 @@ Overview cards for the kitchen:
 
 **Route:** `/upload-orders` (legacy redirect from `/upload-bills`)
 
+Tabs: **Purchase orders** (supplier invoices) and **Sales orders** (POS receipts).
+
 ### Layout
 
-1. **Upload zone** (top) — always clear and ready for new files. Shows only in-flight uploads (queued, parsing, ready to Process).
-2. **PO table** (below) — processed purchase orders only, with PO ID, filename, dates, and line items.
+1. **Upload zone** — queue up to **10** files; parses one at a time; shows ready-to-process list.
+2. **Processed table** — orders after **Process** (PO or SO history with line items).
 
 **Flow:**
 
-1. Drop up to 5 files — each is sent to `POST /api/bills/parse`
-2. Agent parses lines, normalizes names, fetches 2 images per new item
-3. A **PurchaseOrder** record is created (`status: parsed`)
-4. Review parsed lines; click **Process** to confirm stock
-5. On Process, ingredients are upserted and PO moves to `processed`
+1. Choose PDF/PNG files → `POST /api/bills/parse`
+2. Agent parses lines, normalizes names, suggests images for new catalog items
+3. Click **Process** → stock updated (purchase) or sales recorded (customer)
+4. New dishes may trigger recipe linking on Kitchen control / Recipes
 
 **API:** `POST /api/bills/parse`, `POST /api/bills/confirm`, `GET /api/bills/session`
 
@@ -40,25 +43,19 @@ Overview cards for the kitchen:
 
 **Route:** `/kitchen-control`
 
-Pantry grid of ingredients from processed purchase orders. Tap a card to open the **ingredient detail modal**.
+Pantry grid, menu dishes, and add-ons. Tap a card for the detail modal (quantities, links, default/secondary photos).
 
-### Ingredient modal fields
+**API:** `GET /api/kitchen`, `PATCH /api/catalog/*`
 
-| Field | Editable | Source |
-|-------|----------|--------|
-| UID / SKU | Yes | Agent (`sku` from order line) or slug fallback |
-| Slug | Read-only | Internal stable id |
-| Name | Yes | Agent normalizer + manual |
-| Brand | Yes | Vendor / manual |
-| Quantity | Yes | Sum from Process + manual |
-| Reorder level | Yes | Default 1 on create + manual |
-| Last ordered price | Yes | Last order line unit price |
-| Last ordered quantity | Yes | Last order line qty |
-| Images (2) | Select default | Agent image suggestions, stored in R2 |
+---
 
-**Save:** `PATCH /api/catalog/ingredients/[slug]`
+## Recipes
 
-**API:** `GET /api/kitchen`
+**Route:** `/recipes`
+
+Tabs: New, Active, Suggested, Inactive. Suggested cards show agent notes; **Accept** / **Reject** / **Revive** change status.
+
+**API:** `GET /api/recipes`, dish/add-on catalog routes
 
 ---
 
@@ -66,6 +63,6 @@ Pantry grid of ingredients from processed purchase orders. Tap a card to open th
 
 **Routes:** `/login`, `/signup`
 
-Email + password auth via NextAuth. Each user belongs to one restaurant (kitchen).
+Email + password via NextAuth. Kitchen name is set after signup (Nav → click name to edit).
 
-**API:** NextAuth handlers under `/api/auth/*`
+**API:** NextAuth under `/api/auth/*`

@@ -8,8 +8,10 @@ Bill **dates** are stamped at generation time: `billDay` 0 = today through `bill
 
 ```bash
 python3 -m pip install -r test/scripts/requirements.txt
-python3 test/scripts/generate-bills.py
+npm run regenerate:bills
 ```
+
+(Equivalent: `python3 test/scripts/generate-bills.py` from repo root.)
 
 ### Supplier files (10)
 

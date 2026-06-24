@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { INGREDIENT_CATEGORY_OPTIONS } from "@/lib/catalog-classification";
-import { isValidProductImageUrl } from "@/lib/image-selection";
+import { isUsableImageCandidate } from "@/lib/image-selection";
 
 export type IngredientDetail = {
   slug: string;
@@ -56,9 +56,9 @@ function normalizeCandidates(
   imageCandidates: ImageCandidate[] | undefined,
   imageUrl?: string
 ): ImageCandidate[] {
-  const fromDb = (imageCandidates ?? []).filter((c) => isValidProductImageUrl(c.url));
+  const fromDb = (imageCandidates ?? []).filter((c) => isUsableImageCandidate(c));
   if (fromDb.length) return fromDb.slice(0, 2);
-  if (imageUrl && isValidProductImageUrl(imageUrl)) return [{ url: imageUrl }];
+  if (imageUrl && isUsableImageCandidate({ url: imageUrl })) return [{ url: imageUrl }];
   return [];
 }
 

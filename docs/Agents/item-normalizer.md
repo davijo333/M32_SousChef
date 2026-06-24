@@ -23,6 +23,6 @@ On **Process**, `ingestSupplierLine` matches by SKU / brand+name+unit and **upda
 
 User can change default image in Kitchen Control modal → `PATCH /api/catalog/ingredients/[slug]`.
 
-## Sales orders (archive)
+## Sales orders
 
-**Sales order** parsing (`bill_type=customer`) lives in `archive/` for future use. Filename marker: `.c_bill.`
+**Sales order** parsing uses `billType: "customer"`. Customer bill fixtures use `.c_bill.` in the filename (e.g. `3.c_bill.pdf`).

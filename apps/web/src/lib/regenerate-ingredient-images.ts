@@ -1,6 +1,9 @@
 import { applySelectedImage } from "@/lib/ingredient-enrichment";
 import { isValidProductImageUrl } from "@/lib/image-selection";
-import { persistCatalogImageToSlug, type CatalogImageSlot } from "@/lib/r2-storage";
+import {
+  persistCatalogImageCandidate,
+  slotForImageIndex,
+} from "@/lib/persist-catalog-image-candidate";
 import type { IImageCandidate, IIngredient } from "@/models/Ingredient";
 import type { HydratedDocument } from "mongoose";
 
@@ -42,8 +45,8 @@ export async function fetchAgentImages(params: {
   return (data.images ?? []).filter((img) => img.url && isValidProductImageUrl(img.url));
 }
 
-function slotForIndex(index: number): CatalogImageSlot {
-  return index === 0 ? "default" : "secondary";
+function slotForIndex(index: number) {
+  return slotForImageIndex(index);
 }
 
 async function persistCandidate(
@@ -51,28 +54,7 @@ async function persistCandidate(
   index: number,
   img: AgentImageSuggestion
 ): Promise<IImageCandidate> {
-  try {
-    const stored = await persistCatalogImageToSlug(
-      "ingredients",
-      slug,
-      slotForIndex(index),
-      img.url
-    );
-    return {
-      url: stored.publicUrl,
-      label: img.label,
-      source: img.source ?? "regenerated",
-      score: img.score,
-      r2Key: stored.r2Key,
-    };
-  } catch {
-    return {
-      url: img.url,
-      label: img.label,
-      source: img.source ?? "regenerated",
-      score: img.score,
-    };
-  }
+  return persistCatalogImageCandidate("ingredients", slug, slotForIndex(index), img);
 }
 
 /** Replace non-default slot or create initial pair. Mutates and saves ingredient. */

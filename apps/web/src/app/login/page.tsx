@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,75 +42,79 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-      <h1 className="text-2xl font-semibold">Sous Chef</h1>
-      <p className="mt-1 text-stone-600">Your AI sous chef for menu &amp; inventory.</p>
+      <div className="sc-card p-8">
+        <h1 className="sc-page-title text-2xl">Sous Chef</h1>
+        <p className="sc-page-lead">Your AI sous chef for menu and inventory.</p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-        <div>
-          <label className="block text-sm font-medium">Email</label>
-          <input
-            type="email"
-            required
-            className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium">Password</label>
-          <div className="relative mt-1">
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <div>
+            <label className="sc-label" htmlFor="email">
+              Email
+            </label>
             <input
-              type={showPassword ? "text" : "password"}
+              id="email"
+              type="email"
               required
-              className="w-full rounded-lg border border-stone-300 px-3 py-2 pr-11"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              className="sc-input mt-0"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute inset-y-0 right-0 flex items-center px-3 text-stone-500 hover:text-stone-700"
-            >
-              {showPassword ? (
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M2 2l20 20" />
-                  <path d="M1.5 12C2.8 7.7 6.9 4 12 4c2 0 3.8.6 5.3 1.5" />
-                  <path d="M22.5 12c-1.3 4.3-5.4 8-10.5 8-2 0-3.8-.6-5.3-1.5" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1.5 12C2.8 7.7 6.9 4 12 4s9.2 3.7 10.5 8c-1.3 4.3-5.4 8-10.5 8S2.8 16.3 1.5 12z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
           </div>
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+          <div>
+            <label className="sc-label" htmlFor="password">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                className="sc-input mt-0 pr-11"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="sc-icon-btn absolute inset-y-0 right-1 my-auto"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden />
+                )}
+              </button>
+            </div>
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button type="submit" disabled={loading} className="sc-btn-primary w-full">
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                Signing in…
+              </>
+            ) : (
+              "Sign in"
+            )}
+          </button>
+        </form>
+
         <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-stone-900 py-2.5 text-white hover:bg-stone-800 disabled:opacity-50"
+          type="button"
+          onClick={handleGoogleLogin}
+          className="sc-btn-secondary mt-3 w-full"
         >
-          {loading ? "Signing in…" : "Sign in"}
+          Continue with Google
         </button>
-      </form>
 
-      <button
-        type="button"
-        onClick={handleGoogleLogin}
-        className="mt-3 w-full rounded-lg border border-stone-300 py-2.5 text-stone-800 hover:bg-stone-50"
-      >
-        Continue with Google
-      </button>
-
-      <p className="mt-4 text-center text-sm text-stone-600">
-        No account?{" "}
-        <Link href="/signup" className="font-medium text-stone-900 underline">
-          Sign up
-        </Link>
-      </p>
+        <p className="mt-6 text-center text-sm text-chef-text-muted">
+          No account?{" "}
+          <Link href="/signup" className="font-medium text-chef-sage underline">
+            Sign up
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

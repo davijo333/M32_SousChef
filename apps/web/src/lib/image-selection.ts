@@ -1,14 +1,44 @@
 import type { ImageSuggestion, NewCatalogItem } from "@/lib/extract-new-items";
 
+import { isCatalogSlugImageKey } from "@/lib/r2-storage";
+
 export const REQUIRED_CARD_IMAGES = 2;
 
 export function isValidProductImageUrl(url: string): boolean {
   if (!url) return false;
-  if (url.startsWith("/api/r2/")) return true;
+  if (url.startsWith("/api/r2/")) {
+    const key = url.replace(/^\/api\/r2\//, "");
+    return isCatalogSlugImageKey(key);
+  }
   if (!url.startsWith("http")) return false;
   const lower = url.toLowerCase().split("?")[0];
-  const blocked = [".gif", "giphy.com", "tenor.com", "imgflip.com", "/meme", "meme."];
+  const blocked = [
+    ".gif",
+    "giphy.com",
+    "tenor.com",
+    "imgflip.com",
+    "/meme",
+    "meme.",
+    "placehold.co",
+    "placeholder",
+    "via.placeholder",
+  ];
   return !blocked.some((b) => lower.includes(b));
+}
+
+/** Saved catalog photo — R2 URLs must have a stored key; remote URLs must be valid product photos. */
+export function isUsableImageCandidate(candidate: {
+  url?: string;
+  r2Key?: string;
+}): boolean {
+  const url = candidate.url?.trim();
+  if (!url) return false;
+  if (url.startsWith("/api/r2/")) {
+    const key = candidate.r2Key;
+    if (!key) return false;
+    return isCatalogSlugImageKey(key);
+  }
+  return isValidProductImageUrl(url);
 }
 
 export function sortImagesByScore(images: ImageSuggestion[]): ImageSuggestion[] {

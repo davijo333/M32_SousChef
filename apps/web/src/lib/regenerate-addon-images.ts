@@ -1,6 +1,9 @@
 import { applySelectedAddOnImage } from "@/lib/dish-enrichment";
 import { isValidProductImageUrl } from "@/lib/image-selection";
-import { persistCatalogImageToSlug, type CatalogImageSlot } from "@/lib/r2-storage";
+import {
+  persistCatalogImageCandidate,
+  slotForImageIndex,
+} from "@/lib/persist-catalog-image-candidate";
 import type { IAddOn } from "@/models/AddOn";
 import type { IImageCandidate } from "@/models/Ingredient";
 import { Ingredient } from "@/models/Ingredient";
@@ -64,8 +67,8 @@ async function fetchAddOnImages(params: {
   return (data.images ?? []).filter((img) => img.url && isValidProductImageUrl(img.url));
 }
 
-function slotForIndex(index: number): CatalogImageSlot {
-  return index === 0 ? "default" : "secondary";
+function slotForIndex(index: number) {
+  return slotForImageIndex(index);
 }
 
 async function persistCandidate(
@@ -73,18 +76,7 @@ async function persistCandidate(
   index: number,
   img: AgentImageSuggestion
 ): Promise<IImageCandidate> {
-  try {
-    const stored = await persistCatalogImageToSlug("addons", slug, slotForIndex(index), img.url);
-    return {
-      url: stored.publicUrl,
-      label: img.label,
-      source: img.source ?? "regenerated",
-      score: img.score,
-      r2Key: stored.r2Key,
-    };
-  } catch {
-    return { url: img.url, label: img.label, source: img.source ?? "regenerated", score: img.score };
-  }
+  return persistCatalogImageCandidate("addons", slug, slotForIndex(index), img);
 }
 
 function applyOverrides(addOn: HydratedDocument<IAddOn>, overrides?: AddOnImageGenOverrides): void {

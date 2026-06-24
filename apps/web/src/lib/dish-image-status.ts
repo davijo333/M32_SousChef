@@ -1,17 +1,15 @@
-import { isValidProductImageUrl } from "@/lib/image-selection";
+import { isUsableImageCandidate } from "@/lib/image-selection";
 
-type ImageLike = { url?: string };
+type ImageLike = { url?: string; r2Key?: string };
 
 export function validDishImageCount(
   imageCandidates?: ImageLike[],
   imageUrl?: string
 ): number {
-  const fromCandidates = (imageCandidates ?? []).filter((c) =>
-    isValidProductImageUrl(c.url ?? "")
-  );
+  const fromCandidates = (imageCandidates ?? []).filter((c) => isUsableImageCandidate(c));
   if (fromCandidates.length >= 2) return 2;
   if (fromCandidates.length === 1) return 1;
-  if (imageUrl && isValidProductImageUrl(imageUrl)) return 1;
+  if (imageUrl && isUsableImageCandidate({ url: imageUrl })) return 1;
   return 0;
 }
 

@@ -29,7 +29,7 @@ PRICE_FLOORS: dict[str, float] = {
 }
 ADDON_PRICE_FLOOR = 0.99
 
-# Kitchen-unit → count per inventory unit (see archive/docs/db/unit-conversions.md)
+# Kitchen-unit → count per inventory unit (see test/inventory usage in dish/add-on JSON)
 USAGE_UNITS: dict[str, dict[str, float]] = {
     "ing-croissant": {"each": 1},
     "ing-sourdough-bread": {"slice": 16, "loaf": 1},

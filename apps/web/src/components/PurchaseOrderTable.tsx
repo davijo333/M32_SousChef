@@ -2,6 +2,8 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, Package } from "lucide-react";
+import { Tooltip } from "@/components/ui/Tooltip";
 
 export type PurchaseOrderRow = {
   poId: string;
@@ -69,13 +71,16 @@ export function PurchaseOrderTable({ refreshKey = 0 }: Props) {
 
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-semibold text-chef-text">Processed purchase orders</h2>
+      <h2 className="sc-section-title">Processed purchase orders</h2>
       <p className="mt-1 text-sm text-chef-text-muted">
         Orders appear here after you click Process. Upload new files above anytime.
       </p>
 
       {loading && (
-        <p className="mt-4 text-sm text-chef-text-muted">Loading purchase orders…</p>
+        <p className="mt-4 flex items-center gap-2 text-sm text-chef-text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading purchase orders…
+        </p>
       )}
 
       {authError && !loading && (
@@ -88,19 +93,21 @@ export function PurchaseOrderTable({ refreshKey = 0 }: Props) {
       )}
 
       {!loading && !authError && orders.length === 0 && (
-        <div className="mt-4 rounded-xl border border-dashed border-chef-border bg-chef-muted/30 px-4 py-8 text-center text-sm text-chef-text-muted">
-          No processed orders yet. Upload files above, then click Process.
+        <div className="sc-empty-state">
+          <Package className="mx-auto h-8 w-8 text-chef-text-muted/50" aria-hidden />
+          <p className="mt-3">No processed orders yet.</p>
+          <p className="mt-1 text-xs">Upload files above, then click Process.</p>
         </div>
       )}
 
       {!loading && orders.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-chef-border bg-chef-surface">
+        <div className="sc-table-wrap">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="border-b border-chef-border bg-chef-muted/60 text-chef-text-muted">
               <tr>
-              <th className="px-4 py-3 font-medium">PO ID</th>
-              <th className="px-4 py-3 font-medium">Store</th>
-              <th className="px-4 py-3 font-medium">Filename</th>
+                <th className="px-4 py-3 font-medium">PO ID</th>
+                <th className="px-4 py-3 font-medium">Store</th>
+                <th className="px-4 py-3 font-medium">Filename</th>
                 <th className="px-4 py-3 font-medium">Purchase date</th>
                 <th className="px-4 py-3 font-medium">Upload date</th>
                 <th className="px-4 py-3 font-medium">Items</th>
@@ -110,20 +117,22 @@ export function PurchaseOrderTable({ refreshKey = 0 }: Props) {
             <tbody>
               {orders.map((po) => {
                 const isOpen = expanded.has(po.poId);
+                const storeLabel = po.storeName ?? po.vendor ?? "—";
                 return (
                   <Fragment key={po.poId}>
-                    <tr className="border-b border-chef-border hover:bg-chef-muted/30">
-                    <td className="px-4 py-3 font-mono text-xs font-medium text-chef-text">
-                      {po.poId}
-                    </td>
-                    <td className="max-w-[8rem] truncate px-4 py-3 text-chef-text-muted" title={po.storeName ?? po.vendor}>
-                      {po.storeName ?? po.vendor ?? "—"}
-                    </td>
-                    <td
-                        className="max-w-[12rem] truncate px-4 py-3 text-chef-text"
-                        title={po.filename}
-                      >
-                        {po.filename}
+                    <tr className="border-b border-chef-border transition-colors hover:bg-chef-muted/30">
+                      <td className="px-4 py-3 font-mono text-xs font-medium text-chef-text">
+                        {po.poId}
+                      </td>
+                      <td className="max-w-[8rem] truncate px-4 py-3 text-chef-text-muted">
+                        <Tooltip content={storeLabel}>
+                          <span className="block truncate">{storeLabel}</span>
+                        </Tooltip>
+                      </td>
+                      <td className="max-w-[12rem] truncate px-4 py-3 text-chef-text">
+                        <Tooltip content={po.filename}>
+                          <span className="block truncate">{po.filename}</span>
+                        </Tooltip>
                       </td>
                       <td className="px-4 py-3 text-chef-text-muted">
                         {formatDate(po.purchaseDate)}
@@ -133,18 +142,26 @@ export function PurchaseOrderTable({ refreshKey = 0 }: Props) {
                         {po.items.length} item{po.items.length !== 1 ? "s" : ""}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => toggleRow(po.poId)}
-                          className="text-chef-sage hover:underline"
-                        >
-                          {isOpen ? "Hide" : "View"}
-                        </button>
+                        <Tooltip content={isOpen ? "Hide line items" : "View line items"}>
+                          <button
+                            type="button"
+                            onClick={() => toggleRow(po.poId)}
+                            className="sc-icon-btn text-chef-sage hover:text-chef-sage-dark"
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? `Hide ${po.poId}` : `View ${po.poId}`}
+                          >
+                            {isOpen ? (
+                              <ChevronUp className="h-4 w-4" aria-hidden />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" aria-hidden />
+                            )}
+                          </button>
+                        </Tooltip>
                       </td>
                     </tr>
                     {isOpen && (
-                    <tr className="border-b border-chef-border bg-chef-muted/40">
-                      <td colSpan={7} className="px-4 py-3">
+                      <tr className="border-b border-chef-border bg-chef-muted/40">
+                        <td colSpan={7} className="px-4 py-3">
                           <table className="w-full text-sm">
                             <thead className="text-chef-text-muted">
                               <tr>
@@ -171,17 +188,18 @@ export function PurchaseOrderTable({ refreshKey = 0 }: Props) {
                               ))}
                             </tbody>
                           </table>
-                        {po.vendor && (
-                          <p className="mt-2 text-xs text-chef-text-muted">
-                            Store: {po.storeName ?? po.vendor}
-                          </p>
-                        )}
+                          {po.vendor && (
+                            <p className="mt-2 text-xs text-chef-text-muted">
+                              Store: {po.storeName ?? po.vendor}
+                            </p>
+                          )}
                           <a
                             href={`/api/bills/${po.billUploadId}/file`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-2 inline-block text-xs text-chef-sage underline"
+                            className="mt-2 inline-flex items-center gap-1 text-xs text-chef-sage underline"
                           >
+                            <ExternalLink className="h-3 w-3" aria-hidden />
                             View original file
                           </a>
                         </td>

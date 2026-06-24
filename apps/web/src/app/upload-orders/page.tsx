@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { Info, Loader2, Receipt, ShoppingCart } from "lucide-react";
 import { Nav } from "@/components/Nav";
 import { useOrderWork } from "@/components/OrderWorkProvider";
 import { BillUploadZone, type SavedBill } from "@/components/BillUploadZone";
 import { PurchaseOrderTable } from "@/components/PurchaseOrderTable";
 import { SalesOrderTable } from "@/components/SalesOrderTable";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { useNewCatalogReview } from "@/lib/use-new-catalog-review";
 
 type OrderTab = "purchase" | "sales";
@@ -19,9 +21,9 @@ type SessionPayload = {
   confirmedBillIds: string[];
 };
 
-const TABS: { id: OrderTab; label: string }[] = [
-  { id: "purchase", label: "Purchase orders" },
-  { id: "sales", label: "Sales orders" },
+const TABS: { id: OrderTab; label: string; icon: typeof ShoppingCart; hint: string }[] = [
+  { id: "purchase", label: "Purchase orders", icon: ShoppingCart, hint: "Wholesaler invoices — updates pantry stock" },
+  { id: "sales", label: "Sales orders", icon: Receipt, hint: "POS receipts — records dishes sold" },
 ];
 
 function tabClass(active: boolean) {
@@ -158,20 +160,21 @@ export default function UploadOrdersPage() {
       <Nav />
       <main className="sc-main-with-nav mx-auto max-w-6xl px-4 py-6 sm:py-8">
         <header className="max-w-3xl">
-          <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Upload orders</h1>
-          <ul className="mt-3 space-y-1.5 text-base leading-relaxed text-chef-text-muted">
-            <li>Update inventory using purchase orders.</li>
-            <li>Capture dishes from sales orders.</li>
-            <li>New dishes trigger the Recipe Agent.</li>
-          </ul>
-          <p className="mt-3 text-sm text-chef-text-muted">
-            <span className="font-medium text-chef-text">Suggestion:</span> Process purchase orders
-            first so recipes link to your pantry on{" "}
-            <Link href="/kitchen-control" className="font-medium text-chef-sage underline">
-              Kitchen control
-            </Link>
-            .
+          <h1 className="sc-page-title">Upload orders</h1>
+          <p className="sc-page-lead">
+            Update inventory from purchase orders and capture dishes from sales receipts.
           </p>
+          <div className="sc-callout mt-4">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-chef-sage" aria-hidden />
+            <p>
+              <span className="font-medium text-chef-text">Tip:</span> Process purchase orders first so
+              recipes link to your pantry on{" "}
+              <Link href="/kitchen-control" className="font-medium text-chef-sage underline">
+                Kitchen control
+              </Link>
+              .
+            </p>
+          </div>
         </header>
 
         {sessionLoading && (
@@ -179,9 +182,10 @@ export default function UploadOrdersPage() {
         )}
 
         {orderWorkInProgress && (
-          <p className="mt-4 text-sm text-chef-amber" role="status" aria-live="polite">
-            Upload or processing in progress — continues in the background if you open Dashboard,
-            Kitchen control, or Recipes. Stay on this sub-tab to add more files.
+          <p className="sc-callout-amber mt-4" role="status" aria-live="polite">
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            Upload or processing in progress — continues in the background on other pages. Stay on
+            this tab to add more files.
           </p>
         )}
 
@@ -192,9 +196,9 @@ export default function UploadOrdersPage() {
                 tab.id === "purchase" ? pendingPurchaseCount : pendingSalesCount;
               const busy = tab.id === "purchase" ? supplierBusy : customerBusy;
               const tabLocked = orderWorkInProgress && activeTab !== tab.id;
-              return (
+              const Icon = tab.icon;
+              const tabButton = (
                 <button
-                  key={tab.id}
                   type="button"
                   role="tab"
                   aria-selected={activeTab === tab.id}
@@ -203,29 +207,30 @@ export default function UploadOrdersPage() {
                   id={`tab-${tab.id}`}
                   disabled={tabLocked}
                   onClick={() => setActiveTab(tab.id)}
-                  title={
-                    tabLocked
-                      ? "Wait for the current upload or processing to finish before switching tabs"
-                      : undefined
-                  }
                   className={`${tabClass(activeTab === tab.id)} ${
                     tabLocked ? "cursor-not-allowed opacity-50" : ""
                   }`}
                 >
                   <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
                     {tab.label}
                     {pending > 0 && (
-                      <span className="rounded-full bg-chef-sage/15 px-2 py-0.5 text-xs font-semibold text-chef-sage">
-                        {pending}
-                      </span>
+                      <span className="sc-badge-sage">{pending}</span>
                     )}
                     {busy && (
-                      <span className="text-xs text-chef-text-muted" aria-label="Upload in progress">
-                        …
-                      </span>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-chef-text-muted" aria-label="Upload in progress" />
                     )}
                   </span>
                 </button>
+              );
+              return tabLocked ? (
+                <Tooltip key={tab.id} content="Finish the current upload before switching tabs">
+                  {tabButton}
+                </Tooltip>
+              ) : (
+                <Tooltip key={tab.id} content={tab.hint}>
+                  {tabButton}
+                </Tooltip>
               );
             })}
           </div>

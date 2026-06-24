@@ -1,5 +1,7 @@
 import type { IIngredientLink, RecipeStatus } from "@/models/Dish";
 
+import { isUsableImageCandidate } from "@/lib/image-selection";
+
 export type DishIngredientLink = {
   ingredientSlug: string;
   qtyPerServing: number;
@@ -18,7 +20,13 @@ export type DishDetail = {
   recipeStatus?: RecipeStatus;
   description?: string;
   imageUrl?: string;
-  imageCandidates?: Array<{ url: string; label?: string; source?: string; score?: number }>;
+  imageCandidates?: Array<{
+    url: string;
+    label?: string;
+    source?: string;
+    score?: number;
+    r2Key?: string;
+  }>;
   selectedImageIndex?: number;
   imageGenerationAttempted?: boolean;
   ingredientLinks?: DishIngredientLink[];
@@ -58,7 +66,21 @@ export function dishPayload(dish: {
   selectedImageIndex?: number;
   imageGenerationAttempted?: boolean;
   ingredientLinks?: IIngredientLink[];
+  imageR2Key?: string;
 }): DishDetail {
+  const usableCandidates = (dish.imageCandidates ?? []).filter((c) => isUsableImageCandidate(c));
+  const selectedIndex = Math.min(
+    Math.max(dish.selectedImageIndex ?? 0, 0),
+    Math.max(usableCandidates.length - 1, 0)
+  );
+  const primary = usableCandidates[selectedIndex];
+  const imageUrl =
+    primary?.url && isUsableImageCandidate(primary)
+      ? primary.url
+      : dish.imageUrl && isUsableImageCandidate({ url: dish.imageUrl, r2Key: dish.imageR2Key })
+        ? dish.imageUrl
+        : undefined;
+
   return {
     slug: dish.slug,
     name: dish.name,
@@ -68,9 +90,9 @@ export function dishPayload(dish: {
     totalSold: dish.totalSold ?? 0,
     recipeStatus: dish.recipeStatus,
     description: dish.description,
-    imageUrl: dish.imageUrl,
-    imageCandidates: dish.imageCandidates ?? [],
-    selectedImageIndex: dish.selectedImageIndex ?? 0,
+    imageUrl,
+    imageCandidates: usableCandidates,
+    selectedImageIndex: usableCandidates.length ? selectedIndex : 0,
     imageGenerationAttempted: dish.imageGenerationAttempted ?? false,
     ingredientLinks: (dish.ingredientLinks ?? []).map((link) => ({
       ingredientSlug: link.ingredientSlug,
