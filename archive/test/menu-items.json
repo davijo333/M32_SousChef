@@ -1,0 +1,296 @@
+{
+  "restaurant": "Sunrise Diner",
+  "menuItems": [
+    {
+      "id": "mi-custom-croissant",
+      "name": "Custom Croissant Sandwich",
+      "type": "customizable",
+      "category": "breakfast_sandwiches",
+      "subcategory": "custom",
+      "description": "Buttery croissant with your choice of add-ons.",
+      "baseId": "base-croissant",
+      "sellPrice": 8.99,
+      "availableAddOnIds": ["addon-bacon", "addon-sausage", "addon-egg", "addon-cheese", "addon-veggies"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-croissant", "qtyPerServing": 1, "unit": "each" }
+      ]
+    },
+    {
+      "id": "mi-custom-bread",
+      "name": "Custom Bread Sandwich",
+      "type": "customizable",
+      "category": "breakfast_sandwiches",
+      "subcategory": "custom",
+      "description": "Toasted sourdough with your choice of add-ons.",
+      "baseId": "base-bread",
+      "sellPrice": 7.99,
+      "availableAddOnIds": ["addon-bacon", "addon-sausage", "addon-egg", "addon-cheese", "addon-veggies"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-sourdough-bread", "qtyPerServing": 2, "unit": "slice" },
+        { "ingredientId": "ing-butter", "qtyPerServing": 0.25, "unit": "oz" }
+      ]
+    },
+    {
+      "id": "mi-custom-bagel",
+      "name": "Custom Bagel Sandwich",
+      "type": "customizable",
+      "category": "breakfast_sandwiches",
+      "subcategory": "custom",
+      "description": "Toasted bagel with your choice of add-ons.",
+      "baseId": "base-bagel",
+      "sellPrice": 8.49,
+      "availableAddOnIds": ["addon-bacon", "addon-sausage", "addon-egg", "addon-cheese", "addon-veggies"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-bagel", "qtyPerServing": 1, "unit": "each" },
+        { "ingredientId": "ing-butter", "qtyPerServing": 0.25, "unit": "oz" }
+      ]
+    },
+    {
+      "id": "mi-sig-sunrise-stack",
+      "name": "The Sunrise Stack",
+      "type": "signature",
+      "category": "breakfast_sandwiches",
+      "subcategory": "signature",
+      "description": "House favorite — bagel, crispy bacon, fried egg, melted cheddar.",
+      "baseId": "base-bagel",
+      "sellPrice": 11.49,
+      "isSignature": true,
+      "defaultAddOnIds": ["addon-bacon", "addon-egg", "addon-cheese"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-bagel", "qtyPerServing": 1, "unit": "each" },
+        { "ingredientId": "ing-butter", "qtyPerServing": 0.25, "unit": "oz" },
+        { "ingredientId": "ing-bacon", "qtyPerServing": 3, "unit": "slice" },
+        { "ingredientId": "ing-egg", "qtyPerServing": 1, "unit": "each" },
+        { "ingredientId": "ing-cheddar", "qtyPerServing": 1.5, "unit": "oz" }
+      ]
+    },
+    {
+      "id": "mi-sig-garden-morning",
+      "name": "Garden Morning Croissant",
+      "type": "signature",
+      "category": "breakfast_sandwiches",
+      "subcategory": "signature",
+      "description": "Flaky croissant with scrambled egg, swiss, spinach, and tomato.",
+      "baseId": "base-croissant",
+      "sellPrice": 10.99,
+      "isSignature": true,
+      "defaultAddOnIds": ["addon-egg", "addon-cheese", "addon-veggies"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-croissant", "qtyPerServing": 1, "unit": "each" },
+        { "ingredientId": "ing-egg", "qtyPerServing": 2, "unit": "each" },
+        { "ingredientId": "ing-swiss", "qtyPerServing": 1, "unit": "oz" },
+        { "ingredientId": "ing-spinach", "qtyPerServing": 0.25, "unit": "cup" },
+        { "ingredientId": "ing-tomato", "qtyPerServing": 2, "unit": "slice" }
+      ]
+    },
+    {
+      "id": "mi-sig-farmers-double",
+      "name": "The Farmer's Double",
+      "type": "signature",
+      "category": "breakfast_sandwiches",
+      "subcategory": "signature",
+      "description": "Hearty sourdough with bacon, sausage, fried egg, and american cheese.",
+      "baseId": "base-bread",
+      "sellPrice": 12.99,
+      "isSignature": true,
+      "defaultAddOnIds": ["addon-bacon", "addon-sausage", "addon-egg", "addon-cheese"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-sourdough-bread", "qtyPerServing": 2, "unit": "slice" },
+        { "ingredientId": "ing-butter", "qtyPerServing": 0.25, "unit": "oz" },
+        { "ingredientId": "ing-bacon", "qtyPerServing": 2, "unit": "slice" },
+        { "ingredientId": "ing-sausage", "qtyPerServing": 2, "unit": "link" },
+        { "ingredientId": "ing-egg", "qtyPerServing": 1, "unit": "each" },
+        { "ingredientId": "ing-american", "qtyPerServing": 1.5, "unit": "oz" }
+      ]
+    },
+    {
+      "id": "mi-coffee-hot",
+      "name": "Hot Coffee",
+      "type": "customizable",
+      "category": "coffee",
+      "description": "Freshly brewed coffee. Choose your milk and an optional flavor shot.",
+      "sellPrice": 3.49,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "customization": {
+        "milk": {
+          "defaultOptionId": "milk-whole",
+          "qtyPerServing": 2,
+          "unit": "oz",
+          "scalesWithSize": true,
+          "availableOptionIds": ["milk-none", "milk-whole", "milk-skim", "milk-oat", "milk-almond", "milk-soy", "milk-half-and-half"]
+        },
+        "flavor": {
+          "optional": true,
+          "maxSelections": 1,
+          "scalesWithSize": false,
+          "availableOptionIds": ["flavor-vanilla", "flavor-caramel", "flavor-hazelnut"]
+        }
+      },
+      "ingredientLinks": [
+        { "ingredientId": "ing-coffee-beans", "qtyPerServing": 0.05, "unit": "lb", "scalesWithSize": true }
+      ]
+    },
+    {
+      "id": "mi-coffee-frappe",
+      "name": "Frappe",
+      "type": "customizable",
+      "category": "coffee",
+      "description": "Blended iced espresso drink. Pick your milk and optional flavor.",
+      "sellPrice": 5.49,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "customization": {
+        "milk": {
+          "defaultOptionId": "milk-whole",
+          "qtyPerServing": 8,
+          "unit": "oz",
+          "scalesWithSize": true,
+          "availableOptionIds": ["milk-whole", "milk-skim", "milk-oat", "milk-almond", "milk-soy", "milk-half-and-half"]
+        },
+        "flavor": {
+          "optional": true,
+          "maxSelections": 1,
+          "scalesWithSize": false,
+          "availableOptionIds": ["flavor-vanilla", "flavor-caramel", "flavor-hazelnut"]
+        }
+      },
+      "ingredientLinks": [
+        { "ingredientId": "ing-espresso", "qtyPerServing": 2, "unit": "oz", "scalesWithSize": true },
+        { "ingredientId": "ing-ice", "qtyPerServing": 6, "unit": "oz", "scalesWithSize": true },
+        { "ingredientId": "ing-heavy-cream", "qtyPerServing": 2, "unit": "oz", "scalesWithSize": true, "notes": "Blended into frappe" }
+      ]
+    },
+    {
+      "id": "mi-coffee-mocha",
+      "name": "Mocha",
+      "type": "customizable",
+      "category": "coffee",
+      "description": "Espresso with mocha syrup and your choice of milk. Optional extra flavor shot.",
+      "sellPrice": 5.99,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "customization": {
+        "milk": {
+          "defaultOptionId": "milk-whole",
+          "qtyPerServing": 10,
+          "unit": "oz",
+          "scalesWithSize": true,
+          "availableOptionIds": ["milk-whole", "milk-skim", "milk-oat", "milk-almond", "milk-soy", "milk-half-and-half"]
+        },
+        "flavor": {
+          "optional": true,
+          "maxSelections": 1,
+          "scalesWithSize": false,
+          "availableOptionIds": ["flavor-vanilla", "flavor-caramel", "flavor-hazelnut"],
+          "notes": "Adds on top of built-in mocha syrup"
+        }
+      },
+      "ingredientLinks": [
+        { "ingredientId": "ing-espresso", "qtyPerServing": 2, "unit": "oz", "scalesWithSize": true },
+        { "ingredientId": "ing-mocha-syrup", "qtyPerServing": 1, "unit": "oz", "scalesWithSize": true }
+      ]
+    },
+    {
+      "id": "mi-coffee-cappuccino",
+      "name": "Cappuccino",
+      "type": "customizable",
+      "category": "coffee",
+      "description": "Espresso with steamed milk foam. Choose milk type and optional flavor.",
+      "sellPrice": 4.99,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "customization": {
+        "milk": {
+          "defaultOptionId": "milk-whole",
+          "qtyPerServing": 2,
+          "unit": "oz",
+          "scalesWithSize": true,
+          "availableOptionIds": ["milk-whole", "milk-skim", "milk-oat", "milk-almond", "milk-soy", "milk-half-and-half"],
+          "notes": "Steamed milk portion; foam comes from frothing milk"
+        },
+        "flavor": {
+          "optional": true,
+          "maxSelections": 1,
+          "scalesWithSize": false,
+          "availableOptionIds": ["flavor-vanilla", "flavor-caramel", "flavor-hazelnut"]
+        }
+      },
+      "ingredientLinks": [
+        { "ingredientId": "ing-espresso", "qtyPerServing": 2, "unit": "oz", "scalesWithSize": true },
+        { "ingredientId": "ing-frothing-milk", "qtyPerServing": 2, "unit": "oz", "scalesWithSize": true, "notes": "Foam from froth machine" }
+      ]
+    },
+    {
+      "id": "mi-tea-english",
+      "name": "English Breakfast Tea",
+      "type": "standard",
+      "category": "tea",
+      "sellPrice": 3.29,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-black-tea", "qtyPerServing": 1, "unit": "bag", "scalesWithSize": false }
+      ]
+    },
+    {
+      "id": "mi-tea-green",
+      "name": "Green Tea",
+      "type": "standard",
+      "category": "tea",
+      "sellPrice": 3.29,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-green-tea", "qtyPerServing": 1, "unit": "bag", "scalesWithSize": false }
+      ]
+    },
+    {
+      "id": "mi-juice-orange",
+      "name": "Orange Juice",
+      "type": "standard",
+      "category": "juice",
+      "sellPrice": 4.49,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-orange-juice", "qtyPerServing": 12, "unit": "oz", "scalesWithSize": true }
+      ]
+    },
+    {
+      "id": "mi-juice-apple",
+      "name": "Apple Juice",
+      "type": "standard",
+      "category": "juice",
+      "sellPrice": 4.29,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-apple-juice", "qtyPerServing": 12, "unit": "oz", "scalesWithSize": true }
+      ]
+    },
+    {
+      "id": "mi-juice-cranberry",
+      "name": "Cranberry Juice",
+      "type": "standard",
+      "category": "juice",
+      "sellPrice": 4.49,
+      "defaultSizeId": "size-medium",
+      "sizeIds": ["size-small", "size-medium", "size-large"],
+      "ingredientLinks": [
+        { "ingredientId": "ing-cranberry-juice", "qtyPerServing": 12, "unit": "oz", "scalesWithSize": true }
+      ]
+    }
+  ],
+  "summary": {
+    "totalMenuItems": 15,
+    "breakdown": {
+      "customizableSandwiches": 3,
+      "signatureSandwiches": 3,
+      "coffee": 4,
+      "customizableCoffee": 4,
+      "tea": 2,
+      "juice": 3
+    }
+  }
+}

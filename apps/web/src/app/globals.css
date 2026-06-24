@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #faf8f5;
+  --foreground: #2a2622;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+@layer components {
+  .sc-card {
+    @apply rounded-2xl border border-chef-border bg-chef-surface shadow-sm;
+  }
+
+  .sc-label {
+    @apply block text-sm font-semibold text-chef-text;
+  }
+
+  .sc-hint {
+    @apply text-sm text-chef-text-muted;
+  }
+
+  .sc-input {
+    @apply mt-1.5 w-full rounded-xl border border-chef-border bg-white px-3.5 py-2.5 text-base text-chef-text placeholder:text-chef-text-muted/70 focus:border-chef-sage focus:outline-none focus:ring-2 focus:ring-chef-sage/20;
+  }
+
+  .sc-input-readonly {
+    @apply mt-1.5 w-full rounded-xl border border-chef-border bg-chef-muted px-3.5 py-2.5 text-base text-chef-text-muted;
+  }
+
+  .sc-btn-primary {
+    @apply rounded-xl bg-chef-sage px-5 py-2.5 text-base font-semibold text-white transition hover:bg-chef-sage-dark disabled:opacity-50;
+  }
+
+  .sc-btn-secondary {
+    @apply rounded-xl border border-chef-border bg-white px-5 py-2.5 text-base font-medium text-chef-text transition hover:bg-chef-muted;
+  }
+
+  .sc-section-title {
+    @apply text-lg font-semibold text-chef-text;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

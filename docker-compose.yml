@@ -1,0 +1,30 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: sous-chef-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent:
+    build: ./services/agent
+    container_name: sous-chef-agent
+    ports:
+      - "8000:8000"
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MONGODB_URI: mongodb://mongo:27017/sous_chef
+    depends_on:
+      mongo:
+        condition: service_healthy
+    profiles:
+      - full
+
+volumes:
+  mongo-data:

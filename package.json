@@ -1,0 +1,18 @@
+{
+  "name": "sous-chef",
+  "private": true,
+  "scripts": {
+    "start:agents": "bash services/agent/run.sh",
+    "start:schef": "bash scripts/start-web.sh",
+    "connect:mongodb": "docker compose up -d mongo",
+    "reset:db": "bash scripts/reset-db.sh",
+    "retest:upload": "bash scripts/retest-upload.sh",
+    "dev": "docker compose up -d mongo && cd apps/web && npm run dev",
+    "dev:web": "bash scripts/start-web.sh",
+    "dev:agent": "bash services/agent/run.sh",
+    "docker:up": "docker compose up -d mongo",
+    "docker:down": "docker compose down",
+    "docker:full": "docker compose --profile full up -d",
+    "build": "cd apps/web && npm run build"
+  }
+}

@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# Env — never commit secrets
+.env
+.env.local
+.env.*.local
+apps/web/.env
+apps/web/.env.local
+services/agent/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker volumes (local)
+mongo-data/
+
+# Local R2 mirror (selected catalog images) — use Cloudflare R2 in production
+storage/r2/**
+!storage/r2/.gitkeep
+!storage/r2/README.md
