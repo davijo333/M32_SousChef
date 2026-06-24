@@ -6,8 +6,10 @@ import { DashboardChefChat } from "@/components/DashboardChefChat";
 import { dashboardChatContextToBrandAgent } from "@/lib/chat-handoff";
 import type { DashboardChatContext } from "@/lib/dashboard-chat";
 
+import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
+
 type SousChefChatDockProps = {
-  financeView?: "week" | "month";
+  financeView?: DashboardFinancePeriod;
   showCues?: boolean;
   dashboardSection?: "inventory" | "business" | "create";
   onAgentHandoff?: (section: "inventory" | "business" | "create") => void;
@@ -32,7 +34,7 @@ export function SousChefChatDock({
         <div className="mb-3 flex shrink-0 flex-col items-center gap-2 sm:mb-4">
           <AgentBrandMark
             agent={dashboardChatContextToBrandAgent(agentContext)}
-            size={72}
+            size={88}
           />
           {connectedToSpecialist && (
             <button

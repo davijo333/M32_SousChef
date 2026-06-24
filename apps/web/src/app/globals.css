@@ -10,6 +10,8 @@
 body {
   color: var(--foreground);
   background: var(--background);
+  font-size: 1.0625rem;
+  line-height: 1.6;
 }
 
 @layer components {
@@ -46,7 +48,7 @@ body {
   }
 
   .sc-section-title {
-    @apply text-lg font-semibold tracking-tight text-chef-text;
+    @apply text-lg font-semibold tracking-tight text-chef-text sm:text-xl;
   }
 
   .sc-page-title {
@@ -54,7 +56,23 @@ body {
   }
 
   .sc-page-lead {
-    @apply mt-2 text-base leading-relaxed text-chef-text-muted;
+    @apply mt-2 text-lg leading-relaxed text-chef-text-muted;
+  }
+
+  .sc-stat-label {
+    @apply text-base font-medium text-chef-text-muted;
+  }
+
+  .sc-stat-value {
+    @apply text-3xl font-semibold tabular-nums text-chef-text;
+  }
+
+  .sc-stat-detail {
+    @apply mt-1.5 text-sm leading-relaxed text-chef-text-muted;
+  }
+
+  .sc-tab-pill {
+    @apply rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors;
   }
 
   .sc-callout {
@@ -90,17 +108,37 @@ body {
   }
 
   .sc-nav-link {
-    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30;
+    @apply flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30 sm:px-3 sm:py-2 sm:text-sm;
   }
 
   /** Clear fixed nav; includes room for a wrapped header on small viewports. */
   .sc-main-with-nav {
-    @apply pt-[calc(5.5rem+2rem)] sm:pt-[calc(4.75rem+2rem)];
+    @apply pt-[calc(5.5rem+2rem)] sm:pt-[calc(5rem+2rem)];
+  }
+
+  /** Room to scroll past content above the fixed Sous Chef chat dock. */
+  .sc-main-with-chat-dock {
+    padding-bottom: calc(13.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 640px) {
+    .sc-main-with-chat-dock {
+      padding-bottom: calc(15rem + env(safe-area-inset-bottom, 0px));
+    }
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .sc-scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .sc-scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }

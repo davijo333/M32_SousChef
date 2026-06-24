@@ -7,7 +7,7 @@ import {
   countDishStats,
   countIngredientStats,
   isIngredientExpiring,
-  type DashboardFinanceView,
+  parseFinancePeriod,
 } from "@/lib/dashboard-stats";
 import {
   buildDishMarginRankings,
@@ -15,13 +15,14 @@ import {
 import {
   buildApproachingExpiry,
   buildApproachingReorder,
+  buildLeastReorderDiff,
+  buildLeastSellingDishes,
   buildSalesClassOptions,
   buildTopSellingDishes,
   buildTopUsedIngredients,
 } from "@/lib/dashboard-sales-analytics";
 import { ensureRecipesForRestaurant } from "@/lib/recipe-builder";
 import {
-  FINANCE_MONTH_PERIOD_COUNT,
   FINANCE_WEEK_PERIOD_COUNT,
 } from "@/lib/seed-order-dates";
 import { connectDB } from "@/lib/mongodb";
@@ -43,8 +44,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No restaurant" }, { status: 400 });
   }
 
-  const viewParam = new URL(req.url).searchParams.get("financeView");
-  const financeView: DashboardFinanceView = viewParam === "month" ? "month" : "week";
+  const financePeriod = parseFinancePeriod(new URL(req.url).searchParams.get("financeView"));
 
   await connectDB();
 
@@ -67,9 +67,7 @@ export async function GET(req: Request) {
 
   const dishStats = countDishStats(dishes);
   const ingredientStats = countIngredientStats(ingredients);
-  const periodCount =
-    financeView === "month" ? FINANCE_MONTH_PERIOD_COUNT : FINANCE_WEEK_PERIOD_COUNT;
-  const finance = buildFinanceTimeline(salesOrders, purchaseOrders, financeView, periodCount);
+  const finance = buildFinanceTimeline(salesOrders, purchaseOrders, financePeriod);
   const recipesByKey = new Map(
     recipes.map((recipe) => [`${recipe.kind}:${recipe.targetSlug}`, { foodCost: recipe.foodCost }])
   );
@@ -77,8 +75,7 @@ export async function GET(req: Request) {
     salesOrders,
     purchaseOrders,
     recipesByKey,
-    financeView,
-    periodCount
+    financePeriod
   );
 
   const expiring = ingredients
@@ -107,17 +104,29 @@ export async function GET(req: Request) {
   const salesClassOptions = buildSalesClassOptions(dishes, ingredients);
   const salesAnalytics = {
     ...salesClassOptions,
-    topSellingDishes: buildTopSellingDishes(salesOrders, dishes, financeView, periodCount),
+    topSellingDishes: buildTopSellingDishes(
+      salesOrders,
+      dishes,
+      "week",
+      FINANCE_WEEK_PERIOD_COUNT
+    ),
+    leastSellingDishes: buildLeastSellingDishes(
+      salesOrders,
+      dishes,
+      "week",
+      FINANCE_WEEK_PERIOD_COUNT
+    ),
     topUsedIngredients: buildTopUsedIngredients(
       salesOrders,
       dishes,
       recipes,
       ingredients,
-      financeView,
-      periodCount
+      "week",
+      FINANCE_WEEK_PERIOD_COUNT
     ),
     approachingExpiry: buildApproachingExpiry(ingredients),
     approachingReorder: buildApproachingReorder(ingredients),
+    leastReorderDiff: buildLeastReorderDiff(ingredients),
   };
 
   return NextResponse.json({
@@ -127,7 +136,7 @@ export async function GET(req: Request) {
     dishes: dishStats,
     ingredients: ingredientStats,
     finance: {
-      view: financeView,
+      view: financePeriod,
       periods: finance,
       summary: financeSummary,
     },

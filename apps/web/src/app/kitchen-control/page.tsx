@@ -114,7 +114,6 @@ export default function KitchenControlPage() {
   const [compareDishSearch, setCompareDishSearch] = useState("");
   const [compareDishClassFilters, setCompareDishClassFilters] = useState<string[]>([]);
   const [compareDishRecipeStatusFilters, setCompareDishRecipeStatusFilters] = useState<string[]>([]);
-  const [compareDishRecipeLinkFilters, setCompareDishRecipeLinkFilters] = useState<string[]>([]);
   const [compareAddOnSearch, setCompareAddOnSearch] = useState("");
   const [compareAddOnClassFilters, setCompareAddOnClassFilters] = useState<string[]>([]);
   const [compareAddOnRecipeStatusFilters, setCompareAddOnRecipeStatusFilters] = useState<string[]>([]);
@@ -363,14 +362,9 @@ export default function KitchenControlPage() {
       search: compareDishSearch,
       classFilters: compareDishClassFilters,
       recipeStatusFilters: compareDishRecipeStatusFilters,
-      recipeLinkFilters: compareDishRecipeLinkFilters,
+      recipeLinkFilters: [],
     }),
-    [
-      compareDishSearch,
-      compareDishClassFilters,
-      compareDishRecipeStatusFilters,
-      compareDishRecipeLinkFilters,
-    ]
+    [compareDishSearch, compareDishClassFilters, compareDishRecipeStatusFilters]
   );
 
   const compareAddOnFilterState: MenuFilterState = useMemo(
@@ -449,8 +443,7 @@ export default function KitchenControlPage() {
   const compareDishFiltersActive = Boolean(
     compareDishSearch.trim() ||
       compareDishClassFilters.length > 0 ||
-      compareDishRecipeStatusFilters.length > 0 ||
-      compareDishRecipeLinkFilters.length > 0
+      compareDishRecipeStatusFilters.length > 0
   );
 
   const compareAddOnFiltersActive = Boolean(
@@ -464,7 +457,6 @@ export default function KitchenControlPage() {
     setCompareDishSearch("");
     setCompareDishClassFilters([]);
     setCompareDishRecipeStatusFilters([]);
-    setCompareDishRecipeLinkFilters([]);
   }
 
   function clearCompareAddOnFilters() {
@@ -508,6 +500,15 @@ export default function KitchenControlPage() {
     statusFilters,
     selectedDishIngredientSlugs,
   ]);
+
+  const comparePantryIngredients = useMemo(() => {
+    return kitchen.ingredients.filter((item) => {
+      if (selectedDishIngredientSlugs && !selectedDishIngredientSlugs.has(item.slug)) {
+        return false;
+      }
+      return true;
+    });
+  }, [kitchen.ingredients, selectedDishIngredientSlugs]);
 
   const dishGroups = useMemo(
     () =>
@@ -828,6 +829,16 @@ export default function KitchenControlPage() {
       <main className="sc-main-with-nav mx-auto max-w-7xl px-4 pb-8">
         <div>
           <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Kitchen control</h1>
+          <p className="mt-2 text-base text-chef-text-muted">
+            Manage Dishes in Menu and Ingredients in Pantry, and View Dishes, Ingredients and Dish{" "}
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap align-middle">
+              <span aria-hidden="true">&lt;</span>
+              <span className="inline-block w-8 border-t border-dotted border-chef-text-muted/70" />
+              <span>Linked_to</span>
+              <span className="inline-block w-8 border-t border-dotted border-chef-text-muted/70" />
+            </span>{" "}
+            Ingredients
+          </p>
         </div>
 
         {!hasOrders && empty && (
@@ -1139,9 +1150,10 @@ export default function KitchenControlPage() {
                   recipeStatusFilters={compareDishRecipeStatusFilters}
                   onRecipeStatusFiltersChange={setCompareDishRecipeStatusFilters}
                   recipeStatusOptions={menuRecipeStatusOptions}
-                  recipeLinkFilters={compareDishRecipeLinkFilters}
-                  onRecipeLinkFiltersChange={setCompareDishRecipeLinkFilters}
+                  recipeLinkFilters={[]}
+                  onRecipeLinkFiltersChange={() => {}}
                   recipeLinkOptions={menuRecipeLinkOptions}
+                  showRecipeLinkFilter={false}
                   filtersActive={compareDishFiltersActive}
                   onClearFilters={clearCompareDishFilters}
                 />
@@ -1267,42 +1279,19 @@ export default function KitchenControlPage() {
                   </p>
                 </div>
 
-                {kitchen.ingredients.length > 0 && (
-                  <PantryFiltersBar
-                    totalCount={kitchen.ingredients.length}
-                    filteredCount={filteredIngredients.length}
-                    pantrySearch={pantrySearch}
-                    onPantrySearchChange={setPantrySearch}
-                    brandFilters={brandFilters}
-                    onBrandFiltersChange={setBrandFilters}
-                    brandOptions={brandOptions}
-                    departmentFilters={departmentFilters}
-                    onDepartmentFiltersChange={setDepartmentFilters}
-                    departmentOptions={departmentOptions}
-                    categoryFilters={categoryFilters}
-                    onCategoryFiltersChange={setCategoryFilters}
-                    categoryOptions={categoryOptions}
-                    statusFilters={statusFilters}
-                    onStatusFiltersChange={setStatusFilters}
-                    statusOptions={statusOptions}
-                    filtersActive={pantryFiltersActive}
-                    onClearFilters={() => clearPantryFilters(true)}
-                  />
-                )}
-
                 {kitchen.ingredients.length === 0 ? (
                   <p className="mt-4 text-sm text-chef-text-muted">
                     No pantry items yet. Process a purchase order to add stock.
                   </p>
-                ) : filteredIngredients.length === 0 ? (
+                ) : comparePantryIngredients.length === 0 ? (
                   <p className="mt-4 text-sm text-chef-text-muted">
                     {selectedDish
                       ? `No linked ingredients for ${selectedDish.name} yet. Double-click the dish to add some.`
-                      : "No ingredients match your search or filters."}
+                      : "No pantry items to show."}
                   </p>
                 ) : (
                   <div className="mt-3 flex max-h-[calc(100vh-16rem)] flex-wrap gap-3 overflow-y-auto pb-2">
-                    {filteredIngredients.map((item) => (
+                    {comparePantryIngredients.map((item) => (
                       <KitchenCard
                         key={`${item.slug}:${item.imageUrl ?? ""}:${item.selectedImageIndex ?? 0}`}
                         name={item.name}

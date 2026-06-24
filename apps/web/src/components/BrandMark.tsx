@@ -89,9 +89,9 @@ type AgentSectionHeaderProps = {
 /** Section title: logo above "{Name} Agent" (or Sous Chef). */
 export function AgentSectionHeader({
   agent,
-  logoSize = 52,
+  logoSize = 72,
   className = "",
-  titleClassName = "text-lg font-semibold text-chef-text",
+  titleClassName = "text-xl font-semibold text-chef-text sm:text-2xl",
   align = "center",
 }: AgentSectionHeaderProps) {
   return (

@@ -22,7 +22,85 @@ export type FinancePeriodPoint = {
   expenses: number;
 };
 
+export type DashboardFinancePeriod = "week" | "biweek" | "month" | "quarter";
+
+/** @deprecated Sales analytics bucket granularity — use {@link DashboardFinancePeriod} for summaries. */
 export type DashboardFinanceView = "week" | "month";
+
+export type FinancePeriodRange = {
+  start: Date;
+  end: Date;
+  label: string;
+};
+
+export function parseFinancePeriod(param: string | null | undefined): DashboardFinancePeriod {
+  switch (param) {
+    case "biweek":
+      return "biweek";
+    case "month":
+      return "month";
+    case "quarter":
+      return "quarter";
+    default:
+      return "week";
+  }
+}
+
+export function financePeriodRange(
+  period: DashboardFinancePeriod,
+  now = new Date()
+): FinancePeriodRange {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  switch (period) {
+    case "week":
+      start.setDate(start.getDate() - 6);
+      return { start, end, label: "past 7 days" };
+    case "biweek":
+      start.setDate(start.getDate() - 13);
+      return { start, end, label: "past 14 days" };
+    case "month":
+      start.setDate(1);
+      return {
+        start,
+        end,
+        label: start.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+      };
+    case "quarter": {
+      const quarterStartMonth = Math.floor(start.getMonth() / 3) * 3;
+      start.setMonth(quarterStartMonth, 1);
+      const quarter = Math.floor(quarterStartMonth / 3) + 1;
+      return { start, end, label: `Q${quarter} ${start.getFullYear()}` };
+    }
+  }
+}
+
+function isDateInFinanceRange(date: Date, range: FinancePeriodRange): boolean {
+  const time = date.getTime();
+  return time >= range.start.getTime() && time <= range.end.getTime();
+}
+
+function eachDayInRange(range: FinancePeriodRange): Date[] {
+  const days: Date[] = [];
+  const cursor = new Date(range.start);
+  cursor.setHours(12, 0, 0, 0);
+  while (cursor.getTime() <= range.end.getTime()) {
+    days.push(new Date(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function dayKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
 
 export function orderItemsTotal(items: OrderItemLike[]): number {
   return items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -73,27 +151,12 @@ export function countIngredientStats(
   };
 }
 
-function startOfMonth(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(1);
-  return d;
-}
-
 function periodKeyForDate(date: Date, view: DashboardFinanceView): string {
   if (view === "month") {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
   }
   const weekStart = startOfWeek(date);
   return weekStart.toISOString().slice(0, 10);
-}
-
-function formatPeriodLabel(date: Date, view: DashboardFinanceView): string {
-  if (view === "month") {
-    return date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  }
-  const weekStart = startOfWeek(date);
-  return weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function resolveOrderDate(order: DatedOrderLike): Date {
@@ -107,8 +170,8 @@ export function buildFinanceTimeline(
     uploadDate: Date;
     items: IPurchaseOrderItem[];
   }>,
-  view: DashboardFinanceView = "week",
-  periodCount = 8
+  period: DashboardFinancePeriod = "week",
+  now = new Date()
 ): FinancePeriodPoint[] {
   const datedSales: DatedOrderLike[] = salesOrders.map((order) => ({
     orderDate: order.saleDate,
@@ -121,33 +184,58 @@ export function buildFinanceTimeline(
     items: order.items,
   }));
 
-  const anchor = new Date();
-  anchor.setHours(0, 0, 0, 0);
-
+  const range = financePeriodRange(period, now);
   const buckets = new Map<string, FinancePeriodPoint>();
 
-  for (let index = periodCount - 1; index >= 0; index -= 1) {
-    const cursor = new Date(anchor);
-    if (view === "month") {
-      cursor.setMonth(cursor.getMonth() - index, 1);
-    } else {
-      cursor.setDate(cursor.getDate() - index * 7);
-      const weekStart = startOfWeek(cursor);
-      cursor.setTime(weekStart.getTime());
+  if (period === "week" || period === "biweek") {
+    for (const day of eachDayInRange(range)) {
+      const key = dayKey(day);
+      buckets.set(key, {
+        periodKey: key,
+        label: day.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        sales: 0,
+        expenses: 0,
+      });
     }
-
-    const key = periodKeyForDate(cursor, view);
-    buckets.set(key, {
-      periodKey: key,
-      label: formatPeriodLabel(cursor, view),
-      sales: 0,
-      expenses: 0,
-    });
+  } else if (period === "month") {
+    const cursor = new Date(range.start);
+    while (cursor.getTime() <= range.end.getTime()) {
+      const weekStart = startOfWeek(cursor);
+      const key = dayKey(weekStart);
+      if (!buckets.has(key)) {
+        buckets.set(key, {
+          periodKey: key,
+          label: weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          sales: 0,
+          expenses: 0,
+        });
+      }
+      cursor.setDate(cursor.getDate() + 7);
+    }
+  } else {
+    const cursor = new Date(range.start);
+    cursor.setDate(1);
+    while (cursor.getTime() <= range.end.getTime()) {
+      const key = monthKey(cursor);
+      buckets.set(key, {
+        periodKey: key,
+        label: cursor.toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+        sales: 0,
+        expenses: 0,
+      });
+      cursor.setMonth(cursor.getMonth() + 1, 1);
+    }
   }
 
   for (const order of datedSales) {
     const when = resolveOrderDate(order);
-    const key = periodKeyForDate(when, view);
+    if (!isDateInFinanceRange(when, range)) continue;
+    const key =
+      period === "quarter"
+        ? monthKey(when)
+        : period === "month"
+          ? dayKey(startOfWeek(when))
+          : dayKey(when);
     const bucket = buckets.get(key);
     if (!bucket) continue;
     bucket.sales += orderItemsTotal(order.items);
@@ -155,7 +243,13 @@ export function buildFinanceTimeline(
 
   for (const order of datedPurchases) {
     const when = resolveOrderDate(order);
-    const key = periodKeyForDate(when, view);
+    if (!isDateInFinanceRange(when, range)) continue;
+    const key =
+      period === "quarter"
+        ? monthKey(when)
+        : period === "month"
+          ? dayKey(startOfWeek(when))
+          : dayKey(when);
     const bucket = buckets.get(key);
     if (!bucket) continue;
     bucket.expenses += orderItemsTotal(order.items);
@@ -200,7 +294,6 @@ export function financePeriodKeys(
   return keys;
 }
 
-/** POS revenue, COGS for items actually sold, and wholesale purchases in the finance window. */
 export function computeFinanceSummary(
   salesOrders: Array<{
     saleDate?: Date;
@@ -215,11 +308,10 @@ export function computeFinanceSummary(
     items: IPurchaseOrderItem[];
   }>,
   recipesByKey: Map<string, RecipeCostRef>,
-  view: DashboardFinanceView = "week",
-  periodCount = 8,
+  period: DashboardFinancePeriod = "week",
   now = new Date()
 ): FinanceSummary {
-  const keys = financePeriodKeys(view, periodCount, now);
+  const range = financePeriodRange(period, now);
 
   let sales = 0;
   let soldCogs = 0;
@@ -232,7 +324,7 @@ export function computeFinanceSummary(
       fallbackDate: order.uploadDate,
       items: order.items,
     });
-    if (!keys.has(periodKeyForDate(when, view))) continue;
+    if (!isDateInFinanceRange(when, range)) continue;
 
     posTickets += 1;
     for (const item of order.items) {
@@ -257,7 +349,7 @@ export function computeFinanceSummary(
       fallbackDate: order.uploadDate,
       items: order.items,
     });
-    if (!keys.has(periodKeyForDate(when, view))) continue;
+    if (!isDateInFinanceRange(when, range)) continue;
     supplierPurchases += orderItemsTotal(order.items);
   }
 

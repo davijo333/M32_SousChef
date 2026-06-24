@@ -8,10 +8,11 @@ type RankingRow = {
 };
 
 type MarginRankingChartProps = {
-  title: string;
-  subtitle: string;
+  title?: string;
+  subtitle?: string;
   emptyMessage: string;
   rows: RankingRow[];
+  maxRows?: number;
   formatValue?: (value: number) => string;
   barClassName?: string;
 };
@@ -21,23 +22,34 @@ export function MarginRankingChart({
   subtitle,
   emptyMessage,
   rows,
+  maxRows,
   formatValue = (value) => String(value),
   barClassName = "bg-chef-sage",
 }: MarginRankingChartProps) {
-  const maxValue = Math.max(1, ...rows.map((row) => Math.abs(row.value)));
+  const visibleRows = maxRows ? rows.slice(0, maxRows) : rows;
+  const maxValue = Math.max(1, ...visibleRows.map((row) => Math.abs(row.value)));
+  const showHeader = Boolean(title || subtitle);
 
   return (
-    <div className="sc-card p-4">
-      <h3 className="text-sm font-semibold text-chef-text">{title}</h3>
-      <p className="mt-1 text-xs text-chef-text-muted">{subtitle}</p>
+    <div className="sc-card p-3">
+      {showHeader ? (
+        <div className={rows.length > 0 ? "mb-3" : ""}>
+          {title ? <p className="text-sm font-medium text-chef-text">{title}</p> : null}
+          {subtitle ? (
+            <p className={`text-xs leading-snug text-chef-text-muted ${title ? "mt-0.5" : ""}`}>
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
-      {rows.length > 0 ? (
-        <div className="mt-5 space-y-3">
-          {rows.map((row, index) => {
+      {visibleRows.length > 0 ? (
+        <div className="space-y-2.5">
+          {visibleRows.map((row, index) => {
             const width = Math.max(4, (Math.abs(row.value) / maxValue) * 100);
             return (
               <div key={row.slug}>
-                <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
+                <div className="mb-1 flex items-baseline justify-between gap-2 text-xs sm:text-sm">
                   <span className="min-w-0 truncate font-medium text-chef-text" title={row.name}>
                     <span className="mr-1.5 tabular-nums text-chef-sage">{index + 1}.</span>
                     {row.name}
@@ -46,7 +58,7 @@ export function MarginRankingChart({
                     {row.label ?? formatValue(row.value)}
                   </span>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-chef-muted">
+                <div className="h-2 overflow-hidden rounded-full bg-chef-muted">
                   <div
                     className={`h-full rounded-full ${barClassName}`}
                     style={{ width: `${width}%` }}
@@ -57,7 +69,7 @@ export function MarginRankingChart({
           })}
         </div>
       ) : (
-        <p className="mt-5 text-sm text-chef-text-muted">{emptyMessage}</p>
+        <p className={`text-xs text-chef-text-muted ${showHeader ? "mt-3" : ""}`}>{emptyMessage}</p>
       )}
     </div>
   );

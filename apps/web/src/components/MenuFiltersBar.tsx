@@ -19,6 +19,7 @@ type MenuFiltersBarProps = {
   recipeLinkFilters: string[];
   onRecipeLinkFiltersChange: (value: string[]) => void;
   recipeLinkOptions: MultiSelectOption[];
+  showRecipeLinkFilter?: boolean;
   filtersActive: boolean;
   onClearFilters: () => void;
 };
@@ -37,6 +38,7 @@ export function MenuFiltersBar({
   recipeLinkFilters,
   onRecipeLinkFiltersChange,
   recipeLinkOptions,
+  showRecipeLinkFilter = true,
   filtersActive,
   onClearFilters,
 }: MenuFiltersBarProps) {
@@ -69,14 +71,16 @@ export function MenuFiltersBar({
           onChange={onRecipeStatusFiltersChange}
           className="w-full text-sm sm:w-44"
         />
-        <PantryMultiSelectFilter
-          label="Filter by recipe"
-          placeholder="Recipe link"
-          options={recipeLinkOptions}
-          selected={recipeLinkFilters}
-          onChange={onRecipeLinkFiltersChange}
-          className="w-full text-sm sm:w-44"
-        />
+        {showRecipeLinkFilter ? (
+          <PantryMultiSelectFilter
+            label="Filter by recipe"
+            placeholder="Recipe link"
+            options={recipeLinkOptions}
+            selected={recipeLinkFilters}
+            onChange={onRecipeLinkFiltersChange}
+            className="w-full text-sm sm:w-44"
+          />
+        ) : null}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-chef-text-muted">
         <span>

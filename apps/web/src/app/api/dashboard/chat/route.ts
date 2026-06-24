@@ -23,9 +23,11 @@ import {
 } from "@/lib/dashboard-chat";
 import { fetchWeatherCue } from "@/lib/create-weather";
 import { createSuggestedDish } from "@/lib/create-suggestion";
+import { isIngredientExpiring, parseFinancePeriod } from "@/lib/dashboard-stats";
 import { connectDB } from "@/lib/mongodb";
 import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@/lib/suggestion-notes";
 import { Conversation } from "@/models/Conversation";
+import { Ingredient } from "@/models/Ingredient";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -163,7 +165,7 @@ export async function POST(req: Request) {
   const contextParam = String(body.context ?? "create");
   const agentContextParam = body.agentContext as string | undefined;
   const connectAgentParam = body.connectAgent as string | undefined;
-  const financeView = body.financeView === "month" ? "month" : "week";
+  const financePeriod = parseFinancePeriod(body.financeView);
 
   if (!isDashboardChatContext(contextParam)) {
     return NextResponse.json({ error: "Invalid context" }, { status: 400 });
@@ -237,12 +239,18 @@ export async function POST(req: Request) {
   if (agentContext === "inventory") {
     dataContext = await buildInventoryChatContext(restaurantId);
   } else if (agentContext === "business") {
-    dataContext = await buildBusinessChatContext(restaurantId, financeView);
+    dataContext = await buildBusinessChatContext(restaurantId, financePeriod);
   } else if (agentContext === "head") {
-    dataContext = await buildHeadChatContext(restaurantId, financeView);
+    dataContext = await buildHeadChatContext(restaurantId, financePeriod);
   } else {
     const weather = await fetchWeatherCue();
-    cues = buildCreateCues(weather);
+    const ingredients = await Ingredient.find({ restaurantId })
+      .select("name expiryDate")
+      .lean();
+    const pantryExpiringNames = ingredients
+      .filter((ingredient) => isIngredientExpiring(ingredient))
+      .map((ingredient) => ingredient.name);
+    cues = buildCreateCues(weather, new Date(), pantryExpiringNames);
     const cuesText = formatCuesForPrompt(cues);
     dataContext = await buildCreativeChatContext(restaurantId, cuesText);
     createExtras = `When the chef clearly wants to save an idea, call add_suggested_dish with a notes array (at least one entry).

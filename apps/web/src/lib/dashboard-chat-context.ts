@@ -1,13 +1,10 @@
-import {
-  computeFinanceSummary,
-  isIngredientExpiring,
-  type DashboardFinanceView,
-} from "@/lib/dashboard-stats";
 import { isIngredientRequired } from "@/lib/ingredient-pantry-status";
 import {
-  FINANCE_MONTH_PERIOD_COUNT,
-  FINANCE_WEEK_PERIOD_COUNT,
-} from "@/lib/seed-order-dates";
+  computeFinanceSummary,
+  financePeriodRange,
+  isIngredientExpiring,
+  type DashboardFinancePeriod,
+} from "@/lib/dashboard-stats";
 import type { DashboardChatContext } from "@/lib/dashboard-chat";
 import {
   CHAT_ASSISTANT_NAMES,
@@ -21,11 +18,11 @@ import { PurchaseOrder } from "@/models/PurchaseOrder";
 
 export async function buildHeadChatContext(
   restaurantId: string,
-  financeView: DashboardFinanceView = "week"
+  financePeriod: DashboardFinancePeriod = "week"
 ): Promise<string> {
   const [inventory, business] = await Promise.all([
     buildInventoryChatContext(restaurantId),
-    buildBusinessChatContext(restaurantId, financeView),
+    buildBusinessChatContext(restaurantId, financePeriod),
   ]);
 
   return [`Inventory snapshot:\n${inventory}`, `Business snapshot:\n${business}`].join("\n\n");
@@ -66,11 +63,8 @@ export async function buildInventoryChatContext(restaurantId: string): Promise<s
 
 export async function buildBusinessChatContext(
   restaurantId: string,
-  financeView: DashboardFinanceView = "week"
+  financePeriod: DashboardFinancePeriod = "week"
 ): Promise<string> {
-  const periodCount =
-    financeView === "month" ? FINANCE_MONTH_PERIOD_COUNT : FINANCE_WEEK_PERIOD_COUNT;
-
   const [salesOrders, purchaseOrders, recipes, dishes] = await Promise.all([
     SalesOrder.find({ restaurantId, status: "processed" })
       .select("saleDate uploadDate items")
@@ -89,8 +83,7 @@ export async function buildBusinessChatContext(
     salesOrders,
     purchaseOrders,
     recipesByKey,
-    financeView,
-    periodCount
+    financePeriod
   );
 
   const topMargins = recipes
@@ -105,7 +98,7 @@ export async function buildBusinessChatContext(
     .map((r) => `${r.name} $${r.margin.toFixed(2)} (${r.pct.toFixed(0)}%)`)
     .join("; ");
 
-  const periodLabel = financeView === "week" ? "past 5 weeks" : "past 2 months";
+  const periodLabel = financePeriodRange(financePeriod).label;
 
   return [
     `Period: ${periodLabel}`,

@@ -1,4 +1,10 @@
-export type CreateCueKind = "day" | "weather" | "holiday" | "season";
+export type CreateCueKind =
+  | "day"
+  | "weather"
+  | "holiday"
+  | "season"
+  | "ingredient"
+  | "pantry";
 
 export type CreateCue = {
   id: string;
@@ -49,6 +55,74 @@ export function buildDayCue(now = new Date()): CreateCue {
       ? "Weekend brunch rush — lean into stacks, pastries, and specialty coffee."
       : "Weekday morning commute — fast coffee, bagels, and portable sandwiches.",
   };
+}
+
+export function buildSeasonalIngredientCue(now = new Date()): CreateCue {
+  const month = now.getMonth() + 1;
+  if (month >= 3 && month <= 5) {
+    return {
+      id: "ingredients-spring",
+      kind: "ingredient",
+      label: "Spring produce",
+      detail:
+        "Spinach, asparagus, strawberries, avocado & fresh herbs — bright salads, garden croissants, and juice refreshers.",
+    };
+  }
+  if (month >= 6 && month <= 8) {
+    return {
+      id: "ingredients-summer",
+      kind: "ingredient",
+      label: "Summer produce",
+      detail:
+        "Berries, stone fruit, tomatoes & cucumbers — iced drinks, cold sandwiches, and chilled juice specials.",
+    };
+  }
+  if (month >= 9 && month <= 11) {
+    return {
+      id: "ingredients-fall",
+      kind: "ingredient",
+      label: "Fall harvest",
+      detail:
+        "Pumpkin, apples, squash & cranberries — spiced lattes, harvest melts, and pastry add-ons.",
+    };
+  }
+  return {
+    id: "ingredients-winter",
+    kind: "ingredient",
+    label: "Winter ingredients",
+    detail:
+      "Citrus, pomegranate, root vegetables & kale — hot comfort plates, mocha drinks, and hearty melts.",
+  };
+}
+
+export function buildExpiringPantryCue(
+  names: string[]
+): CreateCue | null {
+  if (names.length === 0) return null;
+  const preview = names.slice(0, 5).join(", ");
+  const suffix = names.length > 5 ? ` +${names.length - 5} more` : "";
+  return {
+    id: "pantry-expiring",
+    kind: "pantry",
+    label:
+      names.length === 1
+        ? "1 ingredient expiring soon"
+        : `${names.length} ingredients expiring soon`,
+    detail: `Use before they spoil: ${preview}${suffix}.`,
+  };
+}
+
+export const CUE_KIND_LABELS: Record<CreateCueKind, string> = {
+  day: "Today",
+  weather: "Weather",
+  holiday: "Holiday",
+  season: "Season",
+  ingredient: "Seasonal ingredients",
+  pantry: "Use soon",
+};
+
+export function cueToChatPrompt(cue: CreateCue): string {
+  return `Ideas for ${cue.label}: ${cue.detail}`;
 }
 
 export function buildSeasonCue(now = new Date()): CreateCue {
@@ -124,10 +198,18 @@ export function buildWeatherCueFallback(now = new Date()): CreateCue {
 
 export function buildCreateCues(
   weather: CreateCue | null,
-  now = new Date()
+  now = new Date(),
+  pantryExpiringNames: string[] = []
 ): CreateCue[] {
-  const cues = [buildDayCue(now), buildSeasonCue(now), ...buildHolidayCues(now)];
+  const cues = [
+    buildDayCue(now),
+    buildSeasonCue(now),
+    buildSeasonalIngredientCue(now),
+    ...buildHolidayCues(now),
+  ];
   cues.splice(1, 0, weather ?? buildWeatherCueFallback(now));
+  const pantryCue = buildExpiringPantryCue(pantryExpiringNames);
+  if (pantryCue) cues.push(pantryCue);
   return cues;
 }
 

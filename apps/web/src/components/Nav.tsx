@@ -68,39 +68,41 @@ export function Nav() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-chef-border bg-chef-surface/95 shadow-[0_1px_2px_rgba(42,38,34,0.04)] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link
             href="/dashboard"
-            className="flex min-w-0 items-center gap-2 transition hover:opacity-90"
+            className="shrink-0 transition hover:opacity-90"
+            aria-label="Sous Chef — Dashboard"
           >
-            <AppBrandMark height={34} priority />
-            {kitchenNameSet && kitchenName ? (
-              <span className="truncate text-sm font-semibold text-chef-text-muted">
-                @{kitchenName}
-              </span>
-            ) : null}
+            <AppBrandMark height={44} priority />
           </Link>
           {kitchenNameSet && kitchenName ? (
-            <Tooltip content="Edit kitchen name">
-              <button
-                type="button"
-                onClick={openEditKitchenName}
-                className="sc-icon-btn shrink-0 text-chef-text-muted hover:text-chef-text"
-                aria-label="Edit kitchen name"
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden />
-              </button>
-            </Tooltip>
+            <div className="flex min-w-0 items-center gap-1 border-l border-chef-border pl-2.5 sm:pl-3">
+              <span className="truncate text-sm font-semibold text-chef-text-muted sm:text-base">
+                @{kitchenName}
+              </span>
+              <Tooltip content="Edit kitchen name">
+                <button
+                  type="button"
+                  onClick={openEditKitchenName}
+                  className="sc-icon-btn h-8 w-8 shrink-0 text-chef-text-muted hover:text-chef-text"
+                  aria-label="Edit kitchen name"
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+              </Tooltip>
+            </div>
           ) : null}
         </div>
-        <nav className="flex flex-wrap items-center gap-1" aria-label="Main">
+
+        <nav className="flex shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1" aria-label="Main">
           {orderWorkActive && (
             <span
-              className="mr-1 hidden items-center gap-1.5 text-sm text-chef-amber sm:inline-flex"
+              className="mr-1 hidden items-center gap-1.5 text-sm text-chef-amber lg:inline-flex"
               role="status"
             >
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               {orderWorkLabel}
             </span>
           )}
@@ -110,8 +112,8 @@ export function Nav() {
             return (
               <Tooltip key={link.href} content={link.hint}>
                 <Link href={link.href} className={navLinkClass(active)} aria-current={active ? "page" : undefined}>
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="hidden sm:inline">{link.label}</span>
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                  <span className="hidden md:inline">{link.label}</span>
                 </Link>
               </Tooltip>
             );
@@ -122,8 +124,8 @@ export function Nav() {
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="sc-nav-link text-chef-text-muted hover:bg-chef-muted hover:text-chef-text"
             >
-              <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">Log out</span>
+              <LogOut className="h-5 w-5 shrink-0" aria-hidden />
+              <span className="hidden md:inline">Log out</span>
             </button>
           </Tooltip>
         </nav>

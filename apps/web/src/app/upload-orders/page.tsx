@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Info, Loader2, Receipt, ShoppingCart } from "lucide-react";
+import { Loader2, Receipt, ShoppingCart } from "lucide-react";
 import { Nav } from "@/components/Nav";
 import { useOrderWork } from "@/components/OrderWorkProvider";
 import { BillUploadZone, type SavedBill } from "@/components/BillUploadZone";
@@ -25,14 +24,6 @@ const TABS: { id: OrderTab; label: string; icon: typeof ShoppingCart; hint: stri
   { id: "purchase", label: "Purchase orders", icon: ShoppingCart, hint: "Wholesaler invoices — updates pantry stock" },
   { id: "sales", label: "Sales orders", icon: Receipt, hint: "POS receipts — records dishes sold" },
 ];
-
-function tabClass(active: boolean) {
-  return `rounded-t-lg border-b-2 px-4 py-2.5 text-sm font-medium transition ${
-    active
-      ? "border-chef-sage bg-chef-surface text-chef-sage"
-      : "border-transparent text-chef-text-muted hover:border-chef-border hover:text-chef-text"
-  }`;
-}
 
 export default function UploadOrdersPage() {
   const router = useRouter();
@@ -150,7 +141,7 @@ export default function UploadOrdersPage() {
     return (
       <>
         <Nav />
-        <p className="p-8 text-chef-text-muted">Loading…</p>
+        <p className="sc-main-with-nav p-8 text-chef-text-muted">Loading…</p>
       </>
     );
   }
@@ -158,82 +149,79 @@ export default function UploadOrdersPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-6 sm:pb-8">
-        <header className="max-w-3xl">
-          <h1 className="sc-page-title">Upload orders</h1>
-          <p className="sc-page-lead">
-            Update inventory from purchase orders and capture dishes from sales receipts.
-          </p>
-          <div className="sc-callout mt-4">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-chef-sage" aria-hidden />
-            <p>
-              <span className="font-medium text-chef-text">Tip:</span> Process purchase orders first so
-              recipes link to your pantry on{" "}
-              <Link href="/kitchen-control" className="font-medium text-chef-sage underline">
-                Kitchen control
-              </Link>
-              .
-            </p>
-          </div>
-        </header>
+      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-8">
+        <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Upload orders</h1>
+        <p className="mt-2 text-base text-chef-text-muted">
+          Upload and process purchase orders and sales receipts.
+        </p>
 
         {sessionLoading && (
           <p className="mt-4 text-sm text-chef-text-muted">Loading…</p>
         )}
 
         {orderWorkInProgress && (
-          <p className="sc-callout-amber mt-4" role="status" aria-live="polite">
-            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" aria-hidden />
-            Upload or processing in progress — continues in the background on other pages. Stay on
-            this tab to add more files.
-          </p>
+          <div
+            className="mt-6 flex items-center gap-3 rounded-xl border border-chef-sage/40 bg-chef-sage/10 px-4 py-4"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="h-5 w-5 shrink-0 animate-spin text-chef-sage" aria-hidden />
+            <p className="text-sm text-chef-text-muted">
+              Upload or processing in progress — continues in the background on other pages. Stay on
+              this tab to add more files.
+            </p>
+          </div>
         )}
 
-        <div className="mt-6 border-b border-chef-border">
-          <div className="flex gap-1" role="tablist" aria-label="Order type">
-            {TABS.map((tab) => {
-              const pending =
-                tab.id === "purchase" ? pendingPurchaseCount : pendingSalesCount;
-              const busy = tab.id === "purchase" ? supplierBusy : customerBusy;
-              const tabLocked = orderWorkInProgress && activeTab !== tab.id;
-              const Icon = tab.icon;
-              const tabButton = (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.id}
-                  aria-controls={`panel-${tab.id}`}
-                  aria-disabled={tabLocked}
-                  id={`tab-${tab.id}`}
-                  disabled={tabLocked}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`${tabClass(activeTab === tab.id)} ${
-                    tabLocked ? "cursor-not-allowed opacity-50" : ""
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                    {tab.label}
-                    {pending > 0 && (
-                      <span className="sc-badge-sage">{pending}</span>
-                    )}
-                    {busy && (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-chef-text-muted" aria-label="Upload in progress" />
-                    )}
-                  </span>
-                </button>
-              );
-              return tabLocked ? (
-                <Tooltip key={tab.id} content="Finish the current upload before switching tabs">
-                  {tabButton}
-                </Tooltip>
-              ) : (
-                <Tooltip key={tab.id} content={tab.hint}>
-                  {tabButton}
-                </Tooltip>
-              );
-            })}
-          </div>
+        <div
+          className="mt-6 flex flex-wrap gap-2 border-b border-chef-border pb-3"
+          role="tablist"
+          aria-label="Order type"
+        >
+          {TABS.map((tab) => {
+            const pending = tab.id === "purchase" ? pendingPurchaseCount : pendingSalesCount;
+            const busy = tab.id === "purchase" ? supplierBusy : customerBusy;
+            const tabLocked = orderWorkInProgress && activeTab !== tab.id;
+            const Icon = tab.icon;
+            const tabButton = (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`panel-${tab.id}`}
+                aria-disabled={tabLocked}
+                id={`tab-${tab.id}`}
+                disabled={tabLocked}
+                onClick={() => setActiveTab(tab.id)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-chef-sage text-white"
+                    : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
+                } ${tabLocked ? "cursor-not-allowed opacity-50" : ""}`}
+              >
+                <span className="flex items-center gap-2">
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                  {tab.label}
+                  {pending > 0 ? ` (${pending})` : ""}
+                  {busy && (
+                    <Loader2
+                      className="h-3.5 w-3.5 animate-spin text-current opacity-80"
+                      aria-label="Upload in progress"
+                    />
+                  )}
+                </span>
+              </button>
+            );
+            return tabLocked ? (
+              <Tooltip key={tab.id} content="Finish the current upload before switching tabs">
+                {tabButton}
+              </Tooltip>
+            ) : (
+              <Tooltip key={tab.id} content={tab.hint}>
+                {tabButton}
+              </Tooltip>
+            );
+          })}
         </div>
 
         <div

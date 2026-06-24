@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquarePlus, Minimize2, Paperclip, Send, X } from "lucide-react";
+import { CreativeCueCard } from "@/components/CreativeCueCard";
 import type { CreateCue } from "@/lib/create-cues";
+import { cueToChatPrompt } from "@/lib/create-cues";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_SESSIONS,
 } from "@/lib/chat-retention";
+import { CREATIVE_CUE_SELECT_EVENT } from "@/lib/creative-cue-events";
 import {
   buildAssistantGreeting,
   CHAT_ASSISTANT_PROFILES,
@@ -26,6 +29,7 @@ import { renderChatMarkdown } from "@/lib/chat-markdown";
 import { AgentBrandMark } from "@/components/BrandMark";
 import type { AgentBrandAgent } from "@/lib/agent-icons";
 import { Tooltip } from "@/components/ui/Tooltip";
+import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -38,16 +42,9 @@ type ChatSession = {
   updatedAt: string;
 };
 
-const CUE_STYLES: Record<CreateCue["kind"], string> = {
-  day: "border-chef-sage/30 bg-chef-sage-light/40",
-  weather: "border-sky-200 bg-sky-50",
-  holiday: "border-chef-amber/40 bg-chef-amber-light/50",
-  season: "border-emerald-200 bg-emerald-50",
-};
-
 type DashboardChefChatProps = {
   context: DashboardChatContext;
-  financeView?: "week" | "month";
+  financeView?: DashboardFinancePeriod;
   showCues?: boolean;
   /** Section title already shows avatar + name — omit duplicate in chat chrome. */
   hideHeaderIdentity?: boolean;
@@ -101,7 +98,7 @@ function SessionTabsRow({
       ))}
       {draftNewChat && (
         <span
-          className={`rounded-md bg-chef-sage px-2.5 py-1.5 text-center text-xs font-medium text-white ${
+          className={`rounded-md bg-chef-sage px-3 py-2 text-center text-sm font-medium text-white ${
             equalWidth ? "min-w-0 flex-1" : ""
           }`}
         >
@@ -134,7 +131,7 @@ function SessionTab({
           type="button"
           onClick={onSelect}
           disabled={deleting}
-          className="block w-full truncate px-2.5 py-1.5 text-left text-xs font-medium"
+          className="block w-full truncate px-3 py-2 text-left text-sm font-medium"
         >
           {title}
         </button>
@@ -220,7 +217,7 @@ export function DashboardChefChat({
   }, [context, onAgentContextChange]);
 
   const loadCues = useCallback(async () => {
-    if (!showCues && agentContext !== "create") return;
+    if (!showCues) return;
     try {
       const res = await fetch("/api/create/cues");
       if (!res.ok) return;
@@ -229,7 +226,19 @@ export function DashboardChefChat({
     } catch {
       // ignore
     }
-  }, [showCues, agentContext]);
+  }, [showCues]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ prompt: string }>).detail;
+      if (!detail?.prompt) return;
+      setInput(detail.prompt);
+      setExpanded(true);
+      queueMicrotask(() => inputRef.current?.focus());
+    };
+    window.addEventListener(CREATIVE_CUE_SELECT_EVENT, handler);
+    return () => window.removeEventListener(CREATIVE_CUE_SELECT_EVENT, handler);
+  }, []);
 
   const applyConversationPayload = useCallback(
     (data: {
@@ -562,7 +571,7 @@ export function DashboardChefChat({
   const activeSessionId = draftNewChat ? null : conversationId;
   const showGreeting = expanded && !hasUserMessages(messages);
   const showSampleQueries = showGreeting;
-  const showCreativeCues = showCues || agentContext === "create";
+  const showCreativeCues = showCues;
   const isDock = variant === "dock";
   const delegatedToSpecialist = agentContext !== context;
   const showAttachments = context === "head";
@@ -659,20 +668,12 @@ export function DashboardChefChat({
       {showCreativeCues && cues.length > 0 && expanded && (
         <div className="mb-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {cues.map((cue) => (
-            <button
+            <CreativeCueCard
               key={cue.id}
-              type="button"
-              onClick={() =>
-                setInput(`Ideas for ${cue.label.toLowerCase()}: ${cue.detail}`)
-              }
-              className={`rounded-xl border p-4 text-left transition hover:shadow-sm ${CUE_STYLES[cue.kind]}`}
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-chef-text-muted">
-                {cue.kind}
-              </p>
-              <p className="mt-1 text-sm font-semibold text-chef-text">{cue.label}</p>
-              <p className="mt-1 text-xs text-chef-text-muted">{cue.detail}</p>
-            </button>
+              cue={cue}
+              compact
+              onSelect={(selected) => setInput(cueToChatPrompt(selected))}
+            />
           ))}
         </div>
       )}
@@ -682,14 +683,14 @@ export function DashboardChefChat({
           <div className={`flex flex-col ${isDock ? "gap-2.5 p-3 sm:gap-3 sm:p-4" : "gap-2 p-3"}`}>
             {isDock && (
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-chef-text-muted">
+                <p className="text-sm font-medium text-chef-text-muted">
                   Saved chats ({sessions.length}/{MAX_CHAT_SESSIONS})
                 </p>
                 <Tooltip content={`Start a new chat (up to ${MAX_CHAT_SESSIONS} saved)`}>
                   <button
                     type="button"
                     onClick={startNewChat}
-                    className="sc-btn-secondary px-2.5 py-1 text-xs"
+                    className="sc-btn-secondary px-3 py-1.5 text-sm"
                   >
                     <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
                     New chat
@@ -719,8 +720,8 @@ export function DashboardChefChat({
                   onClick={openChat}
                   onFocus={openChat}
                   aria-label={`Open ${profile.name}`}
-                  className={`w-full cursor-text rounded-xl border border-chef-border bg-white px-3 text-chef-text placeholder:text-chef-text-muted/70 ${inputAttachPad} ${
-                    isDock ? "py-3.5 text-base" : "py-2.5 text-sm"
+                  className={`w-full cursor-text rounded-xl border border-chef-border bg-white px-4 text-chef-text placeholder:text-chef-text-muted/70 ${inputAttachPad} ${
+                    isDock ? "py-4 text-lg" : "py-2.5 text-base"
                   }`}
                 />
                 {attachClipControl}
@@ -728,7 +729,7 @@ export function DashboardChefChat({
               <button
                 type="button"
                 onClick={openChat}
-                className={`sc-btn-primary shrink-0 text-sm ${isDock ? "px-5 py-3.5" : "px-4 py-2.5"}`}
+                className={`sc-btn-primary shrink-0 ${isDock ? "px-6 py-4 text-base" : "px-4 py-2.5 text-base"}`}
               >
                 <Send className="h-4 w-4" aria-hidden />
                 <span className="sr-only sm:not-sr-only">Send</span>
@@ -739,7 +740,7 @@ export function DashboardChefChat({
           <>
             <div className="border-b border-chef-border bg-chef-muted/40 px-3 py-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-chef-text">
+                <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-chef-text">
                   {!hideHeaderIdentity && (
                     <>
                       <AgentBrandMark agent={chatContextAgent(context)} size={32} />
@@ -759,7 +760,7 @@ export function DashboardChefChat({
                       <button
                         type="button"
                         onClick={returnToSousChef}
-                        className="sc-btn-secondary px-2.5 py-1 text-xs"
+                        className="sc-btn-secondary px-3 py-1.5 text-sm"
                       >
                         Connect back to Sous Chef
                       </button>
@@ -769,7 +770,7 @@ export function DashboardChefChat({
                     <button
                       type="button"
                       onClick={startNewChat}
-                      className="sc-btn-secondary px-2.5 py-1 text-xs"
+                      className="sc-btn-secondary px-3 py-1.5 text-sm"
                     >
                       <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
                       New chat
@@ -916,7 +917,7 @@ export function DashboardChefChat({
                 <button
                   type="submit"
                   disabled={sending || !canSend}
-                  className={`sc-btn-primary shrink-0 text-sm ${isDock ? "px-5 py-3.5" : "px-4 py-2.5"}`}
+                  className={`sc-btn-primary shrink-0 ${isDock ? "px-6 py-4 text-base" : "px-4 py-2.5 text-base"}`}
                 >
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" aria-hidden />

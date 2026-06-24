@@ -763,7 +763,7 @@ export function BillUploadZone({
       <h2 className="text-lg font-semibold text-chef-text">{title}</h2>
       <p className="mt-1 text-base text-chef-text-muted">{description}</p>
       {requiresSupplierFirst && !supplierReady && (
-        <p className="mt-2 rounded-lg bg-chef-amber-light/80 px-3 py-2 text-sm text-chef-amber">
+        <p className="mt-2 rounded-xl border border-chef-amber/30 bg-chef-amber-light/40 px-3 py-2 text-sm text-chef-amber">
           Save purchase orders first — inventory is added before sales orders are processed.
         </p>
       )}
@@ -784,7 +784,7 @@ export function BillUploadZone({
         type="button"
         disabled={uploadsBlocked}
         onClick={() => inputRef.current?.click()}
-        className="mt-4 w-full rounded-xl border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30 disabled:cursor-not-allowed disabled:opacity-50 sm:p-6"
+        className="mt-4 w-full rounded-lg border-2 border-dashed border-chef-sage/35 bg-chef-sage-light/30 p-5 text-base text-chef-text transition hover:border-chef-sage/60 hover:bg-chef-sage-light/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/30 disabled:cursor-not-allowed disabled:opacity-50 sm:p-6"
       >
         {isBusy ? (
           <span className="flex flex-col items-center justify-center gap-2">
@@ -827,7 +827,7 @@ export function BillUploadZone({
 
       {isBusy && (
         <div
-          className="mt-3 flex items-center gap-3 rounded-xl border border-chef-border bg-chef-muted px-4 py-3 text-base text-chef-text"
+          className="mt-3 flex items-center gap-3 rounded-lg border border-chef-border bg-chef-muted/40 px-4 py-3 text-base text-chef-text"
           role="status"
           aria-live="polite"
         >
@@ -845,7 +845,7 @@ export function BillUploadZone({
 
       {processStats && !stagingOnly && (
         <div
-          className="mt-4 rounded-xl border border-chef-sage/30 bg-chef-sage-light/50 p-4"
+          className="mt-4 rounded-lg border border-chef-sage/40 bg-chef-sage/10 p-4"
           role="status"
           aria-live="polite"
         >
@@ -901,7 +901,7 @@ export function BillUploadZone({
                     confirming ||
                     (requiresSupplierFirst === true && supplierReady === false)
                   }
-                  className="sc-btn-primary py-2 text-sm"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {confirming ? (
                     <>
@@ -927,7 +927,7 @@ export function BillUploadZone({
                     setEntries((prev) => prev.filter((e) => e.status !== "error"))
                   }
                   disabled={isBusy || confirming}
-                  className="sc-btn-secondary py-2 text-sm"
+                  className="rounded-lg border border-chef-sage/50 px-3 py-1.5 text-sm font-medium text-chef-sage hover:bg-chef-sage-light/40 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Clear failed
                 </button>
@@ -939,12 +939,12 @@ export function BillUploadZone({
             {visibleEntries.map((entry) => (
               <div
                 key={entry.id}
-                className={`rounded-xl border transition-colors ${
+                className={`rounded-lg border transition-colors ${
                   entry.status === "parsing" || entry.status === "processing"
-                    ? "border-chef-sage/40 bg-chef-sage-light/40"
+                    ? "border-chef-sage/40 bg-chef-sage/10"
                     : entry.status === "error"
-                      ? "border-chef-amber/40 bg-chef-amber-light/30"
-                      : "border-chef-border bg-chef-muted/50"
+                      ? "border-chef-amber/30 bg-chef-amber-light/40"
+                      : "border-chef-border bg-chef-muted/40"
                 }`}
               >
                 <div className="flex items-stretch gap-1">

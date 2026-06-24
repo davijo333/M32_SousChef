@@ -132,40 +132,52 @@ export function buildSalesClassOptions(
   };
 }
 
+export function buildDishSalesRankings(
+  salesOrders: SalesOrderInput[],
+  dishes: DishInput[],
+  view: DashboardFinanceView,
+  periodCount: number,
+  order: "most" | "least" = "most"
+): SalesRankingRow[] {
+  const activeDishes = dishes.filter((dish) => (dish.recipeStatus ?? "new") === "active");
+
+  const soldBySlug = new Map(activeDishes.map((dish) => [dish.slug, 0]));
+  for (const orderRow of salesOrdersInWindow(salesOrders, view, periodCount)) {
+    for (const item of orderRow.items) {
+      if (item.itemKind === "addon" || !item.dishSlug) continue;
+      if (!soldBySlug.has(item.dishSlug)) continue;
+      soldBySlug.set(item.dishSlug, (soldBySlug.get(item.dishSlug) ?? 0) + item.qty);
+    }
+  }
+
+  const rows: SalesRankingRow[] = activeDishes.map((dish) => ({
+    slug: dish.slug,
+    name: dish.name,
+    classKey: dishClassKey(dishClassification(dish)),
+    value: soldBySlug.get(dish.slug) ?? 0,
+  }));
+
+  return rows
+    .sort((a, b) => (order === "most" ? b.value - a.value : a.value - b.value))
+    .slice(0, SALES_RANKING_LIMIT);
+}
+
 export function buildTopSellingDishes(
   salesOrders: SalesOrderInput[],
   dishes: DishInput[],
   view: DashboardFinanceView,
   periodCount: number
 ): SalesRankingRow[] {
-  const activeDishes = new Map(
-    dishes
-      .filter((dish) => (dish.recipeStatus ?? "new") === "active")
-      .map((dish) => [dish.slug, dish])
-  );
+  return buildDishSalesRankings(salesOrders, dishes, view, periodCount, "most");
+}
 
-  const soldBySlug = new Map<string, number>();
-  for (const order of salesOrdersInWindow(salesOrders, view, periodCount)) {
-    for (const item of order.items) {
-      if (item.itemKind === "addon" || !item.dishSlug) continue;
-      if (!activeDishes.has(item.dishSlug)) continue;
-      soldBySlug.set(item.dishSlug, (soldBySlug.get(item.dishSlug) ?? 0) + item.qty);
-    }
-  }
-
-  const rows: SalesRankingRow[] = [];
-  for (const [slug, qty] of Array.from(soldBySlug.entries())) {
-    const dish = activeDishes.get(slug);
-    if (!dish) continue;
-    rows.push({
-      slug,
-      name: dish.name,
-      classKey: dishClassKey(dishClassification(dish)),
-      value: qty,
-    });
-  }
-
-  return rows.sort((a, b) => b.value - a.value).slice(0, SALES_RANKING_LIMIT);
+export function buildLeastSellingDishes(
+  salesOrders: SalesOrderInput[],
+  dishes: DishInput[],
+  view: DashboardFinanceView,
+  periodCount: number
+): SalesRankingRow[] {
+  return buildDishSalesRankings(salesOrders, dishes, view, periodCount, "least");
 }
 
 export function buildTopUsedIngredients(
@@ -247,7 +259,10 @@ export function buildApproachingExpiry(ingredients: IngredientInput[]): ExpiryRa
     .slice(0, SALES_RANKING_LIMIT);
 }
 
-export function buildApproachingReorder(ingredients: IngredientInput[]): ReorderRankingRow[] {
+export function buildReorderDiffRankings(
+  ingredients: IngredientInput[],
+  order: "most" | "least" = "most"
+): ReorderRankingRow[] {
   const rows: ReorderRankingRow[] = [];
 
   for (const ing of ingredients) {
@@ -255,12 +270,12 @@ export function buildApproachingReorder(ingredients: IngredientInput[]): Reorder
     const approachLevel = threshold * REORDER_APPROACH_MULTIPLIER;
     if (ing.currentQty > approachLevel) continue;
 
-    const fillRatio = ing.currentQty / threshold;
+    const reorderDiff = ing.currentQty - ing.reorderThreshold;
     rows.push({
       slug: ing.slug,
       name: ing.name,
       classKey: ingredientClassKey(ing.category),
-      value: Math.round(fillRatio * 100) / 100,
+      value: reorderDiff,
       currentQty: ing.currentQty,
       reorderThreshold: ing.reorderThreshold,
       inventoryUnit: ing.inventoryUnit,
@@ -268,8 +283,16 @@ export function buildApproachingReorder(ingredients: IngredientInput[]): Reorder
   }
 
   return rows
-    .sort((a, b) => a.value - b.value)
+    .sort((a, b) => (order === "most" ? a.value - b.value : b.value - a.value))
     .slice(0, SALES_RANKING_LIMIT);
+}
+
+export function buildApproachingReorder(ingredients: IngredientInput[]): ReorderRankingRow[] {
+  return buildReorderDiffRankings(ingredients, "most");
+}
+
+export function buildLeastReorderDiff(ingredients: IngredientInput[]): ReorderRankingRow[] {
+  return buildReorderDiffRankings(ingredients, "least");
 }
 
 export function filterByClassKeys<T extends { classKey: string }>(

@@ -427,11 +427,7 @@ export default function RecipesPage() {
       <Nav />
       <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-8">
         <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Recipes</h1>
-        <p className="mt-2 text-base text-chef-text-muted">
-          Recipe Agent adds linked ingredients as <strong>New</strong>. Review and activate for
-          production, or retire dishes off the menu. <strong>Suggested</strong> includes agent
-          proposals—even for inactive items.
-        </p>
+        <p className="mt-2 text-base text-chef-text-muted">View and Manage Recipes</p>
 
         {recipeAgentCooking && (
           <div
