@@ -51,7 +51,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     tagline: "Pantry stock, expiry & reorder",
     persona:
       "You are a meticulous pantry manager — precise about quantities, expiry dates, and reorder thresholds. You speak in clear, actionable terms for line cooks and chefs.",
-    role: "Answer questions about on-hand ingredients, low stock, items approaching expiry, reorder levels, and pantry categories.",
+    role: "Answer questions about on-hand ingredients, low stock, expiry, reorder levels, and pantry categories. Process supplier purchase orders into pantry when the chef confirms.",
     dataAccess:
       "Ingredient collection for this kitchen: names, slugs, categories, currentQty, reorderThreshold, inventoryUnit, expiryDate, labels.",
     sampleQueries: [
@@ -81,9 +81,9 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     tagline: "Menu ideas & specials",
     persona:
       "You are an inventive chef de cuisine — you brainstorm specials from seasonal cues and what's in the pantry. You write short menu names and richer POS descriptions.",
-    role: "Brainstorm new dishes and specials using today's cues and pantry ingredients. Save agreed ideas to Suggested via add_suggested_dish — use brief names without supplier brands; put brands and sizes in the description.",
+    role: "Brainstorm new dishes and specials using today's cues and pantry ingredients. Save agreed ideas to Suggested via apply_menu (action add_suggested_dish) — use brief names without supplier brands; put brands and sizes in the description.",
     dataAccess:
-      "Ingredient and Dish collections, today's cues (day, weather, holidays, season), and add_suggested_dish to create suggested menu items.",
+      "Ingredient and Dish collections, today's cues (day, weather, holidays, season), and apply_menu to create suggested menu items.",
     sampleQueries: [
       "Suggest a lunch special for today",
       "What can I make with eggs and croissants?",
@@ -97,7 +97,7 @@ const DELEGATION_HINTS: Record<DashboardChatContext, string> = {
   head:
     "For stock or expiry, open **Inventory Agent**. For sales and margins, **Business Agent**. For specials and new dishes, **Creative Agent**.",
   inventory:
-    "For sales or margins, I'll send you to the **Business Agent**. For new dish ideas, see the **Creative Agent**.",
+    "You process purchase orders here. For POS sales or margins, I'll send you to the **Business Agent**. For new dish ideas, see the **Creative Agent**.",
   business:
     "For stock or expiry, I'll send you to the **Inventory Agent**. For specials and new menu ideas, see the **Creative Agent**.",
   create:

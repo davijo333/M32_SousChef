@@ -37,7 +37,8 @@ src/
 ## Docs
 
 - [docs/UI/](../../docs/UI/) — pages and flows
-- [docs/Agentic_Tools/](../../docs/Agentic_Tools/) — agents and chat
+- [docs/Agents/](../../docs/Agents/) — chat agents
+- [docs/Agentic_Tools/Tool_Index.md](../../docs/Agentic_Tools/Tool_Index.md) — core chat tools
 - [docs/DB/](../../docs/DB/) — MongoDB collections
 
 ## Production build

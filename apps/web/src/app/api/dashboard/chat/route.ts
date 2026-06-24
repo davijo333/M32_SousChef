@@ -1,9 +1,12 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import mongoose from "mongoose";
 import { authOptions } from "@/lib/auth";
+import { getRouteSession } from "@/lib/route-session";
 import {
   detectHandoffFromConversation,
+  detectUploadBatchHandoffTarget,
   isSpecialistHandoffTarget,
   type SpecialistHandoffTarget,
 } from "@/lib/chat-handoff";
@@ -27,7 +30,100 @@ import { isIngredientExpiring, parseFinancePeriod } from "@/lib/dashboard-stats"
 import { connectDB } from "@/lib/mongodb";
 import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@/lib/suggestion-notes";
 import { Conversation } from "@/models/Conversation";
+import { BillUpload } from "@/models/BillUpload";
 import { Ingredient } from "@/models/Ingredient";
+import { callLangChainAgentChat } from "@/lib/agent-chat";
+import type { ChatUploadBatchPayload } from "@/lib/chat-bill-upload-queue";
+import { detectUploadConfirm } from "@/lib/chat-upload-intent";
+import {
+  detectBusinessConfirm,
+  detectInventoryConfirm,
+  detectMenuConfirm,
+  executeAgentPendingAction,
+  executeConfirmedUploadBatch,
+} from "@/lib/agent-pending-actions";
+
+const USE_LANGCHAIN_AGENTS = process.env.USE_LANGCHAIN_AGENTS !== "false";
+
+export const dynamic = "force-dynamic";
+
+function parseUploadBatch(body: Record<string, unknown>): ChatUploadBatchPayload | undefined {
+  const raw = body.uploadBatch;
+  if (!raw || typeof raw !== "object") return undefined;
+  const batch = raw as Record<string, unknown>;
+  const total = Number(batch.total ?? 0);
+  const ready = Number(batch.ready ?? 0);
+  if (total <= 0) return undefined;
+
+  const rawSlices = Array.isArray(batch.slices) ? batch.slices : [];
+  const slices = rawSlices
+    .map((slice) => {
+      if (!slice || typeof slice !== "object") return null;
+      const row = slice as Record<string, unknown>;
+      const billType = row.billType === "customer" ? "customer" : "supplier";
+      return {
+        billType,
+        ready: Number(row.ready ?? 0),
+        failed: Number(row.failed ?? 0),
+        filenames: Array.isArray(row.filenames) ? row.filenames.map(String) : [],
+        readyBillIds: Array.isArray(row.readyBillIds)
+          ? row.readyBillIds.map(String).filter(Boolean)
+          : [],
+      };
+    })
+    .filter(Boolean) as ChatUploadBatchPayload["slices"];
+
+  if (!slices.length && ready > 0) {
+    const billType = batch.billType === "customer" ? "customer" : "supplier";
+    slices.push({
+      billType,
+      ready,
+      failed: Number(batch.failed ?? 0),
+      filenames: Array.isArray(batch.filenames) ? batch.filenames.map(String) : [],
+      readyBillIds: Array.isArray(batch.readyBillIds)
+        ? batch.readyBillIds.map(String).filter(Boolean)
+        : [],
+    });
+  }
+
+  return {
+    state: batch.state === "error" ? "error" : "ready",
+    total,
+    ready,
+    failed: Number(batch.failed ?? 0),
+    slices,
+    billType:
+      batch.billType === "customer"
+        ? "customer"
+        : batch.billType === "supplier"
+          ? "supplier"
+          : slices.length === 1
+            ? slices[0].billType
+            : undefined,
+    identifications: Array.isArray(batch.identifications)
+      ? (batch.identifications as Array<Record<string, unknown>>)
+          .map((row) => ({
+            filename: String(row.filename ?? ""),
+            billType: row.billType === "customer" ? "customer" : "supplier",
+            reason: String(row.reason ?? ""),
+            confidence: Number(row.confidence ?? 0.7),
+          }))
+          .filter((row) => row.filename)
+      : undefined,
+  };
+}
+
+async function pendingUploadHandoffTarget(
+  userId: string
+): Promise<SpecialistHandoffTarget | null> {
+  const [supplierPending, customerPending] = await Promise.all([
+    BillUpload.countDocuments({ userId, billType: "supplier", status: "pending_review" }),
+    BillUpload.countDocuments({ userId, billType: "customer", status: "pending_review" }),
+  ]);
+  if (supplierPending > 0) return "inventory";
+  if (customerPending > 0) return "business";
+  return null;
+}
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -159,13 +255,29 @@ export async function POST(req: Request) {
 
   const body = await req.json();
   const message = String(body.message ?? "").trim();
+  const userMessage = String(body.userMessage ?? body.message ?? "").trim();
   const conversationId = body.conversationId as string | undefined;
   const newChat = Boolean(body.newChat);
-  const confirmSuggestion = Boolean(body.confirmSuggestion);
   const contextParam = String(body.context ?? "create");
   const agentContextParam = body.agentContext as string | undefined;
   const connectAgentParam = body.connectAgent as string | undefined;
   const financePeriod = parseFinancePeriod(body.financeView);
+  const recentBillIds = Array.isArray(body.recentBillIds)
+    ? body.recentBillIds.map(String).filter(Boolean)
+    : [];
+  const uploadBatch = parseUploadBatch(body as Record<string, unknown>);
+  const confirmSuggestion =
+    Boolean(body.confirmSuggestion) ||
+    detectMenuConfirm(userMessage, agentContextParam ?? contextParam);
+  const confirmInventory =
+    Boolean(body.confirmInventory) ||
+    detectInventoryConfirm(userMessage, agentContextParam ?? contextParam);
+  const confirmBusiness =
+    Boolean(body.confirmBusiness) ||
+    detectBusinessConfirm(userMessage, agentContextParam ?? contextParam);
+  const confirmUpload =
+    detectUploadConfirm(userMessage) &&
+    (contextParam === "head" || agentContextParam === "head" || !agentContextParam);
 
   if (!isDashboardChatContext(contextParam)) {
     return NextResponse.json({ error: "Invalid context" }, { status: 400 });
@@ -176,7 +288,7 @@ export async function POST(req: Request) {
       ? connectAgentParam
       : null;
 
-  if (!message && !connectAgent) {
+  if (!message && !connectAgent && !uploadBatch) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
@@ -225,10 +337,20 @@ export async function POST(req: Request) {
     handoff = connectAgent;
     agentContext = connectAgent;
   } else if (context === "head") {
-    const detected = detectHandoffFromConversation(message, historyForHandoff);
-    if (detected) {
-      handoff = detected;
-      agentContext = detected;
+    const uploadHandoff =
+      detectUploadBatchHandoffTarget(uploadBatch, confirmUpload) ??
+      (confirmUpload ? await pendingUploadHandoffTarget(userId) : null);
+    if (uploadHandoff) {
+      handoff = uploadHandoff;
+      agentContext = uploadHandoff;
+    } else {
+      const detected = detectHandoffFromConversation(userMessage, historyForHandoff, {
+        skipIfUploadConfirm: true,
+      });
+      if (detected) {
+        handoff = detected;
+        agentContext = detected;
+      }
     }
   }
 
@@ -253,11 +375,11 @@ export async function POST(req: Request) {
     cues = buildCreateCues(weather, new Date(), pantryExpiringNames);
     const cuesText = formatCuesForPrompt(cues);
     dataContext = await buildCreativeChatContext(restaurantId, cuesText);
-    createExtras = `When the chef clearly wants to save an idea, call add_suggested_dish with a notes array (at least one entry).
+    createExtras = `When the chef clearly wants to save an idea, call apply_menu action add_suggested_dish with a notes array (at least one entry).
 Note kinds: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
 Examples: "Uses bacon, spinach expiring this week" (expiring_ingredients), "Fall seasonal pumpkin special" (seasonal), "Features high-margin avocado & eggs" (high_margin).
 Dish **name** must be short (2–5 words) with no supplier brands or pack sizes — brands belong in **description** only.
-Only call add_suggested_dish when the chef confirms (e.g. "add it", "save that")${
+Only call apply_menu when the chef confirms (e.g. "add it", "save that")${
       confirmSuggestion ? " — the chef just confirmed saving." : "."
     }
 Never invent pantry items — only reference slugs from the pantry list when specifying ingredientSlugs.`;
@@ -286,53 +408,137 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     ? `Connect to ${CHAT_ASSISTANT_NAMES[connectAgent]}`
     : message;
 
-  const llmUserMessage = connectAgent
-    ? `The chef clicked Connect in chat to speak with you. Review the conversation above and take over — briefly acknowledge the thread, then help with what they need.`
-    : message;
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...history,
-      { role: "user", content: llmUserMessage },
-    ],
-    ...(agentContext === "create"
-      ? {
-          tools: [ADD_SUGGESTION_TOOL],
-          tool_choice: confirmSuggestion
-            ? { type: "function" as const, function: { name: "add_suggested_dish" } }
-            : "auto",
-        }
-      : {}),
-  });
-
-  const choice = completion.choices[0];
-  let reply = choice.message.content ?? "";
+  let reply = "";
   let createdSuggestion: { slug: string; name: string } | null = null;
+  let agentResultHandoff: SpecialistHandoffTarget | null = handoff;
+  let navigationAction: { path: string; label: string; agent?: SpecialistHandoffTarget } | null =
+    null;
 
-  if (agentContext === "create") {
-    const toolCall = choice.message.tool_calls?.[0];
-    if (toolCall?.type === "function" && toolCall.function.name === "add_suggested_dish") {
-      try {
-        const args = JSON.parse(toolCall.function.arguments) as {
-          name: string;
-          description: string;
-          classification: string;
-          ingredientSlugs?: string[];
-          notes?: Array<{ kind: string; text: string }>;
-        };
-        createdSuggestion = await createSuggestedDish(restaurantId, {
-          ...args,
-          notes: normalizeSuggestionNotes(args.notes),
-        });
-        reply =
-          reply ||
-          `Saved **${createdSuggestion.name}** to Suggested with rationale notes. Open Recipes → Suggested to review.`;
-      } catch (err) {
-        reply =
-          (reply ? `${reply}\n\n` : "") +
-          (err instanceof Error ? err.message : "Could not save suggestion.");
+  if (USE_LANGCHAIN_AGENTS) {
+    const agentResult = await callLangChainAgentChat({
+      restaurantId,
+      userId,
+      chefName,
+      restaurantName,
+      message: userMessage || message,
+      context,
+      agentContext,
+      connectAgent,
+      history,
+      financePeriod,
+      cuesText: cues ? formatCuesForPrompt(cues) : undefined,
+      recentBillIds:
+        uploadBatch?.slices.flatMap((slice) => slice.readyBillIds) ?? recentBillIds,
+      uploadBatch,
+      confirmSuggestion,
+      confirmInventory: confirmInventory || confirmUpload,
+      confirmBusiness: confirmBusiness || confirmUpload,
+    });
+
+    if (agentResult) {
+      reply = agentResult.reply;
+      agentContext = agentResult.agentContext;
+      if (agentResult.handoff) {
+        agentResultHandoff = agentResult.handoff;
+      }
+      if (agentResult.navigationAction) {
+        navigationAction = agentResult.navigationAction;
+      }
+      if (agentResult.suggestionAction) {
+        try {
+          createdSuggestion = await createSuggestedDish(restaurantId, {
+            ...agentResult.suggestionAction,
+            notes: normalizeSuggestionNotes(agentResult.suggestionAction.notes),
+          });
+          reply =
+            reply ||
+            `Saved **${createdSuggestion.name}** to Suggested with rationale notes. Open Recipes → Suggested to review.`;
+        } catch (err) {
+          reply =
+            (reply ? `${reply}\n\n` : "") +
+            (err instanceof Error ? err.message : "Could not save suggestion.");
+        }
+      }
+      if (confirmUpload) {
+        try {
+          const batchResult = await executeConfirmedUploadBatch(
+            restaurantId,
+            userId,
+            uploadBatch
+          );
+          if (batchResult) {
+            reply = reply ? `${reply}\n\n${batchResult}` : batchResult;
+          }
+        } catch (err) {
+          reply =
+            (reply ? `${reply}\n\n` : "") +
+            (err instanceof Error ? err.message : "Could not process uploaded bills.");
+        }
+      } else if (agentResult.pendingAction) {
+        try {
+          const actionMessage = await executeAgentPendingAction(
+            restaurantId,
+            userId,
+            agentResult.pendingAction
+          );
+          reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
+        } catch (err) {
+          reply =
+            (reply ? `${reply}\n\n` : "") +
+            (err instanceof Error ? err.message : "Could not complete that action.");
+        }
+      }
+    }
+  }
+
+  if (!reply) {
+    const llmUserMessage = connectAgent
+      ? `The chef clicked Connect in chat to speak with you. Review the conversation above and take over — briefly acknowledge the thread, then help with what they need.`
+      : message;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...history,
+        { role: "user", content: llmUserMessage },
+      ],
+      ...(agentContext === "create"
+        ? {
+            tools: [ADD_SUGGESTION_TOOL],
+            tool_choice: confirmSuggestion
+              ? { type: "function" as const, function: { name: "add_suggested_dish" } }
+              : "auto",
+          }
+        : {}),
+    });
+
+    const choice = completion.choices[0];
+    reply = choice.message.content ?? "";
+
+    if (agentContext === "create") {
+      const toolCall = choice.message.tool_calls?.[0];
+      if (toolCall?.type === "function" && toolCall.function.name === "add_suggested_dish") {
+        try {
+          const args = JSON.parse(toolCall.function.arguments) as {
+            name: string;
+            description: string;
+            classification: string;
+            ingredientSlugs?: string[];
+            notes?: Array<{ kind: string; text: string }>;
+          };
+          createdSuggestion = await createSuggestedDish(restaurantId, {
+            ...args,
+            notes: normalizeSuggestionNotes(args.notes),
+          });
+          reply =
+            reply ||
+            `Saved **${createdSuggestion.name}** to Suggested with rationale notes. Open Recipes → Suggested to review.`;
+        } catch (err) {
+          reply =
+            (reply ? `${reply}\n\n` : "") +
+            (err instanceof Error ? err.message : "Could not save suggestion.");
+        }
       }
     }
   }
@@ -351,9 +557,11 @@ Never invent pantry items — only reference slugs from the pantry list when spe
           : `Tell me what kind of special you'd like. For stock or sales, use the ${inventory} or ${business}.`;
   }
 
-  if (handoff) {
-    const specialistName = CHAT_ASSISTANT_NAMES[handoff];
-    reply = `You're now connected with the **${specialistName}**.\n\n${reply}`;
+  if (agentResultHandoff) {
+    const specialistName = CHAT_ASSISTANT_NAMES[agentResultHandoff];
+    if (!/you're now connected with/i.test(reply)) {
+      reply = `You're now connected with the **${specialistName}**.\n\n${reply}`;
+    }
   }
 
   conversation.messages.push(
@@ -375,7 +583,8 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     reply,
     context,
     agentContext,
-    handoff,
+    handoff: agentResultHandoff,
+    navigationAction,
     conversationId: conversation._id.toString(),
     conversations: sessions.map((session) => ({
       id: session._id.toString(),
@@ -388,7 +597,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
 }
 
 export async function DELETE(req: Request) {
-  const session = await getServerSession(authOptions);
+  const session = await getRouteSession(req);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -405,6 +614,9 @@ export async function DELETE(req: Request) {
   }
   if (!conversationId) {
     return NextResponse.json({ error: "conversationId required" }, { status: 400 });
+  }
+  if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+    return NextResponse.json({ error: "Invalid conversation id" }, { status: 400 });
   }
 
   await connectDB();

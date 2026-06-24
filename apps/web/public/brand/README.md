@@ -41,4 +41,4 @@ Or `<AgentAvatar agent="inventory" />` / `<AuthBrandLogo />`.
 1. Drop new `icon.png` into the folder (trim extra margins if the artwork looks small).
 2. Hard-refresh the browser (Cmd+Shift+R).
 
-See [docs/Agentic_Tools/Icon_Prompts.md](../../../../docs/Agentic_Tools/Icon_Prompts.md) for generation prompts.
+See [icon-prompts.md](./icon-prompts.md) for generation prompts.

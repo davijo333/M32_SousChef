@@ -27,7 +27,16 @@ import {
 } from "@/lib/chat-handoff";
 import { renderChatMarkdown } from "@/lib/chat-markdown";
 import { AgentBrandMark } from "@/components/BrandMark";
+import { useOrderWorkOptional } from "@/components/OrderWorkProvider";
 import type { AgentBrandAgent } from "@/lib/agent-icons";
+import {
+  batchProgressLabel,
+  formatMixedUploadCallout,
+  runChatMixedBillUploadQueue,
+  type ChatBillUploadEntry,
+  type ChatUploadBatchPayload,
+} from "@/lib/chat-bill-upload-queue";
+import { detectUploadConfirm } from "@/lib/chat-upload-intent";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
 
@@ -98,11 +107,11 @@ function SessionTabsRow({
       ))}
       {draftNewChat && (
         <span
-          className={`rounded-md bg-chef-sage px-3 py-2 text-center text-sm font-medium text-white ${
+          className={`flex items-center rounded-md bg-chef-sage px-3 py-2 text-center text-sm font-medium text-white ${
             equalWidth ? "min-w-0 flex-1" : ""
           }`}
         >
-          New chat
+          <span className="min-w-0 flex-1 truncate">New chat</span>
         </span>
       )}
     </div>
@@ -176,7 +185,7 @@ export function DashboardChefChat({
   onAgentContextChange,
   onAgentHandoff,
 }: DashboardChefChatProps) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const chefName = session?.user?.name ?? "Chef";
   const [localAgentContext, setLocalAgentContext] = useState<DashboardChatContext>(context);
   const agentContext = controlledAgentContext ?? localAgentContext;
@@ -207,6 +216,11 @@ export function DashboardChefChat({
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [uploadEntries, setUploadEntries] = useState<ChatBillUploadEntry[]>([]);
+  const [parsingBatch, setParsingBatch] = useState(false);
+  const orderWork = useOrderWorkOptional();
+
+  const uploadLocked = Boolean(orderWork?.anyBusy || parsingBatch);
 
   const greeting = buildAssistantGreeting(agentContext, chefName);
 
@@ -330,12 +344,19 @@ export function DashboardChefChat({
 
   async function deleteSession(id: string) {
     if (deletingId || sending) return;
+    if (status !== "authenticated" || !session?.user) {
+      setError("Sign in again to delete saved chats.");
+      return;
+    }
 
     setDeletingId(id);
     setError("");
     try {
       const params = new URLSearchParams({ context, conversationId: id });
-      const res = await fetch(`/api/dashboard/chat?${params}`, { method: "DELETE" });
+      const res = await fetch(`/api/dashboard/chat?${params}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
       const data = (await res.json()) as {
         error?: string;
         conversations?: ChatSession[];
@@ -365,6 +386,7 @@ export function DashboardChefChat({
   }
 
   function addAttachments(fileList: FileList | File[]) {
+    if (uploadLocked) return;
     const incoming = Array.from(fileList);
     if (!incoming.length) return;
 
@@ -388,20 +410,25 @@ export function DashboardChefChat({
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function uploadAttachments(files: File[]): Promise<string[]> {
-    const uploaded: string[] = [];
-    for (const file of files) {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("billType", "supplier");
-      const res = await fetch("/api/bills/parse", { method: "POST", body: form });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) {
-        throw new Error(data.error ?? `Could not upload ${file.name}`);
-      }
-      uploaded.push(file.name);
+  function formatUploadBatchNote(batch: ChatUploadBatchPayload): string {
+    return formatMixedUploadCallout(batch);
+  }
+
+  async function parseAttachmentBatch(
+    files: File[],
+    message: string
+  ): Promise<ChatUploadBatchPayload> {
+    setParsingBatch(true);
+    try {
+      return await runChatMixedBillUploadQueue(files, message, {
+        onEntriesChange: setUploadEntries,
+        onWorkStart: (billType) => orderWork?.startWork(billType),
+        onWorkEnd: (billType) => orderWork?.endWork(billType),
+      });
+    } finally {
+      setParsingBatch(false);
+      setUploadEntries([]);
     }
-    return uploaded;
   }
 
   function applyHandoff(target: SpecialistHandoffTarget) {
@@ -492,17 +519,44 @@ export function DashboardChefChat({
   async function sendMessage(text: string, confirmSuggestion = false) {
     const trimmed = text.trim();
     const filesToSend = [...attachments];
-    if ((!trimmed && filesToSend.length === 0) || sending) return;
+    if ((!trimmed && filesToSend.length === 0) || sending || parsingBatch) return;
+
+    if (filesToSend.length > 0 && uploadLocked) {
+      setError("Upload or processing in progress — wait for the current batch to finish.");
+      return;
+    }
+
+    const confirmSuggestionFlag =
+      confirmSuggestion ||
+      (agentContext === "create" &&
+        /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(trimmed));
+    const confirmUpload = detectUploadConfirm(trimmed);
+    const confirmInventory =
+      (agentContext === "inventory" &&
+        /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
+      (context === "head" && confirmUpload);
+    const confirmBusiness =
+      (agentContext === "business" &&
+        /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
+      (context === "head" && confirmUpload);
 
     setExpanded(true);
     setSending(true);
     setError("");
 
     let uploadNote = "";
+    let uploadBatch: ChatUploadBatchPayload | undefined;
     try {
       if (filesToSend.length > 0) {
-        const names = await uploadAttachments(filesToSend);
-        uploadNote = `Attached ${names.length} file${names.length === 1 ? "" : "s"}: ${names.join(", ")}`;
+        uploadBatch = await parseAttachmentBatch(filesToSend, trimmed);
+        if (uploadBatch.ready === 0) {
+          throw new Error(
+            uploadBatch.failed > 0
+              ? "Could not parse any attached files."
+              : "No files were parsed."
+          );
+        }
+        uploadNote = formatUploadBatchNote(uploadBatch);
         setAttachments([]);
       }
     } catch (err) {
@@ -521,12 +575,16 @@ export function DashboardChefChat({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: outbound,
+          userMessage: trimmed,
           conversationId: draftNewChat ? undefined : conversationId,
           newChat: draftNewChat,
           context,
           agentContext: agentContext !== context ? agentContext : undefined,
           financeView,
-          confirmSuggestion,
+          confirmSuggestion: confirmSuggestionFlag,
+          confirmInventory,
+          confirmBusiness,
+          uploadBatch,
         }),
       });
       const data = (await res.json()) as {
@@ -557,10 +615,7 @@ export function DashboardChefChat({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const confirm =
-      agentContext === "create" &&
-      /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(input);
-    void sendMessage(input, confirm);
+    void sendMessage(input);
   }
 
   function openFilePicker() {
@@ -595,7 +650,7 @@ export function DashboardChefChat({
             <button
               type="button"
               onClick={() => removeAttachment(index)}
-              disabled={sending}
+              disabled={sending || uploadLocked}
               className="sc-icon-btn h-5 w-5 shrink-0 p-0"
               aria-label={`Remove ${file.name}`}
             >
@@ -603,6 +658,31 @@ export function DashboardChefChat({
             </button>
           </span>
         ))}
+      </div>
+    ) : null;
+
+  const uploadProgressBanner =
+    showAttachments && (parsingBatch || uploadEntries.length > 0) ? (
+      <div
+        className="flex items-center gap-2 rounded-lg border border-chef-sage/40 bg-chef-sage/10 px-3 py-2 text-sm text-chef-text-muted"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-chef-sage" aria-hidden />
+        {batchProgressLabel(uploadEntries) || "Processing uploads…"}
+      </div>
+    ) : null;
+
+  const uploadLockBanner =
+    showAttachments &&
+    orderWork?.anyBusy &&
+    !parsingBatch &&
+    uploadEntries.length === 0 ? (
+      <div
+        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-chef-text-muted"
+        role="status"
+      >
+        Upload or processing in progress on Upload orders — wait before attaching more files.
       </div>
     ) : null;
 
@@ -618,12 +698,16 @@ export function DashboardChefChat({
     >
       <button
         type="button"
-        disabled={sending || attachments.length >= MAX_CHAT_ATTACHMENTS}
+        disabled={
+          sending ||
+          uploadLocked ||
+          attachments.length >= MAX_CHAT_ATTACHMENTS
+        }
         onClick={(event) => {
           event.stopPropagation();
           openFilePicker();
         }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 sc-icon-btn h-8 w-8 p-0 text-chef-text-muted hover:text-chef-text"
+        className="absolute right-2 top-1/2 -translate-y-1/2 sc-icon-btn h-8 w-8 p-0 text-chef-text-muted hover:text-chef-text disabled:opacity-40"
         aria-label="Attach files"
       >
         <Paperclip className="h-4 w-4" aria-hidden />
@@ -710,6 +794,8 @@ export function DashboardChefChat({
               />
             )}
             {attachmentChips}
+            {uploadProgressBanner}
+            {uploadLockBanner}
             <div className="flex gap-2">
               <div className="relative min-w-0 flex-1">
                 <input
@@ -899,6 +985,8 @@ export function DashboardChefChat({
               }`}
             >
               {attachmentChips}
+              {uploadProgressBanner}
+              {uploadLockBanner}
               <div className="flex gap-2">
                 <div className="relative min-w-0 flex-1">
                   <input

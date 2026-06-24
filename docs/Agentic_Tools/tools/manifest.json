@@ -1,0 +1,110 @@
+[
+  {
+    "id": "query_kitchen",
+    "agent": "Sous Chef",
+    "tier": "Read",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Triage and read high-level kitchen snapshots; answer broad daily-priority questions.",
+    "manual": "Dashboard overview (Inventory + Business sections)",
+    "wraps": "tools/core/factory.py query_kitchen + orchestrate",
+    "used_by": ["Sous Chef"],
+    "internal_actions": ["classify_intent", "get_kitchen_summary", "supervisor consult routing"]
+  },
+  {
+    "id": "orchestrate",
+    "agent": "Sous Chef",
+    "tier": "Orchestrate",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Route to specialists, synthesize cross-domain answers, hand off, navigate.",
+    "manual": "Connect buttons, dashboard section tabs, Connect back to Sous Chef",
+    "wraps": "tools/core/factory.py orchestrate; agents/supervisor.py",
+    "used_by": ["Sous Chef"],
+    "internal_actions": ["consult_multi", "synthesize_response", "suggest_handoff", "handoff_to_inventory", "handoff_to_business", "handoff_to_creative", "return_to_head_chef", "navigate_to", "open_chat_agent"]
+  },
+  {
+    "id": "query_inventory",
+    "agent": "Inventory",
+    "tier": "Read",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Query pantry stock, expiry, reorder, search, and purchase bill queue.",
+    "manual": "Dashboard Inventory + Kitchen control pantry",
+    "wraps": "tools/core/reads.py + context/builders.py",
+    "used_by": ["Inventory", "Sous Chef (via consult)"],
+    "internal_actions": ["get_pantry_summary", "get_low_stock", "get_expiring_ingredients", "search_ingredient", "get_ingredient_detail", "get_purchase_parse_queue", "get_purchase_bill_summary"]
+  },
+  {
+    "id": "apply_inventory",
+    "agent": "Inventory",
+    "tier": "Write",
+    "built": "Yes",
+    "confirm": "Yes",
+    "summary": "Mutate pantry: reorder thresholds, process purchase bills, catalog patches.",
+    "manual": "Kitchen control modals; Upload orders → Process purchase bills",
+    "wraps": "agent-pending-actions.ts; PATCH /api/catalog/ingredients/[slug]; POST /api/bills/confirm supplier",
+    "used_by": ["Inventory"],
+    "internal_actions": ["update_reorder_threshold", "process_purchase_bills", "create_ingredient", "update_ingredient"]
+  },
+  {
+    "id": "upload_bills",
+    "agent": "Inventory",
+    "tier": "Upload",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Ingest PDF/PNG bills: validate, classify, parse, route to PO or SO queue.",
+    "manual": "Upload orders page; chat attachments (batch queue + handoff)",
+    "wraps": "chat-bill-upload-queue.ts; tools/core/bills.py; POST /api/bills/parse",
+    "used_by": ["Inventory"],
+    "internal_actions": ["validate_upload_batch", "classify_bill_document", "handoff_purchase_bills", "handoff_sales_bills", "summarize_upload_handoff"]
+  },
+  {
+    "id": "query_business",
+    "agent": "Business",
+    "tier": "Read",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Query sales, margins, finance period summaries, and sales bill queue.",
+    "manual": "Dashboard Business charts and tables",
+    "wraps": "tools/core/reads.py + context/builders.py",
+    "used_by": ["Business", "Sous Chef (via consult)"],
+    "internal_actions": ["get_finance_summary", "get_top_selling_dishes", "get_dish_margin_rankings", "compare_sales_vs_purchases", "get_sales_timeline", "get_sales_parse_queue", "get_sales_bill_summary"]
+  },
+  {
+    "id": "apply_business",
+    "agent": "Business",
+    "tier": "Write",
+    "built": "Yes",
+    "confirm": "Yes",
+    "summary": "Process sales bills, price recommendations, margin actions.",
+    "manual": "Upload orders → Process sales bills",
+    "wraps": "agent-pending-actions.ts; POST /api/bills/confirm customer",
+    "used_by": ["Business"],
+    "internal_actions": ["process_sales_bills", "suggest_price_change", "apply_price_change"]
+  },
+  {
+    "id": "query_menu",
+    "agent": "Creative",
+    "tier": "Read",
+    "built": "Yes",
+    "confirm": "No",
+    "summary": "Query cues, pantry for specials, existing dishes and suggestions.",
+    "manual": "Dashboard Create cues; Recipes and Kitchen control",
+    "wraps": "tools/core/reads.py + create-cues",
+    "used_by": ["Creative", "Sous Chef (via consult)"],
+    "internal_actions": ["get_todays_cues", "get_pantry_for_specials", "search_dishes", "get_suggested_dishes", "get_active_dishes", "get_addon_catalog"]
+  },
+  {
+    "id": "apply_menu",
+    "agent": "Creative",
+    "tier": "Write",
+    "built": "Yes",
+    "confirm": "Yes",
+    "summary": "Save suggestions, draft specials, generate catalog images, menu CRUD.",
+    "manual": "Kitchen control; Recipes → Suggested; Generate images buttons",
+    "wraps": "create-suggestion.ts; catalog PATCH/POST; suggest-images worker",
+    "used_by": ["Creative"],
+    "internal_actions": ["add_suggested_dish", "draft_special_only", "generate_dish_image", "generate_ingredient_image", "create_dish", "update_dish", "enrich_dish_description"]
+  }
+]

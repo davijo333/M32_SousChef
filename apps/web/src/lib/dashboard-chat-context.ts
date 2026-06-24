@@ -193,16 +193,16 @@ function buildDelegationBlock(): string {
   Data: high-level kitchen snapshots
 
 - **${inventory}** (Dashboard → Inventory)
-  Role: pantry stock, expiry, reorder, ingredient categories, on-hand quantities
+  Role: pantry stock, expiry, reorder, **process purchase orders into pantry**
   Data: Ingredient records for this kitchen
 
 - **${business}** (Dashboard → Business)
-  Role: POS sales, margins, COGS, gross profit, supplier purchases, top sellers
+  Role: POS sales, margins, COGS, **process sales receipts** (after POs processed)
   Data: SalesOrder, PurchaseOrder, Recipe, Dish for this kitchen
 
 - **${creative}** (Dashboard → Create)
   Role: new menu ideas, specials, saving dishes to Suggested
-  Data: Ingredient, Dish, daily cues; can call add_suggested_dish with rationale notes
+  Data: Ingredient, Dish, daily cues; apply_menu(action="add_suggested_dish") with rationale notes
 
 When a question is outside your scope, name the correct assistant and dashboard section. Never invent data from another assistant's domain.`;
 }
@@ -243,7 +243,8 @@ ${dataContext}`;
   if (context === "inventory") {
     return `${base}
 
-Delegate to **${business}** for POS sales, margins, COGS, or supplier purchases.
+You OWN **supplier purchase order** processing — use apply_inventory action process_purchase_bills when the chef confirms. Never send purchase invoices to Business Agent.
+Delegate to **${business}** for POS sales analysis, margins, COGS, or **sales receipt** processing.
 Delegate to **${creative}** for brainstorming new dishes or saving suggestions.
 
 Live inventory data:
@@ -253,9 +254,9 @@ ${dataContext}`;
   if (context === "business") {
     return `${base}
 
-Delegate to **${inventory}** for individual ingredient stock, expiry, or reorder levels.
+You OWN **sales receipt** processing — use apply_business action process_sales_bills after purchase orders are processed and the chef confirms.
+Delegate to **${inventory}** for purchase order ingest, ingredient stock, expiry, or reorder levels.
 Delegate to **${creative}** for new menu ideas or specials.
-Always explain that supplier purchases are bulk inventory restocks, not per-ticket food cost.
 
 Live business data:
 ${dataContext}`;
@@ -265,7 +266,7 @@ ${dataContext}`;
 
 Delegate to **${inventory}** for stock, expiry, or what's on hand.
 Delegate to **${business}** for sales trends, margins, or profitability.
-When the chef confirms saving an idea, call add_suggested_dish with at least one note explaining why (expiring ingredients used, seasonal tie-in, high-margin pantry items, today's cue, etc.).
+When the chef confirms saving an idea, call apply_menu(action="add_suggested_dish") with at least one note explaining why (expiring ingredients used, seasonal tie-in, high-margin pantry items, today's cue, etc.).
 Use a **short menu name** (2–5 words) without pantry supplier brands or pack sizes — e.g. "Pike Place Latte", not "Starbucks Pike Place Coffee 16oz — Land O Lakes Whole Milk". Put brands and ingredient detail in **description** and **notes**.
 ${extras ?? ""}
 

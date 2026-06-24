@@ -6,21 +6,24 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from bill_classifier import classify_bill_document
 from bill_pipeline import ParsePipelineResult, run_customer_pipeline, run_supplier_pipeline
 from catalog_prepare import prepare_catalog_batch
 from image_suggestions import IMAGE_COUNT, ImageSuggestion, suggest_images
 from recipe_linker import link_recipe
 from recipe_models import IngredientCatalogItem, LinkRecipeResult, MenuItemInput
+from chat.service import ChatRequest, ChatResponse, handle_chat
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     OPENAI_API_KEY: str = ""
+    MONGODB_URI: str = "mongodb://localhost:27017/sous_chef"
 
 
 settings = Settings()
-app = FastAPI(title="Sous Chef Agent", version="0.4.0")
+app = FastAPI(title="Sous Chef Agent", version="0.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,9 +94,28 @@ class SuggestImagesResponse(BaseModel):
     images: list[ImageSuggestion]
 
 
+class ClassifyBillResponse(BaseModel):
+    billType: str
+    confidence: float
+    reason: str = ""
+
+
 @app.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(status="ok", service="sous-chef-agent")
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat_endpoint(req: ChatRequest):
+    """LangChain/LangGraph multi-agent dashboard chat."""
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    try:
+        return handle_chat(req)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {exc}") from exc
 
 
 def _pipeline_response(result: ParsePipelineResult) -> ParsePipelineResponse:
@@ -164,6 +186,24 @@ async def parse_supplier_bill(file: UploadFile = File(...)):
 async def parse_customer_bill(file: UploadFile = File(...)):
     result = await _parse_customer_file(file)
     return _pipeline_response(result)
+
+
+@app.post("/classify-bill", response_model=ClassifyBillResponse)
+async def classify_bill(
+    file: UploadFile = File(...),
+):
+    """Detect purchase order vs sales receipt before parse."""
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Empty file")
+    content_type = file.content_type or "application/octet-stream"
+    client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
+    result = classify_bill_document(client, data, file.filename or "bill", content_type)
+    return ClassifyBillResponse(
+        billType=result.billType,
+        confidence=result.confidence,
+        reason=result.reason,
+    )
 
 
 @app.post("/parse-bill-pipeline", response_model=ParsePipelineResponse)

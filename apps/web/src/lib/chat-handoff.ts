@@ -1,4 +1,5 @@
 import type { AgentTabId } from "@/lib/agent-icons";
+import { detectUploadConfirm } from "@/lib/chat-upload-intent";
 import {
   CHAT_ASSISTANT_NAMES,
   type DashboardChatContext,
@@ -54,17 +55,25 @@ export function detectAgentHandoffFromMessage(message: string): SpecialistHandof
 
 export function detectHandoffFromConversation(
   message: string,
-  recentMessages: Array<{ role: string; content: string }>
+  recentMessages: Array<{ role: string; content: string }>,
+  options?: { skipIfUploadConfirm?: boolean }
 ): SpecialistHandoffTarget | null {
-  const direct = detectAgentHandoffFromMessage(message);
+  const trimmed = message.trim();
+  if (!trimmed) return null;
+
+  if (options?.skipIfUploadConfirm && detectUploadConfirm(trimmed)) {
+    return null;
+  }
+
+  const direct = detectAgentHandoffFromMessage(trimmed);
   if (direct) return direct;
 
   const lastAssistant = [...recentMessages].reverse().find((m) => m.role === "assistant");
   if (!lastAssistant) return null;
 
   const confirms =
-    /\b(direct|connect|yes|yeah|sure|ok|please|go ahead|do it|hand off)\b/i.test(message);
-  const asksConnected = /\b(is it|are you|am i)\s+connected\b/i.test(message);
+    /\b(direct|connect|yes|yeah|sure|ok|please|go ahead|do it|hand off)\b/i.test(trimmed);
+  const asksConnected = /\b(is it|are you|am i)\s+connected\b/i.test(trimmed);
 
   if (!confirms && !asksConnected) return null;
 
@@ -73,6 +82,27 @@ export function detectHandoffFromConversation(
     if (agentMentionedInAssistant(lastAssistant.content, target)) {
       return target;
     }
+  }
+
+  return null;
+}
+
+type UploadBatchHandoffInput = {
+  slices?: Array<{ billType: "supplier" | "customer"; ready: number }>;
+};
+
+/** After the chef confirms bill processing, route to the owning specialist. */
+export function detectUploadBatchHandoffTarget(
+  uploadBatch: UploadBatchHandoffInput | undefined,
+  confirmUpload: boolean
+): SpecialistHandoffTarget | null {
+  if (!confirmUpload) return null;
+
+  const ready = uploadBatch?.slices?.filter((slice) => slice.ready > 0) ?? [];
+  if (ready.length) {
+    if (ready.some((slice) => slice.billType === "supplier")) return "inventory";
+    if (ready.some((slice) => slice.billType === "customer")) return "business";
+    return null;
   }
 
   return null;

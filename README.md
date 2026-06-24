@@ -61,7 +61,7 @@ Run from the **repo root**:
 - **Inventory / Business / Creative** — section tabs with dedicated agent branding; chat connects via **Connect to … Agent** when Sous Chef delegates.
 - Up to **5 saved chat sessions**; attach up to **5 files** per message in Sous Chef chat.
 
-See [docs/Agentic_Tools/README.md](docs/Agentic_Tools/README.md) for agent architecture and flows.
+See [docs/Agents/README.md](docs/Agents/README.md) for agents and [Tool_Index](docs/Agentic_Tools/Tool_Index.md) for chat tools.
 
 ### Upload flow
 
@@ -134,7 +134,7 @@ npm run retest:upload
 ```
 M32_SousChef/
 ├── apps/web/              # Next.js — UI, API routes, MongoDB models
-├── services/agent/        # FastAPI — bill parse, normalizer, image suggestions
+├── services/agent/        # FastAPI — bill parse, LangChain chat agents, image suggestions
 ├── test/
 │   ├── inventory/       # Catalog + order JSON (source of truth for bills)
 │   ├── bills/           # Generated PDF/PNG fixtures
@@ -149,8 +149,10 @@ M32_SousChef/
 
 - [`docs/README.md`](docs/README.md) — doc index
 - [`docs/UI/README.md`](docs/UI/README.md) — pages and flows
-- [`docs/Agentic_Tools/README.md`](docs/Agentic_Tools/README.md) — Sous Chef + specialist agents
-- [`docs/Agents/README.md`](docs/Agents/README.md) — Python bill/recipe workers
+- [`docs/Agents/README.md`](docs/Agents/README.md) — 4 chat agents (one file each)
+- [`docs/Agentic_Tools/Tool_Index.md`](docs/Agentic_Tools/Tool_Index.md) — 9 core tools (8 shipped · 1 partial)
+- [`docs/Agentic_Tools/tools/`](docs/Agentic_Tools/tools/) — one file per core tool
+- [`docs/Agentic_Tools/Development.md`](docs/Agentic_Tools/Development.md) — LangGraph architecture
 - [`docs/DB/README.md`](docs/DB/README.md) — MongoDB collections
 - [`docs/Recipes/`](docs/Recipes/) — recipe workflow and classifications
 - [`storage/r2/README.md`](storage/r2/README.md) — image and bill file layout

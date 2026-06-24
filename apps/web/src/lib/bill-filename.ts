@@ -13,6 +13,39 @@ export function detectBillTypeFromFilename(filename: string): BillFileType | nul
   return null;
 }
 
+/** Fast filename heuristics — SOs use a consistent POS pattern; POs vary by vendor. */
+export function detectBillTypeHeuristic(filename: string): {
+  billType: BillFileType;
+  confidence: number;
+  reason: string;
+} | null {
+  const fromMarker = detectBillTypeFromFilename(filename);
+  if (fromMarker) {
+    return {
+      billType: fromMarker,
+      confidence: 0.98,
+      reason: fromMarker === "customer" ? "POS receipt filename" : "purchase order filename",
+    };
+  }
+
+  const lower = filename.trim().toLowerCase();
+  if (/^\d+\.c_bill\.(pdf|png|jpe?g)$/i.test(lower)) {
+    return {
+      billType: "customer",
+      confidence: 0.96,
+      reason: "standard POS receipt file pattern",
+    };
+  }
+  if (/^bill-\d+_[a-z0-9-]+\.(pdf|png|jpe?g)$/i.test(lower)) {
+    return {
+      billType: "supplier",
+      confidence: 0.94,
+      reason: "wholesaler invoice file pattern",
+    };
+  }
+  return null;
+}
+
 export function isAllowedBillFileExtension(filename: string): boolean {
   return ALLOWED_BILL_EXTENSIONS.test(filename.trim());
 }
