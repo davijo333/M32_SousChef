@@ -46,11 +46,13 @@ def _infer_menu_classification(raw_name: str, kind: str) -> str:
         return "addon"
     if any(w in lower for w in ("coffee", "espresso", "frappe", "mocha", "cappuccino", "latte")):
         return "coffee"
-    if "tea" in lower:
+    if any(w in lower for w in ("tea", "chai")):
         return "tea"
     if "juice" in lower:
         return "juice"
-    if any(w in lower for w in ("bagel", "croissant", "sandwich", "sourdough", "stack", "melt", "byo")):
+    if any(w in lower for w in ("byo", "build your own", "build-your-own")):
+        return "byo-sandwich"
+    if any(w in lower for w in ("bagel", "croissant", "sandwich", "sourdough", "stack", "melt")):
         return "sandwich"
     return "other"
 
@@ -68,14 +70,14 @@ Return JSON only:
 {
   "vendor": "POS vendor if visible else empty",
   "lines": [
-    { "rawName": "menu item sold as printed", "itemKind": "dish|addon", "classification": "sandwich|coffee|tea|juice|cheese|protein|veggie|other", "confidence": 0.9 }
+    { "rawName": "menu item sold as printed", "itemKind": "dish|addon", "classification": "sandwich|byo-sandwich|coffee|tea|juice|cheese|protein|veggie|other", "confidence": 0.9 }
   ]
 }
 
 Rules:
 - One entry per menu item / drink / add-on sold.
 - itemKind: "addon" for extras, sides, modifiers (+ cheese, extra bacon); "dish" for main items.
-- classification: menu group — sandwich/coffee/tea/juice for dishes; cheese/protein/veggie/coffee for add-ons.
+- classification: menu group — sandwich/byo-sandwich/coffee/tea/juice for dishes; cheese/protein/veggie/coffee for add-ons.
 - Skip subtotal, tax, tip, total-only rows.
 - confidence 0.0-1.0."""
 
@@ -90,7 +92,7 @@ Return JSON only:
     {
       "rawName": "item name including size if shown",
       "itemKind": "dish|addon",
-      "classification": "sandwich|coffee|tea|juice|cheese|protein|veggie|other",
+      "classification": "sandwich|byo-sandwich|coffee|tea|juice|cheese|protein|veggie|other",
       "quantity": 1,
       "unit": "each",
       "unitPrice": 0.0,
@@ -103,7 +105,7 @@ Return JSON only:
 Rules:
 - Menu items, drinks, and add-ons only.
 - itemKind: "addon" for extras/modifiers; "dish" for mains.
-- classification: sandwich, coffee, tea, juice for dishes; cheese, protein, veggie, coffee for add-ons.
+- classification: sandwich, byo-sandwich, coffee, tea, juice for dishes; cheese, protein, veggie, coffee for add-ons.
 - quantity = servings sold.
 - unitPrice / lineTotal from receipt when visible."""
 

@@ -7,29 +7,20 @@ Canonical catalog for **test purchase orders** and **test sales orders**. The bi
 | [dishes.json](./dishes.json) | Menu dishes with `classification`, `posName`, `ingredientSlugs` |
 | [add-ons.json](./add-ons.json) | POS modifiers with `classification`, `description`, `linkedDishClassifications` |
 | [ingredients.json](./ingredients.json) | Pantry items (brand names appear on supplier invoices) |
-| [purchase-orders.json](./purchase-orders.json) | Five wholesaler invoices → `test/bills/supplier/` |
-| [sales-orders.json](./sales-orders.json) | Four POS receipts → `test/bills/customer/` |
+| [purchase-orders.json](./purchase-orders.json) | Wholesaler invoices → `test/bills/supplier/` |
+| [sales-orders.json](./sales-orders.json) | Eight POS receipts → `test/bills/customer/` |
 
 ## PO → supplier bills
 
-| Bill files | Source PO | Vendor |
-|------------|-----------|--------|
-| Bill-1, Bill-2 | SYSCO-4821 | Sysco |
-| Bill-3, Bill-4 | SYSCO-4822 | Sysco |
-| Bill-5, Bill-6 | COSTCO-90614 | Costco |
-| Bill-7, Bill-8 | USF-77102 | US Foods |
-| Bill-9, Bill-10 | SYSCO-4823 | Sysco |
+Five bill-generation POs (`SYSCO-4821` … `SYSCO-4823`) produce **18 supplier files** (PDF + PNG pairs per logical invoice).
 
-Each logical invoice is split into a PDF half and a PNG half.
+See [`test/bills/manifest.json`](../bills/manifest.json) for `Bill-N_Vendor` mapping and line coverage.
 
 ## SO → customer bills
 
-| Files | Source SO |
-|-------|-----------|
-| `1.c_bill.pdf`, `2.c_bill.png` | SQ-20260622-AM |
-| `3.c_bill.pdf`, `4.c_bill.png` | SQ-20260622-COF |
-| `5.c_bill.pdf`, `6.c_bill.png` | TST-20260622-BEV |
-| `7.c_bill.pdf`, `8.c_bill.png` | SQ-20260623-MIX |
+Each logical POS receipt is split into a PDF half and a PNG half (`1.c_bill.pdf` / `2.c_bill.png`, …). **16 customer files** cover eight sales orders in `sales-orders.json`.
+
+See [`test/bills/manifest.json`](../bills/manifest.json) for the current file list, dates, and dish coverage per bill.
 
 Regenerate bills after editing inventory:
 

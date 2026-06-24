@@ -1,4 +1,4 @@
-# Development — LangGraph & Deployment
+# Development — Agents & Deployment
 
 How to develop the agentic chat layer locally and deploy to production.
 
@@ -6,25 +6,27 @@ How to develop the agentic chat layer locally and deploy to production.
 
 | Component | Location | Host (prod) |
 |-----------|----------|-------------|
-| Web UI + auth + MongoDB API | `apps/web` (Next.js) | **Vercel** |
-| LangGraph + bill/recipe workers | `services/agent` (FastAPI) | **Railway** |
+| Web UI + auth + chat API | `apps/web` (Next.js) | **Vercel** |
+| Bill parse + image workers | `services/agent` (FastAPI) | **Railway** |
 | Database | MongoDB | **MongoDB Atlas** |
-| LLM | OpenAI | API key in env |
+| LLM (chat) | OpenAI | `OPENAI_API_KEY` in Next.js |
 
 ```
 Browser → Vercel (Next.js)
-            ↓ AGENT_SERVICE_URL
-          Railway (FastAPI + LangGraph)
+            ↓ AGENT_SERVICE_URL (bills only today)
+          Railway (FastAPI)
             ↓
           MongoDB Atlas + OpenAI
 ```
+
+**Chat orchestration** runs in Next.js (`POST /api/dashboard/chat`). Python agents handle bill parsing and image suggestion — not the dashboard chat loop yet.
 
 ## Local development
 
 ### Prerequisites
 
 - Node.js, Python 3.12+, Docker (for local MongoDB)
-- `.env` from `.env.example`
+- `.env` from `.env.example` (repo root; web app loads via `scripts/start-web.sh`)
 
 ### Start services
 
@@ -39,8 +41,6 @@ npm run start:agents
 npm run start:schef
 ```
 
-`services/agent/run.sh` creates `.venv`, installs `requirements.txt`, runs `uvicorn main:app --reload --port 8000`.
-
 ### Environment (local)
 
 ```env
@@ -51,42 +51,19 @@ NEXTAUTH_SECRET=...
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-### LangGraph dependencies (add to `services/agent/requirements.txt`)
-
-```txt
-langgraph>=0.2.0
-langchain>=0.3.0
-langchain-openai>=0.2.0
-langchain-core>=0.3.0
-```
-
-Optional MongoDB from Python tools: `motor` or `pymongo`.
-
-### Where LangGraph lives
+### Key chat files
 
 ```
-services/agent/
-├── main.py              # FastAPI — add POST /chat
-├── graph/
-│   ├── head_chef.py     # Supervisor graph
-│   ├── inventory.py     # Specialist + tools
-│   ├── business.py
-│   └── creative.py
-├── tools/               # Tool implementations
-└── requirements.txt
+apps/web/src/
+├── app/api/dashboard/chat/route.ts   # Chat API, handoff, connectAgent
+├── components/
+│   ├── SousChefChatDock.tsx
+│   └── DashboardChefChat.tsx
+└── lib/
+    ├── chat-handoff.ts
+    ├── dashboard-chat.ts
+    └── dashboard-chat-context.ts
 ```
-
-Next.js `POST /api/dashboard/chat` proxies to `AGENT_SERVICE_URL/chat` with `restaurantId`, `message`, `selectedAgent`, `conversationId`.
-
-### Optional: LangSmith (tracing)
-
-```env
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=lsv2_...
-LANGCHAIN_PROJECT=sous-chef-dev
-```
-
-Useful for debugging graph nodes and tool calls during M32 demo prep.
 
 ### Health check
 
@@ -96,80 +73,67 @@ curl http://localhost:8000/health
 
 ---
 
+## LangGraph (planned)
+
+Target layout in `services/agent/`:
+
+```
+services/agent/
+├── main.py
+├── graph/
+│   ├── head_chef.py
+│   ├── inventory.py
+│   ├── business.py
+│   └── creative.py
+└── tools/
+```
+
+Next.js would proxy `POST /api/dashboard/chat` → `AGENT_SERVICE_URL/chat` when migrated.
+
+Optional tracing:
+
+```env
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=lsv2_...
+LANGCHAIN_PROJECT=sous-chef-dev
+```
+
+---
+
 ## Railway (agent service)
 
 1. New Railway project → deploy from GitHub
-2. Set **root directory** to `services/agent` (uses existing `Dockerfile`)
-3. **Environment variables:**
-   - `OPENAI_API_KEY`
-   - `MONGODB_URI` (Atlas, if Python tools hit DB)
-   - Optional `LANGCHAIN_*`
-4. Ensure start command respects Railway `PORT`:
+2. Root directory: `services/agent`
+3. Env: `OPENAI_API_KEY`, `MONGODB_URI` (if Python hits DB)
+4. Start: `uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}`
 
-   ```dockerfile
-   CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
-   ```
-
-5. Copy public URL → e.g. `https://sous-chef-agent.up.railway.app`
-
-### Railway notes
-
-| Topic | Recommendation |
-|-------|----------------|
-| Memory | 512MB–1GB (PyMuPDF + LangGraph) |
-| Timeouts | Bill parse can take ~180s — raise HTTP timeout for `/parse-bill-pipeline` |
-| Cold starts | Hobby tier may sleep; first request slower |
-| CORS | Add production Vercel URL to `main.py` `allow_origins` |
+Raise HTTP timeout for `/parse-bill-pipeline` (bills can take ~180s).
 
 ---
 
 ## Vercel (web app)
 
-1. Import repo → set **root directory** to `apps/web`
-2. **Environment variables:**
-   - `MONGODB_URI` (Atlas)
-   - `NEXTAUTH_SECRET`, `NEXTAUTH_URL` (production URL)
-   - `OPENAI_API_KEY` (if chat stays in Next.js during transition)
-   - `AGENT_SERVICE_URL` = Railway agent URL
-   - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (optional)
-
-Vercel hosts the **website** — pages, auth, API routes, MongoDB. It does **not** run the Python agent by default.
+1. Root directory: `apps/web`
+2. Env: `MONGODB_URI`, `NEXTAUTH_*`, `OPENAI_API_KEY`, `AGENT_SERVICE_URL`
 
 ---
 
-## MongoDB Atlas
+## Implementation status
 
-- Create free cluster → connection string → `MONGODB_URI` on Vercel and Railway (if needed)
-- Local Docker Mongo is dev-only
-
----
-
-## CORS (production)
-
-Update `services/agent/main.py`:
-
-```python
-allow_origins=[
-    "http://localhost:3000",
-    "https://your-app.vercel.app",
-]
-```
-
----
-
-## Implementation order
-
-1. Docs (`docs/Agentic_Tools/`)
-2. UI — floating dock, 4 tabs (`SousChefChatDock`)
-3. Tools MVP — read tools + `add_suggested_dish` in Next.js or Python
-4. LangGraph — `POST /chat` in agent service
-5. Upload handoff — max 10 files → `/api/bills/parse` → Upload orders tabs
-6. Deploy — Railway + Vercel + Atlas
+| Item | Status |
+|------|--------|
+| Sous Chef dock + 5 sessions | Shipped |
+| Connect handoff + section sync | Shipped |
+| Specialist prompts + context | Shipped |
+| Upload orders (10-file queue) | Shipped |
+| Chat upload handoff | Planned |
+| Consultation transcript blocks | Planned |
+| LangGraph in Python | Planned |
 
 ---
 
 ## Related
 
 - [README.md](./README.md) — architecture
-- [../Agents/README.md](../Agents/README.md) — existing Python workers
+- [../Agents/README.md](../Agents/README.md) — Python workers
 - [../../README.md](../../README.md) — project quick start

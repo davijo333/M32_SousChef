@@ -10,28 +10,39 @@ export type ClassifiedGroup<T> = {
 
 const BEVERAGE_SUBCLASSES = new Set(["coffee", "tea", "juice"]);
 
+/** Canonical menu class slug (lowercase, hyphenated). */
+export function normalizeDishClassification(value?: string): string {
+  const raw = (value ?? "").trim().toLowerCase().replace(/_/g, "-");
+  if (!raw) return "other";
+  if (raw === "byo-sandwich" || raw === "byo sandwich") return "byo-sandwich";
+  if (raw === "signature-sandwich" || raw === "signature sandwich") return "sandwich";
+  return raw;
+}
+
 export function formatClassificationLabel(value: string): string {
-  if (value === "addon") return "Add-on";
-  if (value === "sandwich") return "Sandwich";
-  if (value === "beverage" || BEVERAGE_SUBCLASSES.has(value)) {
-    return value.charAt(0).toUpperCase() + value.slice(1);
+  const c = normalizeDishClassification(value);
+  if (value === "addon" || c === "addon") return "Add-on";
+  if (c === "sandwich") return "Signature Sandwich";
+  if (c === "byo-sandwich") return "BYO Sandwich";
+  if (c === "beverage" || BEVERAGE_SUBCLASSES.has(c)) {
+    return c.charAt(0).toUpperCase() + c.slice(1);
   }
-  if (value === "general") return "General";
-  if (value === "other") return "Other";
-  return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  if (c === "general") return "General";
+  if (c === "other") return "Other";
+  return c.replace(/_/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 export function dishClassKey(classification: string): string {
-  const c = classification.trim().toLowerCase() || "other";
+  const c = normalizeDishClassification(classification);
   if (BEVERAGE_SUBCLASSES.has(c) || c === "beverage") return "beverage";
-  if (c === "sandwich") return "sandwich";
+  if (c === "sandwich" || c === "byo-sandwich") return c;
   return c;
 }
 
 export function dishSubclassKey(classification: string): string {
-  const c = classification.trim().toLowerCase() || "other";
+  const c = normalizeDishClassification(classification);
   if (BEVERAGE_SUBCLASSES.has(c) || c === "beverage") return "beverage";
-  if (c === "sandwich") return "sandwich";
+  if (c === "sandwich" || c === "byo-sandwich") return c;
   return c;
 }
 
@@ -66,7 +77,8 @@ export function ingredientClassLabel(classKey: string): string {
 
 export function dishClassLabel(classKey: string): string {
   if (classKey === "beverage") return "Beverages";
-  if (classKey === "sandwich") return "Sandwiches";
+  if (classKey === "sandwich") return "Signature Sandwiches";
+  if (classKey === "byo-sandwich") return "BYO Sandwiches";
   return formatClassificationLabel(classKey);
 }
 
@@ -136,7 +148,8 @@ export function inferDishClassification(name: string, rawName?: string): string 
   }
   if (/\b(tea|chai)\b/.test(text)) return "tea";
   if (/\b(juice)\b/.test(text)) return "juice";
-  if (/\b(bagel|croissant|sandwich|sourdough|stack|byo|build[\s-]?your[\s-]?own|melt)\b/.test(text)) {
+  if (/\b(byo|build[\s-]?your[\s-]?own)\b/.test(text)) return "byo-sandwich";
+  if (/\b(bagel|croissant|sandwich|sourdough|stack|melt)\b/.test(text)) {
     return "sandwich";
   }
   return "other";

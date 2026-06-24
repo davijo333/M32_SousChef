@@ -33,7 +33,7 @@ After the first image generation (or if you commit images under these paths), re
 ## Retention
 
 - **Bills:** last **5 uploads per type** per user (supplier + customer). Older files and DB records are pruned on each new upload.
-- **Chat:** last **5 conversations** per user in MongoDB.
+- **Chat:** last **5 conversations** per user (Sous Chef dock, `context: head`)
 
 ## Serving
 

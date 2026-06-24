@@ -27,7 +27,7 @@ flowchart LR
 
 1. **Link ingredients** — manually in Kitchen Control or via Recipe Agent after PO.
 2. **Recipe Agent** — sets `progress: linking`, then `pricing`, then creates a **Recipe** document with `recipeNumber`, `foodCost`, `margin`, and `sellPrice`.
-3. **Recipes page** — shows **In progress** rows while linking/pricing; completed recipes appear under **New**.
+3. **Recipes page** — shows **In progress** rows while linking/pricing; completed recipes appear under **New** (grouped by dish class).
 4. **Activate selected** — set `recipeStatus: active` on dish/add-on and Recipe.
 5. **Retire** — `active` → `inactive`.
 

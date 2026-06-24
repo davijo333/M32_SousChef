@@ -9,7 +9,7 @@ Typical fields you enter in **+ Dish**:
 | Field | Example |
 |-------|---------|
 | Name | `Multigrain Bagel` |
-| Class | `BYO-Sandwich` (preset or custom class) |
+| Class | `byo-sandwich` (preset or custom class) |
 | Description | `Thomas' multigrain bagel — build your own toppings` |
 | Sell price | `4.99` |
 | Ingredient links | `Multigrain Bagels` → 1 each |
@@ -22,7 +22,7 @@ Use **Generate Image** → **Save**. Description drives image context together w
 |-------|-------------|
 | `slug` | Stable id, e.g. `dish-multigrain-bagel` |
 | `name` | Display name |
-| `classification` | Menu class — `sandwich`, `BYO-Sandwich`, `coffee`, `tea`, `juice`, or custom |
+| `classification` | Menu class — `sandwich`, `byo-sandwich`, `coffee`, `tea`, `juice`, or custom |
 | `category` | Same as `classification` for grouping |
 | `description` | POS / image context |
 | `sellPrice` | Unit price |
@@ -32,13 +32,13 @@ Use **Generate Image** → **Save**. Description drives image context together w
 
 ## Sample entries (like manual add)
 
-### BYO-Sandwich class (custom menu group)
+### byo-sandwich class (custom menu group)
 
 ```json
 {
   "slug": "dish-classic-bagel",
   "name": "Classic Bagel",
-  "classification": "BYO-Sandwich",
+  "classification": "byo-sandwich",
   "description": "Plain Thomas' bagel — build your own toppings",
   "sellPrice": 4.49,
   "posName": "Classic Bagel — Thomas' Plain",
@@ -50,7 +50,7 @@ Use **Generate Image** → **Save**. Description drives image context together w
 {
   "slug": "dish-multigrain-bagel",
   "name": "Multigrain Bagel",
-  "classification": "BYO-Sandwich",
+  "classification": "byo-sandwich",
   "description": "Thomas' multigrain bagel — build your own toppings",
   "sellPrice": 4.99,
   "posName": "Multigrain Bagel — Thomas' 12 Grain",
@@ -88,8 +88,8 @@ Use **Generate Image** → **Save**. Description drives image context together w
 
 | Classification | Example dishes |
 |----------------|----------------|
-| sandwich | Sunrise Stack, Build-Your-Own Croissant, Loaded Bagel |
-| BYO-Sandwich | Classic Bagel, Multigrain Bagel |
+| sandwich (Signature Sandwich) | Sunrise Stack, Farmer's Double, Veggie Croissant, Sourdough Melt |
+| byo-sandwich (BYO Sandwich) | Build-Your-Own Bagel, Classic Bagel, Loaded Bagel |
 | coffee | Hot Coffee, Hazelnut Mocha, Oat Vanilla Coffee |
 | tea | English Breakfast Tea, Green Tea |
 | juice | Orange Juice, Cranberry Juice |

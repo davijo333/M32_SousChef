@@ -1,29 +1,38 @@
-# Test recipes (Sunrise Diner)
+# Test recipes (Panera Cafe)
 
-Expected outcome after uploading **all** test sales orders then **all** test purchase orders (`Bill-1` … `Bill-10`).
+Expected outcome after uploading **all** test bills in `test/bills/customer/` and `test/bills/supplier/` (16 + 18 files). See [`manifest.json`](../../test/bills/manifest.json) for which dishes each bill covers.
 
 ## Upload order
 
-1. Customer: `test/bills/customer/1.c_bill.pdf` through `8.c_bill.png` (four logical receipts).
-2. Supplier: `test/bills/supplier/Bill-1_Sysco.pdf` through `Bill-10_Sysco.png`.
+1. **Customer** — all `N.c_bill.pdf` / `N.c_bill.png` files
+2. **Supplier** — all `Bill-N_*.pdf` / `Bill-N_*.png` files
+
+Process each supplier file so the Recipe Agent runs and ingredient labels refresh. **Purchase before sales** when seeding a fresh kitchen.
 
 Process each supplier file so the Recipe Agent runs and labels refresh.
 
 ## Dishes by classification
 
-### Sandwiches (from SO SQ-20260622-AM, SQ-20260623-MIX)
+### Signature Sandwiches (`sandwich`)
 
 | Dish | Key ingredients (from catalog) |
 |------|--------------------------------|
 | Sunrise Stack | croissant, bacon, egg, cheddar |
 | Garden Morning Croissant | croissant, spinach, tomato, avocado |
 | Farmer's Double | sourdough, sausage, egg, american |
+| Veggie Croissant | croissant, spinach, tomato, bell pepper |
+| Sourdough Melt | sourdough, bacon, cheddar |
+
+### BYO Sandwiches (`byo-sandwich`)
+
+| Dish | Key ingredients |
+|------|-----------------|
 | Build-Your-Own Croissant | croissant, bacon, egg, swiss |
 | Build-Your-Own Sourdough | sourdough, sausage, egg |
 | Build-Your-Own Bagel | bagel, bacon, spinach, tomato |
-| Veggie Croissant | croissant, spinach, tomato, bell pepper |
-| Sourdough Melt | sourdough, bacon, cheddar |
 | Loaded Bagel | bagel, sausage, egg, american |
+| Classic Bagel | bagel, butter |
+| Multigrain Bagel | multigrain bagel, butter |
 
 ### Coffee (from SO SQ-20260622-COF, SQ-20260623-MIX)
 
@@ -55,17 +64,11 @@ Process each supplier file so the Recipe Agent runs and labels refresh.
 |--------|-------------|
 | Whipped cream | heavy cream |
 
-Other add-ons (bacon, sausage, egg, cheese, veggies) appear when POS lines include modifier text; see [`add-ons.json`](../../test/inventory/add-ons.json).
+Other add-ons (bacon, sausage, egg, cheese, veggies) appear when POS lines include modifier text; see [`add-ons.json`](../../test/inventory/add-ons.json). Add-ons link to both `sandwich` and `byo-sandwich` classes.
 
 ## PO coverage map
 
-| PO | Bills | New pantry SKUs |
-|----|-------|-----------------|
-| SYSCO-4821 | 1–2 | Bakery, proteins, cheese, produce (14 lines) |
-| SYSCO-4822 | 3–4 | Dairy, coffee, syrups, ice (15 lines) |
-| COSTCO-90614 | 5–6 | Tea, juices (5 lines) |
-| USF-77102 | 7–8 | Proteins, dairy restock (6 lines) |
-| SYSCO-4823 | 9–10 | Mixed restock (10 lines) |
+Five wholesaler invoices (`SYSCO-4821` … `SYSCO-4823`) map to **18 supplier bill files**. Line-level ingredient coverage is in [`manifest.json`](../../test/bills/manifest.json) under `supplierBills`.
 
 ## Recipe status after agent
 
@@ -76,7 +79,7 @@ All linked dishes/add-ons should show **`new`** on the Recipes page. Select all 
 | If you only upload… | Expect |
 |---------------------|--------|
 | SO without PO | Dishes exist; recipes empty; no pantry |
-| PO bills 1–2 only | Sandwiches link; coffee/tea/juice lines may be `missing` |
+| PO bills 1–2 only | Signature & BYO sandwiches link; coffee/tea/juice lines may be `missing` |
 | Full PO set | All catalog slugs in pantry; minimal `missing` |
 
 Reference slugs: [`test/inventory/`](../../test/inventory/).

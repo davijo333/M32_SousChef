@@ -8,23 +8,21 @@ Bill **dates** are stamped at generation time: `billDay` 0 = today through `bill
 
 ```bash
 python3 -m pip install -r test/scripts/requirements.txt
+python3 test/scripts/recalculate-pricing.py   # refresh food cost + sell prices from PO data
 npm run regenerate:bills
 ```
 
 (Equivalent: `python3 test/scripts/generate-bills.py` from repo root.)
 
-### Supplier files (10)
+`recalculate-pricing.py` also normalizes dish classifications (e.g. `BYO-Sandwich` → `byo-sandwich`).
 
-| Files | Invoice |
-|-------|---------|
-| `Bill-1_Sysco.pdf`, `Bill-2_Sysco.png` | Sysco #4821 — bakery, proteins, cheese, produce |
-| `Bill-3_Sysco.pdf`, `Bill-4_Sysco.png` | Sysco #4822 — dairy, coffee, syrups, ice |
-| `Bill-5_Costco.pdf`, `Bill-6_Costco.png` | Costco #90614 — tea, juice & pantry |
-| `Bill-7_US-Foods.pdf`, `Bill-8_US-Foods.png` | US Foods #77102 — proteins & dairy |
-| `Bill-9_Sysco.pdf`, `Bill-10_Sysco.png` | Sysco #4823 — mixed restock |
+### Output
+
+| Folder | Count | Naming |
+|--------|-------|--------|
+| `test/bills/supplier/` | 18 files | `Bill-N_Vendor.pdf` / `.png` pairs |
+| `test/bills/customer/` | 16 files | `N.c_bill.pdf` / `.png` pairs |
 
 Purchase order lines use **real brand/product names** (Tyson, Land O Lakes, Monin, etc.) for image search, with **bulk quantities** so inventory remains after customer bills are processed.
 
-Customer files use `N.c_bill.pdf` / `N.c_bill.png` naming (8 files).
-
-See `test/bills/manifest.json` for ingredient/dish coverage.
+**Authoritative list:** [`test/bills/manifest.json`](../bills/manifest.json) — filenames, vendors, dates, and ingredient/dish coverage per file.

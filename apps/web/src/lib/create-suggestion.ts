@@ -1,6 +1,8 @@
 import { dishSlugFromName } from "@/lib/dish-catalog";
 import { scheduleRecipeBuild } from "@/lib/recipe-builder";
 import { normalizeSuggestionNotes, type SuggestionNote } from "@/lib/suggestion-notes";
+import { normalizeDishClassification } from "@/lib/catalog-classification";
+import { formatSuggestedMenuName } from "@/lib/suggested-menu-name";
 import { Dish } from "@/models/Dish";
 import { Ingredient } from "@/models/Ingredient";
 
@@ -80,8 +82,9 @@ export async function createSuggestedDish(
   restaurantId: string,
   input: SuggestedDishInput
 ): Promise<{ slug: string; name: string }> {
-  const classification = input.classification.trim().toLowerCase() || "other";
-  const slug = await uniqueDishSlug(restaurantId, input.name);
+  const classification = normalizeDishClassification(input.classification) || "other";
+  const menuName = formatSuggestedMenuName(input.name);
+  const slug = await uniqueDishSlug(restaurantId, menuName);
 
   let ingredientLinks =
     input.ingredientSlugs?.map((ingredientSlug) => ({
@@ -92,7 +95,7 @@ export async function createSuggestedDish(
     })) ?? [];
 
   if (!ingredientLinks.length) {
-    ingredientLinks = await linkViaAgent(restaurantId, slug, input.name, classification);
+    ingredientLinks = await linkViaAgent(restaurantId, slug, menuName, classification);
   }
 
   const suggestionNotes = normalizeSuggestionNotes(input.notes);
@@ -105,7 +108,7 @@ export async function createSuggestedDish(
   await Dish.create({
     restaurantId,
     slug,
-    name: input.name.trim(),
+    name: menuName,
     description: input.description.trim(),
     classification,
     category: classification,
@@ -121,5 +124,5 @@ export async function createSuggestedDish(
     scheduleRecipeBuild(restaurantId, "dish", slug);
   }
 
-  return { slug, name: input.name.trim() };
+  return { slug, name: menuName };
 }

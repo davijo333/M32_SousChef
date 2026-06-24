@@ -1,6 +1,6 @@
 # Inventory
 
-What the kitchen sells (menu) and what it stocks (pantry). Live data is in MongoDB; [`test/inventory/`](../../test/inventory/) is the Sunrise Diner fixture catalog used for demo seed, bill generation, and upload tests.
+What the kitchen sells (menu) and what it stocks (pantry). Live data is in MongoDB; [`test/inventory/`](../../test/inventory/) is the Panera Cafe fixture catalog used for demo seed, bill generation, and upload tests.
 
 | Doc | Contents |
 |-----|----------|
@@ -13,7 +13,7 @@ What the kitchen sells (menu) and what it stocks (pantry). Live data is in Mongo
 | Source | Creates / updates |
 |--------|-------------------|
 | **Kitchen Control** → + Ingredient / + Dish / + Add-on | Manual catalog rows with class, description, images |
-| **Dashboard** → Load Sunrise Diner demo | Full catalog from `test/inventory/*.json` |
+| **Dashboard** → Load Panera Cafe demo | Full catalog from `test/inventory/*.json` |
 | **Purchase orders** (supplier bills) | Ingredients — category inferred from line text |
 | **Sales orders** (POS bills) | Dishes and add-ons — classification and description from line text |
 

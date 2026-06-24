@@ -22,7 +22,7 @@ MARGIN = 3.0
 # Minimum menu prices by dish classification.
 PRICE_FLOORS: dict[str, float] = {
     "sandwich": 4.49,
-    "BYO-Sandwich": 3.49,
+    "byo-sandwich": 3.49,
     "coffee": 2.99,
     "tea": 2.49,
     "juice": 3.49,
@@ -121,6 +121,15 @@ def usage_cost(slug: str, qty: float, unit: str, inventory_prices: dict[str, flo
             raise KeyError(f"No usage conversion for {slug} unit={unit}")
     inventory_qty = qty / factor
     return inventory_qty * price
+
+
+def normalize_classification(value: str | None) -> str | None:
+    if not value:
+        return value
+    c = value.strip().lower().replace("_", "-")
+    if c in ("byo-sandwich", "byo sandwich"):
+        return "byo-sandwich"
+    return c
 
 
 def sell_from_cost(cost: float, classification: str | None = None, *, is_addon: bool = False) -> float:
@@ -340,9 +349,14 @@ def main() -> None:
             raise KeyError(f"Missing recipe for {slug}")
         dish["ingredientLinks"] = links
         dish["ingredientSlugs"] = [link["ingredientSlug"] for link in links]
+        normalized = normalize_classification(dish.get("classification"))
+        if normalized:
+            dish["classification"] = normalized
         cost = recipe_cost(links, inventory_prices)
         dish["foodCost"] = round(cost + 1e-9, 2)
-        dish["sellPrice"] = sell_from_cost(cost, dish.get("classification"))
+        dish["sellPrice"] = sell_from_cost(
+            cost, normalize_classification(dish.get("classification"))
+        )
         dish_prices[slug] = dish["sellPrice"]
         print(f"  {slug}: cost ${cost:.2f} → sell ${dish['sellPrice']:.2f}")
 

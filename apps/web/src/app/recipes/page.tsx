@@ -4,42 +4,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
+import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
 import { Nav } from "@/components/Nav";
 import {
-  suggestionNoteLabel,
-  type SuggestionNote,
-  type SuggestionNoteKind,
-} from "@/lib/suggestion-notes";
+  PantryMultiSelectFilter,
+  type MultiSelectOption,
+} from "@/components/PantryMultiSelectFilter";
+import {
+  RecipeDetailModal,
+  type RecipeLink,
+  type RecipeMeta,
+  type RecipeModalItem,
+} from "@/components/RecipeDetailModal";
+import { RecipeTile } from "@/components/RecipeTile";
+import {
+  dishClassKey,
+  dishClassLabel,
+  dishSubclassKey,
+  formatClassificationLabel,
+  groupByClassSubclass,
+} from "@/lib/catalog-classification";
+import { formatSuggestedMenuName } from "@/lib/suggested-menu-name";
+import type { SuggestionNote } from "@/lib/suggestion-notes";
 
 type RecipeStatus = "new" | "active" | "inactive" | "suggested";
 type StatusTab = RecipeStatus;
-
-type RecipeLink = {
-  ingredientSlug: string;
-  ingredientName: string;
-  imageUrl?: string;
-  qtyPerServing: number;
-  unit: string;
-  scalesWithSize?: boolean;
-  notes?: string;
-  inPantry: boolean;
-};
-
-type RecipeMeta = {
-  recipeNumber: number;
-  servingQty: number;
-  foodCost: number;
-  margin: number;
-  sellPrice: number;
-  progress: "linking" | "pricing" | "ready" | "failed";
-  progressMessage?: string;
-  ingredients: Array<{
-    ingredientSlug: string;
-    ingredientName: string;
-    qtyUsed: number;
-    unit: string;
-  }>;
-};
 
 type RecipeProgressItem = {
   kind: "dish" | "addon";
@@ -102,287 +91,56 @@ const TABS: { id: StatusTab; label: string }[] = [
   { id: "suggested", label: "Suggested" },
 ];
 
-function formatMoney(n: number): string {
-  return `$${n.toFixed(2)}`;
-}
-
-function classificationLabel(c: string): string {
-  if (c === "addon") return "Add-on";
-  if (c === "sandwich") return "Sandwich";
-  if (c === "beverage" || c === "coffee" || c === "tea" || c === "juice") {
-    return c.charAt(0).toUpperCase() + c.slice(1);
-  }
-  return c.replace(/_/g, " ");
-}
-
 function effectiveStatus(item: { hasRecipe: boolean; recipeStatus?: RecipeStatus }): RecipeStatus | undefined {
   if (!item.hasRecipe) return undefined;
   return item.recipeStatus ?? "new";
 }
 
-function RecipeLinkList({ links }: { links: RecipeLink[] }) {
-  if (!links.length) {
-    return (
-      <p className="mt-3 text-sm text-chef-text-muted">
-        No ingredients linked yet. Process a purchase order after uploading sales orders to
-        auto-generate recipes.
-      </p>
-    );
-  }
-
-  return (
-    <ul className="mt-3 space-y-1.5">
-      {links.map((link) => (
-        <li
-          key={link.ingredientSlug}
-          className="flex items-center gap-2 rounded-lg bg-chef-muted/60 px-3 py-2 text-sm text-chef-text"
-        >
-          {link.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={link.imageUrl}
-              alt=""
-              className="h-8 w-8 shrink-0 rounded-md object-cover"
-            />
-          ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-chef-muted text-xs text-chef-text-muted">
-              🥬
-            </span>
-          )}
-          <span className="min-w-0 flex-1">
-            <span className="font-medium">{link.ingredientName}</span>
-            <span className="text-chef-text-muted">
-              {" "}
-              — {link.qtyPerServing} {link.unit}
-              {link.scalesWithSize === false ? " (fixed)" : ""}
-            </span>
-            {!link.inPantry && (
-              <span className="ml-1 text-xs font-semibold uppercase text-chef-amber">missing</span>
-            )}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
+function displayRecipeName(name: string, tab: StatusTab): string {
+  return tab === "suggested" ? formatSuggestedMenuName(name) : name;
 }
 
-function noteBadgeClass(kind: SuggestionNoteKind): string {
-  switch (kind) {
-    case "expiring_ingredients":
-      return "border-chef-amber/50 bg-chef-amber-light/60 text-chef-text";
-    case "seasonal":
-      return "border-emerald-200 bg-emerald-50 text-emerald-900";
-    case "high_margin":
-      return "border-chef-sage/40 bg-chef-sage-light/50 text-chef-sage-dark";
-    case "low_stock":
-      return "border-orange-200 bg-orange-50 text-orange-900";
-    case "cue":
-      return "border-sky-200 bg-sky-50 text-sky-900";
-    default:
-      return "border-chef-border bg-chef-muted/60 text-chef-text";
-  }
+function dishToModalItem(dish: DishRecipe, tab: StatusTab): RecipeModalItem {
+  return {
+    kind: "dish",
+    slug: dish.slug,
+    name: displayRecipeName(dish.name, tab),
+    classification: dish.classification,
+    sellPrice: dish.sellPrice,
+    imageUrl: dish.imageUrl,
+    ingredientLinks: dish.ingredientLinks,
+    recipe: dish.recipe,
+    suggestionNotes: dish.suggestionNotes,
+  };
 }
 
-function SuggestionNotesList({ notes }: { notes: SuggestionNote[] }) {
-  if (!notes.length) return null;
-
-  return (
-    <ul className="mt-3 space-y-2">
-      {notes.map((note, index) => (
-        <li
-          key={`${note.kind}-${index}`}
-          className={`rounded-lg border px-3 py-2 text-sm ${noteBadgeClass(note.kind)}`}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-            {suggestionNoteLabel(note.kind)}
-          </span>
-          <p className="mt-0.5 leading-snug">{note.text}</p>
-        </li>
-      ))}
-    </ul>
-  );
+function addOnToModalItem(addOn: AddOnRecipe, tab: StatusTab): RecipeModalItem {
+  return {
+    kind: "addon",
+    slug: addOn.slug,
+    name: displayRecipeName(addOn.name, tab),
+    classification: addOn.classification,
+    sellPrice: addOn.sellPrice,
+    linkedDishNames: addOn.linkedDishNames,
+    ingredientLinks: addOn.ingredientLinks,
+    recipe: addOn.recipe,
+  };
 }
 
-function RecipeCard({
-  title,
-  subtitle,
-  imageUrl,
-  links,
-  recipe,
-  suggestionNotes,
-  selected,
-  onSelect,
-  showCheckbox,
-  onRetire,
-  showRetire,
-  onAccept,
-  showAccept,
-  onReject,
-  showReject,
-  onRevive,
-  showRevive,
-  actionBusy,
-}: {
-  title: string;
-  subtitle: string;
-  imageUrl?: string;
-  links: RecipeLink[];
-  recipe?: RecipeMeta;
-  suggestionNotes?: SuggestionNote[];
-  selected?: boolean;
-  onSelect?: (v: boolean) => void;
-  showCheckbox?: boolean;
-  onRetire?: () => void;
-  showRetire?: boolean;
-  onAccept?: () => void;
-  showAccept?: boolean;
-  onReject?: () => void;
-  showReject?: boolean;
-  onRevive?: () => void;
-  showRevive?: boolean;
-  actionBusy?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  const inProgress = recipe && recipe.progress !== "ready" && recipe.progress !== "failed";
+function recipeClassKey(classification: string): string {
+  return dishClassKey(classification);
+}
 
-  return (
-    <article className={`sc-card overflow-hidden ${inProgress ? "ring-2 ring-chef-sage/40" : ""}`}>
-      <div className="flex items-start gap-3 p-5">
-        {showCheckbox && onSelect && (
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={(e) => onSelect(e.target.checked)}
-            className="mt-5 h-4 w-4 shrink-0 accent-chef-sage"
-            aria-label={`Select ${title}`}
-          />
-        )}
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={imageUrl}
-            alt=""
-            className="h-16 w-16 shrink-0 rounded-xl border border-chef-border object-cover"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-chef-border bg-chef-muted text-2xl text-chef-text-muted/50">
-            🍽
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="min-w-0 flex-1 text-left"
-        >
-          <h2 className="font-semibold text-chef-text">{title}</h2>
-          <p className="mt-1 text-sm text-chef-text-muted">{subtitle}</p>
-        </button>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <span className="text-chef-text-muted" aria-hidden>
-            {expanded ? "▾" : "▸"}
-          </span>
-          {showRetire && onRetire && (
-            <button
-              type="button"
-              onClick={onRetire}
-              className="text-xs text-chef-text-muted underline hover:text-chef-text"
-            >
-              Retire
-            </button>
-          )}
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t border-chef-border px-5 pb-5">
-          {suggestionNotes && suggestionNotes.length > 0 && (
-            <>
-              <p className="pt-3 text-xs font-medium uppercase tracking-wide text-chef-text-muted">
-                Why suggested
-              </p>
-              <SuggestionNotesList notes={suggestionNotes} />
-            </>
-          )}
-          {recipe && (
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
-              <div>
-                <dt className="text-xs uppercase text-chef-text-muted">Recipe #</dt>
-                <dd className="font-medium text-chef-text">{recipe.recipeNumber}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase text-chef-text-muted">Qty / serving</dt>
-                <dd className="font-medium text-chef-text">{recipe.servingQty}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase text-chef-text-muted">Food cost</dt>
-                <dd className="font-medium text-chef-text">{formatMoney(recipe.foodCost)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase text-chef-text-muted">Margin</dt>
-                <dd className="font-medium text-chef-text">{(recipe.margin * 100).toFixed(0)}%</dd>
-              </div>
-            </dl>
-          )}
-          {inProgress && (
-            <p className="mt-3 flex items-center gap-2 text-sm text-chef-sage">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-chef-sage border-t-transparent" />
-              {recipe?.progressMessage ??
-                (recipe?.progress === "linking"
-                  ? "Linking ingredients…"
-                  : "Computing cost and sell price…")}
-            </p>
-          )}
-          <p className="pt-3 text-xs font-medium uppercase tracking-wide text-chef-text-muted">
-            Ingredients linked
-          </p>
-          <RecipeLinkList links={recipe?.ingredients?.length
-            ? recipe.ingredients.map((ing) => ({
-                ingredientSlug: ing.ingredientSlug,
-                ingredientName: ing.ingredientName,
-                qtyPerServing: ing.qtyUsed,
-                unit: ing.unit,
-                inPantry: links.some((l) => l.ingredientSlug === ing.ingredientSlug && l.inPantry),
-              }))
-            : links} />
+function recipeClassLabel(classKey: string): string {
+  return dishClassLabel(classKey);
+}
 
-          {(showAccept || showReject || showRevive) && (
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-chef-border pt-4">
-              {showAccept && onAccept && (
-                <button
-                  type="button"
-                  disabled={actionBusy}
-                  onClick={onAccept}
-                  className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
-                >
-                  {actionBusy ? "Saving…" : "Accept"}
-                </button>
-              )}
-              {showReject && onReject && (
-                <button
-                  type="button"
-                  disabled={actionBusy}
-                  onClick={onReject}
-                  className="rounded-lg border border-chef-border bg-white px-4 py-2 text-sm font-medium text-chef-text hover:bg-chef-muted disabled:opacity-50"
-                >
-                  {actionBusy ? "Saving…" : "Reject"}
-                </button>
-              )}
-              {showRevive && onRevive && (
-                <button
-                  type="button"
-                  disabled={actionBusy}
-                  onClick={onRevive}
-                  className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
-                >
-                  {actionBusy ? "Saving…" : "Revive"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </article>
-  );
+function addOnClassKey(classification: string): string {
+  return (classification ?? "addon").trim().toLowerCase() || "addon";
+}
+
+function recipeInProgress(recipe?: RecipeMeta): boolean {
+  return Boolean(recipe && recipe.progress !== "ready" && recipe.progress !== "failed");
 }
 
 export default function RecipesPage() {
@@ -390,11 +148,13 @@ export default function RecipesPage() {
   const [data, setData] = useState<RecipesPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [classFilters, setClassFilters] = useState<string[]>([]);
   const [tab, setTab] = useState<StatusTab>("new");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activating, setActivating] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [recipeAgentCooking, setRecipeAgentCooking] = useState(false);
+  const [modalItem, setModalItem] = useState<RecipeModalItem | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/recipes");
@@ -421,35 +181,95 @@ export default function RecipesPage() {
     return () => window.clearInterval(id);
   }, [recipeAgentCooking, data?.inProgress?.length, load]);
 
-  const matchesSearch = useCallback(
-    (name: string, links: RecipeLink[]) => {
+  useEffect(() => {
+    if (tab !== "active" && tab !== "inactive") {
+      setSearch("");
+      setClassFilters([]);
+    }
+  }, [tab]);
+
+  const matchesRecipeSearch = useCallback(
+    (name: string) => {
       const q = search.trim().toLowerCase();
       if (!q) return true;
-      return (
-        name.toLowerCase().includes(q) ||
-        links.some((l) => l.ingredientName.toLowerCase().includes(q))
-      );
+      return name.toLowerCase().includes(q);
     },
     [search]
   );
 
-  const filteredDishes = useMemo(() => {
+  const tabDishes = useMemo(() => {
     const dishes = data?.dishes ?? [];
-    return dishes.filter((d) => {
-      const status = effectiveStatus(d);
-      if (status !== tab) return false;
-      return matchesSearch(d.name, d.ingredientLinks);
+    return dishes.filter((d) => effectiveStatus(d) === tab);
+  }, [data?.dishes, tab]);
+
+  const tabAddOns = useMemo(() => {
+    const addOns = data?.addOns ?? [];
+    return addOns.filter((a) => effectiveStatus(a) === tab);
+  }, [data?.addOns, tab]);
+
+  const classFilterOptions = useMemo((): MultiSelectOption[] => {
+    if (tab !== "active" && tab !== "inactive") return [];
+    const keys = new Set<string>();
+    for (const dish of tabDishes) keys.add(recipeClassKey(dish.classification));
+    for (const addOn of tabAddOns) keys.add(addOnClassKey(addOn.classification));
+    return Array.from(keys)
+      .sort((a, b) => recipeClassLabel(a).localeCompare(recipeClassLabel(b)))
+      .map((value) => ({ value, label: recipeClassLabel(value) }));
+  }, [tab, tabDishes, tabAddOns]);
+
+  const filteredDishes = useMemo(() => {
+    return tabDishes.filter((d) => {
+      if (tab === "active" || tab === "inactive") {
+        if (!matchesRecipeSearch(d.name)) return false;
+        if (
+          classFilters.length > 0 &&
+          !classFilters.includes(recipeClassKey(d.classification))
+        ) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [data?.dishes, tab, matchesSearch]);
+  }, [tabDishes, tab, matchesRecipeSearch, classFilters]);
 
   const filteredAddOns = useMemo(() => {
-    const addOns = data?.addOns ?? [];
-    return addOns.filter((a) => {
-      const status = effectiveStatus(a);
-      if (status !== tab) return false;
-      return matchesSearch(a.name, a.ingredientLinks);
+    return tabAddOns.filter((a) => {
+      if (tab === "active" || tab === "inactive") {
+        if (!matchesRecipeSearch(a.name)) return false;
+        if (
+          classFilters.length > 0 &&
+          !classFilters.includes(addOnClassKey(a.classification))
+        ) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [data?.addOns, tab, matchesSearch]);
+  }, [tabAddOns, tab, matchesRecipeSearch, classFilters]);
+
+  const dishGroups = useMemo(
+    () =>
+      groupByClassSubclass(
+        filteredDishes,
+        (item) => dishClassKey(item.classification),
+        (item) => dishSubclassKey(item.classification),
+        dishClassLabel,
+        formatClassificationLabel
+      ),
+    [filteredDishes]
+  );
+
+  const addOnGroups = useMemo(
+    () =>
+      groupByClassSubclass(
+        filteredAddOns,
+        (item) => (item.classification ?? "addon").trim().toLowerCase() || "addon",
+        (item) => (item.classification ?? "addon").trim().toLowerCase() || "addon",
+        formatClassificationLabel,
+        formatClassificationLabel
+      ),
+    [filteredAddOns]
+  );
 
   const newItems = useMemo((): SelectableItem[] => {
     if (!data) return [];
@@ -479,7 +299,10 @@ export default function RecipesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items, status }),
     });
-    if (res.ok) await load();
+    if (res.ok) {
+      setModalItem(null);
+      await load();
+    }
   }
 
   async function activateSelected() {
@@ -512,6 +335,71 @@ export default function RecipesPage() {
     setStatusUpdating(null);
   }
 
+  function renderDishTile(dish: DishRecipe) {
+    const key = `dish:${dish.slug}`;
+    return (
+      <div className="relative">
+        {tab === "new" && (
+          <input
+            type="checkbox"
+            checked={selected.has(key)}
+            onChange={(event) => {
+              event.stopPropagation();
+              setSelected((prev) => {
+                const next = new Set(prev);
+                if (event.target.checked) next.add(key);
+                else next.delete(key);
+                return next;
+              });
+            }}
+            onClick={(event) => event.stopPropagation()}
+            className="absolute left-2 top-2 z-10 h-4 w-4 accent-chef-sage"
+            aria-label={`Select ${dish.name}`}
+          />
+        )}
+        <RecipeTile
+          name={displayRecipeName(dish.name, tab)}
+          imageUrl={dish.imageUrl}
+          selected={selected.has(key)}
+          inProgress={recipeInProgress(dish.recipe)}
+          onClick={() => setModalItem(dishToModalItem(dish, tab))}
+        />
+      </div>
+    );
+  }
+
+  function renderAddOnTile(addOn: AddOnRecipe) {
+    const key = `addon:${addOn.slug}`;
+    return (
+      <div className="relative">
+        {tab === "new" && (
+          <input
+            type="checkbox"
+            checked={selected.has(key)}
+            onChange={(event) => {
+              event.stopPropagation();
+              setSelected((prev) => {
+                const next = new Set(prev);
+                if (event.target.checked) next.add(key);
+                else next.delete(key);
+                return next;
+              });
+            }}
+            onClick={(event) => event.stopPropagation()}
+            className="absolute left-2 top-2 z-10 h-4 w-4 accent-chef-sage"
+            aria-label={`Select ${addOn.name}`}
+          />
+        )}
+        <RecipeTile
+          name={displayRecipeName(addOn.name, tab)}
+          inProgress={recipeInProgress(addOn.recipe)}
+          selected={selected.has(key)}
+          onClick={() => setModalItem(addOnToModalItem(addOn, tab))}
+        />
+      </div>
+    );
+  }
+
   if (loading && !data) {
     return (
       <>
@@ -532,11 +420,12 @@ export default function RecipesPage() {
   };
   const empty = counts.dishes === 0 && counts.addOns === 0;
   const tabCount = (id: StatusTab) => counts[id];
+  const modalKey = modalItem ? `${modalItem.kind}:${modalItem.slug}` : null;
 
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-5xl px-4 pb-8">
+      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-8">
         <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Recipes</h1>
         <p className="mt-2 text-base text-chef-text-muted">
           Recipe Agent adds linked ingredients as <strong>New</strong>. Review and activate for
@@ -625,22 +514,28 @@ export default function RecipesPage() {
               ))}
             </div>
 
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-chef-text-muted">
-                {counts.dishesWithRecipes} of {counts.dishes} dishes have recipes
-                {counts.addOns > 0 ? ` · ${counts.addOns} add-on${counts.addOns === 1 ? "" : "s"}` : ""}
-              </p>
-              <label className="block w-full sm:max-w-xs">
-                <span className="sr-only">Search dishes or ingredients</span>
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search dish or ingredient…"
-                  className="w-full rounded-lg border border-chef-muted bg-white px-3 py-2 text-sm text-chef-text"
+            {(tab === "active" || tab === "inactive") && (
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <label className="block w-full sm:min-w-[12rem] sm:flex-1 sm:max-w-md">
+                  <span className="sr-only">Search for Recipe</span>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search for Recipe"
+                    className="w-full rounded-lg border border-chef-muted bg-white px-3 py-2 text-sm text-chef-text"
+                  />
+                </label>
+                <PantryMultiSelectFilter
+                  label="Dish class"
+                  placeholder="All classes"
+                  options={classFilterOptions}
+                  selected={classFilters}
+                  onChange={setClassFilters}
+                  className="w-full sm:w-44"
                 />
-              </label>
-            </div>
+              </div>
+            )}
 
             {tab === "new" && newItems.length > 0 && (
               <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-chef-border bg-chef-muted/40 px-4 py-3">
@@ -672,90 +567,97 @@ export default function RecipesPage() {
               </div>
             )}
 
-            {tab === "suggested" && (
-              <p className="mt-4 text-sm text-chef-text-muted">
-                Agent suggestions include rationale notes. <strong>Accept</strong> moves a recipe to
-                Active; <strong>Reject</strong> sends it to Inactive.
-              </p>
-            )}
-
-            {tab === "inactive" && (
-              <p className="mt-4 text-sm text-chef-text-muted">
-                Retired recipes can be brought back with <strong>Revive</strong>.
-              </p>
-            )}
-
             {filteredDishes.length === 0 && filteredAddOns.length === 0 ? (
               <p className="mt-6 text-sm text-chef-text-muted">
-                No {tab} recipes{search.trim() ? " match your search" : ""}.
+                No {tab} recipes
+                {(tab === "active" || tab === "inactive") &&
+                (search.trim() || classFilters.length > 0)
+                  ? " match your filters"
+                  : ""}
+                .
               </p>
             ) : (
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {filteredDishes.map((dish) => (
-                  <RecipeCard
-                    key={dish.slug}
-                    title={dish.name}
-                    imageUrl={dish.imageUrl}
-                    subtitle={`${formatMoney(dish.recipe?.sellPrice ?? dish.sellPrice)} · ${classificationLabel(dish.classification)} · ${dish.ingredientLinks.length} ingredient${dish.ingredientLinks.length === 1 ? "" : "s"}${dish.recipe ? ` · #${dish.recipe.recipeNumber}` : ""}`}
-                    links={dish.ingredientLinks}
-                    recipe={dish.recipe}
-                    suggestionNotes={dish.suggestionNotes}
-                    showCheckbox={tab === "new"}
-                    selected={selected.has(`dish:${dish.slug}`)}
-                    onSelect={(v) => {
-                      const key = `dish:${dish.slug}`;
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (v) next.add(key);
-                        else next.delete(key);
-                        return next;
-                      });
-                    }}
-                    showRetire={tab === "active"}
-                    onRetire={() => void retireItem({ kind: "dish", slug: dish.slug })}
-                    showAccept={tab === "suggested"}
-                    onAccept={() => void acceptItem({ kind: "dish", slug: dish.slug })}
-                    showReject={tab === "suggested"}
-                    onReject={() => void rejectItem({ kind: "dish", slug: dish.slug })}
-                    showRevive={tab === "inactive"}
-                    onRevive={() => void reviveItem({ kind: "dish", slug: dish.slug })}
-                    actionBusy={statusUpdating === `dish:${dish.slug}`}
-                  />
-                ))}
-                {filteredAddOns.map((addOn) => (
-                  <RecipeCard
-                    key={addOn.slug}
-                    title={addOn.name}
-                    subtitle={`${formatMoney(addOn.recipe?.sellPrice ?? addOn.sellPrice)} · Add-on${addOn.linkedDishNames.length ? ` · for ${addOn.linkedDishNames.join(", ")}` : ""}${addOn.recipe ? ` · #${addOn.recipe.recipeNumber}` : ""}`}
-                    links={addOn.ingredientLinks}
-                    recipe={addOn.recipe}
-                    showCheckbox={tab === "new"}
-                    selected={selected.has(`addon:${addOn.slug}`)}
-                    onSelect={(v) => {
-                      const key = `addon:${addOn.slug}`;
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        if (v) next.add(key);
-                        else next.delete(key);
-                        return next;
-                      });
-                    }}
-                    showRetire={tab === "active"}
-                    onRetire={() => void retireItem({ kind: "addon", slug: addOn.slug })}
-                    showAccept={tab === "suggested"}
-                    onAccept={() => void acceptItem({ kind: "addon", slug: addOn.slug })}
-                    showReject={tab === "suggested"}
-                    onReject={() => void rejectItem({ kind: "addon", slug: addOn.slug })}
-                    showRevive={tab === "inactive"}
-                    onRevive={() => void reviveItem({ kind: "addon", slug: addOn.slug })}
-                    actionBusy={statusUpdating === `addon:${addOn.slug}`}
-                  />
-                ))}
+              <div className="mt-6 space-y-8">
+                {filteredDishes.length > 0 && (
+                  <section>
+                    <h2 className="text-lg font-semibold text-chef-text">Dishes</h2>
+                    <p className="mt-1 text-sm text-chef-text-muted">
+                      Grouped by dish class. Click a card for full recipe details.
+                    </p>
+                    <div className="mt-4">
+                      <KitchenClassifiedGrid
+                        groups={dishGroups}
+                        emptyMessage={`No ${tab} dishes${
+                          (tab === "active" || tab === "inactive") &&
+                          (search.trim() || classFilters.length > 0)
+                            ? " match your filters"
+                            : ""
+                        }.`}
+                        itemLabel={(count) => `${count} dish${count === 1 ? "" : "es"}`}
+                        renderItem={renderDishTile}
+                      />
+                    </div>
+                  </section>
+                )}
+
+                {filteredAddOns.length > 0 && (
+                  <section>
+                    <h2 className="text-lg font-semibold text-chef-text">Add-ons</h2>
+                    <p className="mt-1 text-sm text-chef-text-muted">
+                      Grouped by add-on class. Click a card for full recipe details.
+                    </p>
+                    <div className="mt-4">
+                      <KitchenClassifiedGrid
+                        groups={addOnGroups}
+                        emptyMessage={`No ${tab} add-ons${
+                          (tab === "active" || tab === "inactive") &&
+                          (search.trim() || classFilters.length > 0)
+                            ? " match your filters"
+                            : ""
+                        }.`}
+                        itemLabel={(count) => `${count} add-on${count === 1 ? "" : "s"}`}
+                        renderItem={renderAddOnTile}
+                      />
+                    </div>
+                  </section>
+                )}
               </div>
             )}
           </>
         )}
       </main>
+
+      {modalItem && (
+        <RecipeDetailModal
+          item={modalItem}
+          tab={tab}
+          showCheckbox={tab === "new"}
+          selected={modalKey ? selected.has(modalKey) : false}
+          onSelect={(value) => {
+            if (!modalKey) return;
+            setSelected((prev) => {
+              const next = new Set(prev);
+              if (value) next.add(modalKey);
+              else next.delete(modalKey);
+              return next;
+            });
+          }}
+          onClose={() => setModalItem(null)}
+          onRetire={() =>
+            void retireItem({ kind: modalItem.kind, slug: modalItem.slug })
+          }
+          onAccept={() =>
+            void acceptItem({ kind: modalItem.kind, slug: modalItem.slug })
+          }
+          onReject={() =>
+            void rejectItem({ kind: modalItem.kind, slug: modalItem.slug })
+          }
+          onRevive={() =>
+            void reviveItem({ kind: modalItem.kind, slug: modalItem.slug })
+          }
+          actionBusy={modalKey ? statusUpdating === modalKey : false}
+        />
+      )}
     </>
   );
 }

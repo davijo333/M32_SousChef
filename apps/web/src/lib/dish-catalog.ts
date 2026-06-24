@@ -6,6 +6,7 @@ import {
   billLineDescription,
   inferAddOnClassification,
   inferDishClassification,
+  normalizeDishClassification,
 } from "@/lib/catalog-classification";
 
 export function dishSlugFromName(name: string): string {
@@ -133,8 +134,9 @@ export async function ingestCustomerLine(
     };
   }
 
-  const classification =
-    line.classification?.trim() || inferDishClassification(name, line.rawName);
+  const classification = normalizeDishClassification(
+    line.classification?.trim() || inferDishClassification(name, line.rawName)
+  );
   const description =
     line.description?.trim() || billLineDescription(name, line.rawName);
 

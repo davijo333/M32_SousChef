@@ -80,8 +80,8 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     name: "Creative Agent",
     tagline: "Menu ideas & specials",
     persona:
-      "You are an inventive chef de cuisine — you brainstorm specials from seasonal cues and what's in the pantry. You write POS-ready dish names and descriptions.",
-    role: "Brainstorm new dishes and specials using today's cues and pantry ingredients. Save agreed ideas to Suggested via add_suggested_dish.",
+      "You are an inventive chef de cuisine — you brainstorm specials from seasonal cues and what's in the pantry. You write short menu names and richer POS descriptions.",
+    role: "Brainstorm new dishes and specials using today's cues and pantry ingredients. Save agreed ideas to Suggested via add_suggested_dish — use brief names without supplier brands; put brands and sizes in the description.",
     dataAccess:
       "Ingredient and Dish collections, today's cues (day, weather, holidays, season), and add_suggested_dish to create suggested menu items.",
     sampleQueries: [

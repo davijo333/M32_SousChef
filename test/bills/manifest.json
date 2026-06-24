@@ -1,6 +1,6 @@
 {
   "restaurant": "Panera Cafe",
-  "generated": "2026-06-24",
+  "generated": "2026-06-25",
   "naming": "Supplier: Bill-N_Vendor.pdf/png (Bill-1_Sysco \u2026 Bill-10_Sysco). Customer: N.c_bill.pdf/png.",
   "inventorySource": "test/inventory",
   "customerBills": [
@@ -11,7 +11,7 @@
       "format": "pdf",
       "filename": "1.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-17",
+      "date": "2026-06-18",
       "title": "Friday breakfast rush \u2014 lines 1\u20131",
       "parentId": "SQ-20260519-FRI",
       "covers": [
@@ -28,7 +28,7 @@
       "format": "png",
       "filename": "2.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-17",
+      "date": "2026-06-18",
       "title": "Friday breakfast rush \u2014 lines 2\u20133",
       "parentId": "SQ-20260519-FRI",
       "covers": [
@@ -45,7 +45,7 @@
       "format": "pdf",
       "filename": "3.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-19",
+      "date": "2026-06-20",
       "title": "Early June brunch \u2014 lines 1\u20131",
       "parentId": "SQ-20260602-MON",
       "covers": [
@@ -62,7 +62,7 @@
       "format": "png",
       "filename": "4.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-19",
+      "date": "2026-06-20",
       "title": "Early June brunch \u2014 lines 2\u20133",
       "parentId": "SQ-20260602-MON",
       "covers": [
@@ -79,7 +79,7 @@
       "format": "pdf",
       "filename": "5.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-20",
+      "date": "2026-06-21",
       "title": "Coffee & sandwiches \u2014 lines 1\u20132",
       "parentId": "SQ-20260609-MON",
       "covers": [
@@ -97,7 +97,7 @@
       "format": "png",
       "filename": "6.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-20",
+      "date": "2026-06-21",
       "title": "Coffee & sandwiches \u2014 lines 3\u20134",
       "parentId": "SQ-20260609-MON",
       "covers": [
@@ -115,7 +115,7 @@
       "format": "pdf",
       "filename": "7.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-21",
+      "date": "2026-06-22",
       "title": "Mid-June lunch service \u2014 lines 1\u20132",
       "parentId": "SQ-20260616-MON",
       "covers": [
@@ -133,7 +133,7 @@
       "format": "png",
       "filename": "8.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-21",
+      "date": "2026-06-22",
       "title": "Mid-June lunch service \u2014 lines 3\u20134",
       "parentId": "SQ-20260616-MON",
       "covers": [
@@ -151,7 +151,7 @@
       "format": "pdf",
       "filename": "9.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Breakfast sandwiches \u2014 morning shift \u2014 lines 1\u20137",
       "parentId": "SQ-20260622-AM",
       "covers": [
@@ -179,7 +179,7 @@
       "format": "png",
       "filename": "10.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Breakfast sandwiches \u2014 morning shift \u2014 lines 8\u201314",
       "parentId": "SQ-20260622-AM",
       "covers": [
@@ -207,7 +207,7 @@
       "format": "pdf",
       "filename": "11.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Coffee bar \u2014 specialty drinks \u2014 lines 1\u20134",
       "parentId": "SQ-20260622-COF",
       "covers": [
@@ -230,7 +230,7 @@
       "format": "png",
       "filename": "12.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Coffee bar \u2014 specialty drinks \u2014 lines 5\u20139",
       "parentId": "SQ-20260622-COF",
       "covers": [
@@ -253,7 +253,7 @@
       "format": "pdf",
       "filename": "13.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Tea, juice & caf\u00e9 drinks \u2014 lines 1\u20133",
       "parentId": "TST-20260622-BEV",
       "covers": [
@@ -274,7 +274,7 @@
       "format": "png",
       "filename": "14.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Tea, juice & caf\u00e9 drinks \u2014 lines 4\u20137",
       "parentId": "TST-20260622-BEV",
       "covers": [
@@ -295,7 +295,7 @@
       "format": "pdf",
       "filename": "15.c_bill.pdf",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Afternoon \u2014 sandwiches & blended drinks \u2014 lines 1\u20134",
       "parentId": "SQ-20260623-MIX",
       "covers": [
@@ -318,7 +318,7 @@
       "format": "png",
       "filename": "16.c_bill.png",
       "vendor": "Square POS \u2014 Panera Cafe",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Afternoon \u2014 sandwiches & blended drinks \u2014 lines 5\u20139",
       "parentId": "SQ-20260623-MIX",
       "covers": [
@@ -343,7 +343,7 @@
       "format": "pdf",
       "filename": "Bill-1_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-17",
+      "date": "2026-06-18",
       "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 1\u20131",
       "parentId": "SYSCO-4700",
       "covers": [
@@ -360,7 +360,7 @@
       "format": "png",
       "filename": "Bill-2_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-17",
+      "date": "2026-06-18",
       "title": "Invoice #4700 \u2014 May bakery & dairy restock \u2014 lines 2\u20133",
       "parentId": "SYSCO-4700",
       "covers": [
@@ -377,7 +377,7 @@
       "format": "pdf",
       "filename": "Bill-3_Costco.pdf",
       "vendor": "Costco Business Center",
-      "date": "2026-06-19",
+      "date": "2026-06-20",
       "title": "Receipt #90400 \u2014 May beverage restock \u2014 lines 1\u20131",
       "parentId": "COSTCO-90400",
       "covers": [
@@ -393,7 +393,7 @@
       "format": "png",
       "filename": "Bill-4_Costco.png",
       "vendor": "Costco Business Center",
-      "date": "2026-06-19",
+      "date": "2026-06-20",
       "title": "Receipt #90400 \u2014 May beverage restock \u2014 lines 2\u20132",
       "parentId": "COSTCO-90400",
       "covers": [
@@ -409,7 +409,7 @@
       "format": "pdf",
       "filename": "Bill-5_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-20",
+      "date": "2026-06-21",
       "title": "Invoice #4810 \u2014 Early June proteins \u2014 lines 1\u20131",
       "parentId": "SYSCO-4810",
       "covers": [
@@ -426,7 +426,7 @@
       "format": "png",
       "filename": "Bill-6_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-20",
+      "date": "2026-06-21",
       "title": "Invoice #4810 \u2014 Early June proteins \u2014 lines 2\u20133",
       "parentId": "SYSCO-4810",
       "covers": [
@@ -443,7 +443,7 @@
       "format": "pdf",
       "filename": "Bill-7_US-Foods.pdf",
       "vendor": "US Foods Chef'Store",
-      "date": "2026-06-21",
+      "date": "2026-06-22",
       "title": "Invoice #77010 \u2014 Mid-June produce \u2014 lines 1\u20131",
       "parentId": "USF-77010",
       "covers": [
@@ -460,7 +460,7 @@
       "format": "png",
       "filename": "Bill-8_US-Foods.png",
       "vendor": "US Foods Chef'Store",
-      "date": "2026-06-21",
+      "date": "2026-06-22",
       "title": "Invoice #77010 \u2014 Mid-June produce \u2014 lines 2\u20133",
       "parentId": "USF-77010",
       "covers": [
@@ -477,7 +477,7 @@
       "format": "pdf",
       "filename": "Bill-9_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Invoice #4821 \u2014 Bakery, proteins, cheese, produce \u2014 lines 1\u20137",
       "parentId": "SYSCO-4821",
       "covers": [
@@ -506,7 +506,7 @@
       "format": "png",
       "filename": "Bill-10_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Invoice #4821 \u2014 Bakery, proteins, cheese, produce \u2014 lines 8\u201315",
       "parentId": "SYSCO-4821",
       "covers": [
@@ -535,7 +535,7 @@
       "format": "pdf",
       "filename": "Bill-11_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Invoice #4822 \u2014 Dairy, coffee, syrups, ice \u2014 lines 1\u20137",
       "parentId": "SYSCO-4822",
       "covers": [
@@ -564,7 +564,7 @@
       "format": "png",
       "filename": "Bill-12_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-22",
+      "date": "2026-06-23",
       "title": "Invoice #4822 \u2014 Dairy, coffee, syrups, ice \u2014 lines 8\u201315",
       "parentId": "SYSCO-4822",
       "covers": [
@@ -593,7 +593,7 @@
       "format": "pdf",
       "filename": "Bill-13_Costco.pdf",
       "vendor": "Costco Business Center",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Receipt #90614 \u2014 Tea, juice & pantry restock \u2014 lines 1\u20132",
       "parentId": "COSTCO-90614",
       "covers": [
@@ -612,7 +612,7 @@
       "format": "png",
       "filename": "Bill-14_Costco.png",
       "vendor": "Costco Business Center",
-      "date": "2026-06-23",
+      "date": "2026-06-24",
       "title": "Receipt #90614 \u2014 Tea, juice & pantry restock \u2014 lines 3\u20135",
       "parentId": "COSTCO-90614",
       "covers": [
@@ -631,7 +631,7 @@
       "format": "pdf",
       "filename": "Bill-15_US-Foods.pdf",
       "vendor": "US Foods Chef'Store",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Invoice #77102 \u2014 Proteins & dairy case \u2014 lines 1\u20133",
       "parentId": "USF-77102",
       "covers": [
@@ -651,7 +651,7 @@
       "format": "png",
       "filename": "Bill-16_US-Foods.png",
       "vendor": "US Foods Chef'Store",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Invoice #77102 \u2014 Proteins & dairy case \u2014 lines 4\u20136",
       "parentId": "USF-77102",
       "covers": [
@@ -671,7 +671,7 @@
       "format": "pdf",
       "filename": "Bill-17_Sysco.pdf",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Invoice #4823 \u2014 Mixed restock \u2014 lines 1\u20135",
       "parentId": "SYSCO-4823",
       "covers": [
@@ -695,7 +695,7 @@
       "format": "png",
       "filename": "Bill-18_Sysco.png",
       "vendor": "Sysco Food Services",
-      "date": "2026-06-24",
+      "date": "2026-06-25",
       "title": "Invoice #4823 \u2014 Mixed restock \u2014 lines 6\u201310",
       "parentId": "SYSCO-4823",
       "covers": [

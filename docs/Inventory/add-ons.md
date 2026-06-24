@@ -43,7 +43,7 @@ Use **Generate Image** → **Save**. Description is preferred over class for ima
   "sellPrice": 1.5,
   "posName": "Extra Tyson Applewood Bacon",
   "ingredientSlugs": ["ing-bacon"],
-  "linkedDishClassifications": ["sandwich", "BYO-Sandwich"]
+  "linkedDishClassifications": ["sandwich", "byo-sandwich"]
 }
 ```
 
@@ -58,7 +58,7 @@ Use **Generate Image** → **Save**. Description is preferred over class for ima
   "sellPrice": 0.75,
   "posName": "Kraft American Cheese Slice",
   "ingredientSlugs": ["ing-american"],
-  "linkedDishClassifications": ["sandwich", "BYO-Sandwich"]
+  "linkedDishClassifications": ["sandwich", "byo-sandwich"]
 }
 ```
 
@@ -71,7 +71,7 @@ Use **Generate Image** → **Save**. Description is preferred over class for ima
   "sellPrice": 0.75,
   "posName": "Tillamook Cheddar Slice",
   "ingredientSlugs": ["ing-cheddar"],
-  "linkedDishClassifications": ["sandwich", "BYO-Sandwich"]
+  "linkedDishClassifications": ["sandwich", "byo-sandwich"]
 }
 ```
 
@@ -86,7 +86,7 @@ Use **Generate Image** → **Save**. Description is preferred over class for ima
   "sellPrice": 1.0,
   "posName": "Earthbound Spinach, Roma Tomato, Bell Pepper",
   "ingredientSlugs": ["ing-spinach", "ing-tomato", "ing-bell-pepper"],
-  "linkedDishClassifications": ["sandwich", "BYO-Sandwich"]
+  "linkedDishClassifications": ["sandwich", "byo-sandwich"]
 }
 ```
 

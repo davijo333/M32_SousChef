@@ -273,6 +273,7 @@ ${dataContext}`;
 Delegate to **${inventory}** for stock, expiry, or what's on hand.
 Delegate to **${business}** for sales trends, margins, or profitability.
 When the chef confirms saving an idea, call add_suggested_dish with at least one note explaining why (expiring ingredients used, seasonal tie-in, high-margin pantry items, today's cue, etc.).
+Use a **short menu name** (2–5 words) without pantry supplier brands or pack sizes — e.g. "Pike Place Latte", not "Starbucks Pike Place Coffee 16oz — Land O Lakes Whole Milk". Put brands and ingredient detail in **description** and **notes**.
 ${extras ?? ""}
 
 Live creative context:

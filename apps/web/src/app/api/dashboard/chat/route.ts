@@ -49,8 +49,16 @@ const ADD_SUGGESTION_TOOL = {
     parameters: {
       type: "object",
       properties: {
-        name: { type: "string", description: "Menu-ready dish name" },
-        description: { type: "string", description: "POS-style description with brands" },
+        name: {
+          type: "string",
+          description:
+            "Short customer-facing menu name (2–5 words). No supplier brands, pack sizes, or ingredient SKUs — e.g. 'Pike Place Latte', not 'Starbucks Pike Place Coffee 16oz — Land O Lakes Whole Milk'.",
+        },
+        description: {
+          type: "string",
+          description:
+            "POS-style description; pantry brands and sizes can go here, not in the name.",
+        },
         classification: {
           type: "string",
           enum: ["sandwich", "byo-sandwich", "coffee", "tea", "juice", "other"],
@@ -240,6 +248,7 @@ export async function POST(req: Request) {
     createExtras = `When the chef clearly wants to save an idea, call add_suggested_dish with a notes array (at least one entry).
 Note kinds: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
 Examples: "Uses bacon, spinach expiring this week" (expiring_ingredients), "Fall seasonal pumpkin special" (seasonal), "Features high-margin avocado & eggs" (high_margin).
+Dish **name** must be short (2–5 words) with no supplier brands or pack sizes — brands belong in **description** only.
 Only call add_suggested_dish when the chef confirms (e.g. "add it", "save that")${
       confirmSuggestion ? " — the chef just confirmed saving." : "."
     }

@@ -2,7 +2,7 @@
   "restaurant": "Panera Cafe",
   "classifications": [
     "sandwich",
-    "BYO-Sandwich",
+    "byo-sandwich",
     "beverage",
     "coffee",
     "tea",
@@ -154,7 +154,7 @@
       "slug": "dish-build-your-own-croissant",
       "menuId": "mi-custom-croissant",
       "name": "Build-Your-Own Croissant",
-      "classification": "sandwich",
+      "classification": "byo-sandwich",
       "sellPrice": 7.1,
       "posName": "Build-Your-Own Croissant \u2014 Tyson Bacon, Fried Egg, Boar's Head Swiss",
       "ingredientSlugs": [
@@ -191,7 +191,7 @@
       "slug": "dish-build-your-own-sourdough",
       "menuId": "mi-custom-bread",
       "name": "Build-Your-Own Sourdough",
-      "classification": "sandwich",
+      "classification": "byo-sandwich",
       "sellPrice": 5.62,
       "posName": "Build-Your-Own Sourdough \u2014 Jimmy Dean Sausage, Eggland's Egg",
       "ingredientSlugs": [
@@ -228,7 +228,7 @@
       "slug": "dish-build-your-own-bagel",
       "menuId": "mi-custom-bagel",
       "name": "Build-Your-Own Bagel",
-      "classification": "sandwich",
+      "classification": "byo-sandwich",
       "sellPrice": 7.17,
       "posName": "Build-Your-Own Bagel \u2014 Tyson Bacon, Baby Spinach, Roma Tomato",
       "ingredientSlugs": [
@@ -725,7 +725,7 @@
       "slug": "dish-loaded-bagel",
       "menuId": "mi-custom-bagel",
       "name": "Loaded Bagel",
-      "classification": "sandwich",
+      "classification": "byo-sandwich",
       "sellPrice": 7.33,
       "posName": "Thomas' Bagel \u2014 Jimmy Dean Sausage, Eggland's Egg, Kraft American",
       "ingredientSlugs": [
@@ -768,7 +768,7 @@
       "slug": "dish-classic-bagel",
       "menuId": "mi-byo-bagel",
       "name": "Classic Bagel",
-      "classification": "BYO-Sandwich",
+      "classification": "byo-sandwich",
       "description": "Plain Thomas' bagel \u2014 build your own toppings",
       "sellPrice": 3.49,
       "posName": "Classic Bagel \u2014 Thomas' Plain",
@@ -794,7 +794,7 @@
       "slug": "dish-multigrain-bagel",
       "menuId": "mi-byo-bagel",
       "name": "Multigrain Bagel",
-      "classification": "BYO-Sandwich",
+      "classification": "byo-sandwich",
       "description": "Thomas' multigrain bagel \u2014 build your own toppings",
       "sellPrice": 3.49,
       "posName": "Multigrain Bagel \u2014 Thomas' 12 Grain",

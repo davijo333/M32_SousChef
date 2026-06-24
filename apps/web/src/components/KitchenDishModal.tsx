@@ -39,7 +39,8 @@ async function parseResponseBody<T>(res: Response): Promise<T | null> {
 type ImageCandidate = NonNullable<DishDetail["imageCandidates"]>[number];
 
 const CLASS_PRESETS = [
-  { value: "sandwich", label: "Sandwich" },
+  { value: "sandwich", label: "Signature Sandwich" },
+  { value: "byo-sandwich", label: "BYO Sandwich" },
   { value: "beverage", label: "Beverage" },
 ];
 

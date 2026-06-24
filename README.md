@@ -1,6 +1,6 @@
 # Sous Chef
 
-AI-assisted kitchen management for cafés and restaurants: upload purchase and sales orders, manage pantry and menu, build recipes, and get insights from dashboard assistants.
+AI-assisted kitchen management for cafés and restaurants: upload purchase and sales orders, manage pantry and menu, build recipes, and get insights from dashboard agents.
 
 ## Quick start
 
@@ -50,10 +50,18 @@ Run from the **repo root**:
 
 | Page | Route | What it does |
 |------|-------|----------------|
-| **Dashboard** | `/dashboard` | Inventory, business analytics, and creative assistants (chat) |
+| **Dashboard** | `/dashboard` | Inventory, business analytics, and creative sections + **Sous Chef** chat dock |
 | **Upload orders** | `/upload-orders` | Purchase orders (wholesaler invoices) and sales orders (POS receipts) |
 | **Kitchen control** | `/kitchen-control` | Pantry, dishes, add-ons — edit catalog and photos |
-| **Recipes** | `/recipes` | Active, suggested, and inactive recipes |
+| **Recipes** | `/recipes` | New, active, suggested, and inactive recipes (grouped by dish class) |
+
+### Dashboard agents
+
+- **Sous Chef** — floating chat dock (bottom center) on the dashboard; routes questions and can hand off to specialists.
+- **Inventory / Business / Creative** — section tabs with dedicated agent branding; chat connects via **Connect to … Agent** when Sous Chef delegates.
+- Up to **5 saved chat sessions**; attach up to **5 files** per message in Sous Chef chat.
+
+See [docs/Agentic_Tools/README.md](docs/Agentic_Tools/README.md) for agent architecture and flows.
 
 ### Upload flow
 
@@ -64,6 +72,16 @@ Run from the **repo root**:
 
 Process **purchase orders before sales orders** so dish recipes link to pantry stock.
 
+### Menu classifications
+
+| Class | Label | Examples (test data) |
+|-------|--------|----------------------|
+| `sandwich` | Signature Sandwich | Sunrise Stack, Farmer's Double |
+| `byo-sandwich` | BYO Sandwich | Build-Your-Own Bagel, Classic Bagel |
+| `coffee` / `tea` / `juice` | Beverages | Hot Coffee, English Breakfast Tea |
+
+Details: [docs/Recipes/classifications.md](docs/Recipes/classifications.md).
+
 ## Test data
 
 ### 1. Generate bill fixtures
@@ -72,13 +90,16 @@ Bills are built from [`test/inventory/`](test/inventory/) JSON (ingredients, dis
 
 ```bash
 python3 -m pip install -r test/scripts/requirements.txt
+python3 test/scripts/recalculate-pricing.py   # optional — refresh costs & sell prices
 npm run regenerate:bills
 ```
 
 Output:
 
-- `test/bills/supplier/` — `Bill-1_Sysco.pdf`, `Bill-3_Costco.pdf`, …
-- `test/bills/customer/` — `1.c_bill.pdf`, `3.c_bill.pdf`, …
+- `test/bills/supplier/` — `Bill-1_Sysco.pdf`, … (18 wholesaler files)
+- `test/bills/customer/` — `1.c_bill.pdf`, … (16 POS files)
+
+See [`test/bills/manifest.json`](test/bills/manifest.json) for the full file list.
 
 **Date windows** (relative to the day you generate or load):
 
@@ -128,6 +149,8 @@ M32_SousChef/
 
 - [`docs/README.md`](docs/README.md) — doc index
 - [`docs/UI/README.md`](docs/UI/README.md) — pages and flows
-- [`docs/Agents/README.md`](docs/Agents/README.md) — Python workers
+- [`docs/Agentic_Tools/README.md`](docs/Agentic_Tools/README.md) — Sous Chef + specialist agents
+- [`docs/Agents/README.md`](docs/Agents/README.md) — Python bill/recipe workers
 - [`docs/DB/README.md`](docs/DB/README.md) — MongoDB collections
+- [`docs/Recipes/`](docs/Recipes/) — recipe workflow and classifications
 - [`storage/r2/README.md`](storage/r2/README.md) — image and bill file layout

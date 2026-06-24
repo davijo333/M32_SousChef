@@ -21,7 +21,9 @@
 | `return_to_head_chef` | `summary?` | `{ activeAgent: "head_chef" }` | After handoff |
 | `synthesize_response` | `consultResults`, `userMessage` | Final markdown | After consult(s) |
 
-**UI:** `handoff_*` syncs the 4-agent tab bar. Emits `delegation` transcript event.
+**UI (shipped):** When the model suggests a specialist, the chat shows **Connect to … Agent**. On connect, dashboard section + `agentContext` sync; dock avatar updates. **Connect back to Sous Chef** clears specialist routing.
+
+**Planned:** `handoff_*` graph tools, consultation blocks, automatic tab bar inside dock.
 
 ---
 

@@ -5,10 +5,10 @@ All logos live here. Replace `icon.png` in a folder to update that asset app-wid
 | Folder | File | Used for |
 |--------|------|----------|
 | [app-logo/](./app-logo/) | `icon.png` | App logo — nav, login, signup, favicon |
-| [head-chef/](./head-chef/) | `icon.png` | Sous Chef supervisor (floating chat / tabs) |
-| [inventory-agent/](./inventory-agent/) | `icon.png` | Inventory Assistant — dashboard + chat |
-| [business-agent/](./business-agent/) | `icon.png` | Business Assistant — dashboard + chat |
-| [creative-agent/](./creative-agent/) | `icon.png` | Creative Assistant — dashboard + chat |
+| [head-chef/](./head-chef/) | `icon.png` | Sous Chef — dock when supervising |
+| [inventory-agent/](./inventory-agent/) | `icon.png` | Inventory Agent — dashboard + dock when connected |
+| [business-agent/](./business-agent/) | `icon.png` | Business Agent — dashboard + dock when connected |
+| [creative-agent/](./creative-agent/) | `icon.png` | Creative Agent — dashboard + dock when connected |
 
 ## Paths in code
 
@@ -26,15 +26,15 @@ AGENT_ICONS.creative    // /brand/creative-agent/icon.png
 
 Or `<AgentAvatar agent="inventory" />` / `<AuthBrandLogo />`.
 
-## Where each appears today
+## Where each appears
 
 | Asset | UI |
 |-------|-----|
 | App logo | Nav, login, signup, browser tab |
-| Inventory | Dashboard → Inventory section, chat header |
-| Business | Dashboard → Business section, chat header |
-| Creative | Dashboard → Creative section, chat header |
-| Sous Chef | Asset ready — shown when Sous Chef chat dock ships |
+| Sous Chef (`head-chef`) | Dock default + after **Connect back to Sous Chef** |
+| Inventory | Dashboard → Inventory section; dock when connected |
+| Business | Dashboard → Business section; dock when connected |
+| Creative | Dashboard → Create section; dock when connected |
 
 ## Replace an icon
 

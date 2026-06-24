@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { dishClassKey } from "@/lib/catalog-classification";
+import { dishClassKey, normalizeDishClassification } from "@/lib/catalog-classification";
 import { buildIngredientSku } from "@/lib/ingredient-identity";
 import { AddOn } from "@/models/AddOn";
 import { Dish, type RecipeStatus } from "@/models/Dish";
@@ -90,10 +90,10 @@ function dishMatchesLinkedClasses(
   dishClassification: string,
   linkedClasses: string[]
 ): boolean {
-  const normalized = dishClassification.trim().toLowerCase();
+  const normalized = normalizeDishClassification(dishClassification);
   const classKey = dishClassKey(dishClassification);
   return linkedClasses.some((raw) => {
-    const linked = raw.trim().toLowerCase();
+    const linked = normalizeDishClassification(raw);
     if (linked === normalized || linked === classKey) return true;
     if (
       linked === "beverage" &&

@@ -27,6 +27,8 @@
 
 **`add_suggested_dish` wraps:** `create-suggestion.ts` → `link-recipe` FastAPI → `scheduleRecipeBuild`.
 
+**Menu names:** Short titles (2–5 words) without supplier brands or pack sizes. `formatSuggestedMenuName()` in `suggested-menu-name.ts` normalizes on save. Brands belong in **description** and **notes**.
+
 **`notes` kinds:** `expiring_ingredients`, `seasonal`, `high_margin`, `low_stock`, `cue`, `other` (`suggestion-notes.ts`).
 
 **Classifications:** `sandwich`, `byo-sandwich`, `coffee`, `tea`, `juice`, `other`.

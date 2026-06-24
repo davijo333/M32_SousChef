@@ -1,54 +1,57 @@
 # Agentic Tools
 
-Multi-agent chat architecture for Sous Chef: **Sous Chef** (supervisor) plus **Inventory**, **Business**, and **Creative** specialists.
+Multi-agent chat for Sous Chef: **Sous Chef** (supervisor) plus **Inventory**, **Business**, and **Creative** specialists.
 
 See also: [User flows](./User_Flows.md), [User queries](./User_Queries.md), [Development](./Development.md), and per-agent tool catalogs.
 
 ## Architecture
 
 ```
-User (floating chat dock, bottom center)
+User (dashboard + floating Sous Chef dock)
   ↓
-Sous Chef (supervisor) — OR direct tab: Inventory | Business | Creative
+Sous Chef (context: head) — routes or delegates to specialists
   ↓
 ┌─────────────┬──────────────┬─────────────┐
 │ Inventory   │ Business     │ Creative    │
-│ + tools     │ + tools      │ + tools     │
+│ section tab │ section tab  │ section tab │
 └─────────────┴──────────────┴─────────────┘
   ↓
-MongoDB · existing apps/web/lib/* · services/agent (FastAPI)
+MongoDB · apps/web/lib/* · services/agent (FastAPI bill parse)
   ↓
-Upload orders tabs (purchase / sales) — system of record for bill files
+Upload orders (/upload-orders) — system of record for bill files
 ```
 
-## UI
+## UI (shipped)
 
 | Piece | Behavior |
 |-------|----------|
-| **Floating dock** | Fixed bottom center on all authenticated pages; page content scrolls behind |
-| **4 tabs** | Sous Chef · Inventory · Business · Creative (manual override) |
-| **Collapsed / expanded** | Compact bar vs full chat with messages |
-| **Transcript kinds** | User message, agent message, consultation block, delegation banner, system switch |
+| **Dashboard sections** | Inventory · Business · Create — each with agent header and stats |
+| **Sous Chef dock** | Fixed bottom center on dashboard; one shared chat (`context: head`) |
+| **Connect handoff** | When Sous Chef suggests a specialist, assistant messages show **Connect to … Agent**; switches section + `agentContext` with full history |
+| **Connect back** | Below dock avatar — restores Sous Chef routing |
+| **Avatar** | Dock logo follows active agent (`head_chef`, `inventory`, `business`, `creative`) |
+| **Sessions** | Up to **5** saved chats per user |
+| **Attachments** | Up to **5** PDF/image files per message in Sous Chef chat |
 
-## Two delegation modes
+Specialists can also be reached by switching dashboard section directly (direct mode).
 
-### Consultation (user stays with Sous Chef)
+## Delegation modes
 
-Sous Chef consults one or more specialists internally, then synthesizes one answer. Specialist dialogue appears in a collapsible **Kitchen discussion** block.
+### Consultation (implemented via prompts)
 
-### Handoff (specialist talks to user)
+Sous Chef answers cross-domain questions in one reply, using dashboard context builders. Specialist “kitchen discussion” blocks are **planned** (not in UI yet).
 
-Sous Chef delegates; `activeAgent` switches; tab bar syncs; user messages go to that specialist until **Return to Sous Chef**.
+### Handoff (implemented)
 
-## Upload handoff rule
+Sous Chef suggests a specialist → user taps **Connect to … Agent** → dashboard section changes, dock avatar updates, subsequent messages route to that specialist until **Connect back to Sous Chef**.
 
-When user attaches files (max 10) in Sous Chef chat:
+Implementation: `chat-handoff.ts`, `POST /api/dashboard/chat` (`connectAgent`, `agentContext`), `DashboardChefChat.tsx`, `SousChefChatDock.tsx`.
 
-1. Sous Chef classifies each file → purchase (`supplier`) or sales (`customer`)
-2. Parse dispatches to **Inventory** (purchase) or **Business** (sales)
-3. Files persist in **`BillUpload`** → visible on **Upload orders** (correct tab only)
-4. Sous Chef composer **clears attachments**; thread stores **delegation text only** (no file chips)
-5. Parse/review/Process UI lives on Upload orders; specialists discuss bills by `billId` / filename
+## Upload handoff (planned)
+
+**Today:** attach files in Sous Chef chat or use **Upload orders** (`/upload-orders`, max **10** files in queue).
+
+**Planned:** Sous Chef classifies attachments → parse → files appear only on Upload orders tabs; chat stores delegation text only.
 
 **Order:** process purchase orders before sales so dish recipes link to pantry stock.
 
@@ -56,41 +59,37 @@ When user attaches files (max 10) in Sous Chef chat:
 
 | Tier | Who | Purpose |
 |------|-----|---------|
-| **Orchestration** | Sous Chef only | Route, consult, handoff, synthesize, classify uploads |
-| **Read** | Specialists (+ Sous Chef via consult) | Query live kitchen data |
+| **Orchestration** | Sous Chef | Route, suggest handoff, synthesize |
+| **Read** | Specialists | Query live kitchen data |
 | **Write** | Specialists | Mutate catalog/recipes (confirm for destructive) |
-| **Bridge** | Sous Chef (+ some specialists) | UI navigation, pipeline triggers |
-| **Worker** | Sous Chef or specialists | Call existing FastAPI parsers/linkers |
+| **Bridge** | Sous Chef | UI navigation hints |
+| **Worker** | Background | FastAPI parsers, recipe pipeline |
 
 ## Inter-agent matrix
 
-| From → To | Mechanism |
-|-----------|-----------|
-| Sous Chef → Inventory | `consult_inventory`, `handoff_to_inventory`, purchase upload handoff |
-| Sous Chef → Business | `consult_business`, `handoff_to_business`, sales upload handoff |
-| Sous Chef → Creative | `consult_creative`, `handoff_to_creative` |
-| Specialist → another domain | `request_*_context` (via Sous Chef) or user switches tab |
-| User → any | 4-tab override (`selectedAgent`) |
-
-**Rule:** Specialists do not call each other directly — only Sous Chef consults or chains them (unless user is in direct tab mode).
+| From → To | Mechanism (today) |
+|-----------|-------------------|
+| Sous Chef → specialist | `connectAgent` + dashboard section switch |
+| User → specialist | Dashboard section tab (direct mode) |
+| Specialist → Sous Chef | **Connect back to Sous Chef** |
+| Specialist → another domain | Prompt nudge to switch section or ask Sous Chef |
 
 ## Security
 
-- Every tool receives `restaurantId` from session — never from LLM args
-- Writes require `userConfirmed: true` where noted
-- No hallucinated figures — tools only
+- Every API call scoped by `restaurantId` from session
+- Writes require explicit user confirmation where noted
+- No hallucinated figures — tools and context builders only
 
 ## Implementation map
 
-| Tool family | Wraps |
-|-------------|--------|
-| Inventory reads | `dashboard-chat-context`, `Ingredient`, `kitchen-inventory` |
-| Business reads | `dashboard-stats`, `dashboard-margins`, `dashboard-sales-analytics` |
-| Creative reads | `create-cues`, `create-weather`, `Dish` / `Ingredient` |
+| Area | Code |
+|------|------|
+| Chat API | `apps/web/src/app/api/dashboard/chat/route.ts` |
+| Handoff detection | `apps/web/src/lib/chat-handoff.ts` |
+| Prompts / context | `dashboard-chat.ts`, `dashboard-chat-context.ts` |
+| Dock UI | `SousChefChatDock.tsx`, `DashboardChefChat.tsx` |
 | Creative writes | `create-suggestion.ts` |
-| Recipe ops | `recipe-pipeline.ts`, `recipe-builder.ts`, `/api/recipes/status` |
 | Bills | `/api/bills/*`, `services/agent` parse pipeline |
-| Images | `services/agent/suggest-images` |
 
 ## Agent tool catalogs
 
@@ -105,16 +104,16 @@ When user attaches files (max 10) in Sous Chef chat:
 
 | Phase | Scope |
 |-------|--------|
-| **MVP** | Floating dock, 4 tabs, Sous Chef consult/handoff, 5–6 read tools per specialist, `add_suggested_dish`, upload handoff to Upload orders |
-| **Phase 2** | Full write tools, bill Process from chat, Composio (email reorder list) |
-| **Phase 3** | LangGraph checkpointing, advanced cross-agent chains |
+| **MVP (shipped)** | Dock, Connect handoff, section tabs, 5 sessions, 5 chat attachments, specialist prompts + context |
+| **Next** | Consultation blocks in transcript, upload handoff from chat, full tool loop in Python |
+| **Later** | LangGraph checkpointing, Composio (email reorder list) |
 
 ## LangGraph
 
-Orchestration lives in **`services/agent/`** (Python FastAPI). Next.js proxies chat to `AGENT_SERVICE_URL/chat`. See [Development.md](./Development.md).
+Chat today runs in **Next.js** (`/api/dashboard/chat`) with OpenAI and context builders. Python `services/agent` handles bill parse and image workers. LangGraph orchestration is **planned** in `services/agent/` — see [Development.md](./Development.md).
 
 | [Icon_Prompts.md](./Icon_Prompts.md) | App and agent avatar prompts + `public/brand/` |
 
-- [Agents/](../Agents/) — existing Python workers (bill parser, normalizer, images)
+- [Agents/](../Agents/) — Python workers (bill parser, normalizer, images)
 - [UI/](../UI/) — pages and routes
 - [DB/bill-upload.md](../DB/bill-upload.md) — `BillUpload` model
