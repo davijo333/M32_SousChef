@@ -87,8 +87,26 @@ function billLabelFromTitle(title: string, billType: "supplier" | "customer") {
 }
 
 const PARSE_TIMEOUT_MS = 95_000;
-/** Max files attached at once in the staging area. */
+/** Max unique files in the upload queue (queued, parsing, or ready to process). */
 const MAX_STAGED_UPLOADS = 10;
+
+const STAGING_STATUSES = new Set<BillEntry["status"]>(["queued", "parsing", "parsed"]);
+
+function normalizeBillFilename(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function countStagedEntries(list: BillEntry[]) {
+  return list.filter((e) => STAGING_STATUSES.has(e.status)).length;
+}
+
+function stagedFilenameSet(list: BillEntry[]) {
+  return new Set(
+    list
+      .filter((e) => STAGING_STATUSES.has(e.status))
+      .map((e) => normalizeBillFilename(e.filename))
+  );
+}
 
 function billFileHref(billId: string) {
   return `/api/bills/${billId}/file`;
@@ -485,16 +503,22 @@ export function BillUploadZone({
     setBatchError("");
     setProcessStats(null);
 
-    const staged = entriesRef.current.filter(
-      (e) => e.status === "queued" || e.status === "parsing" || e.status === "parsed"
-    ).length;
-    const slotsLeft = Math.max(0, MAX_STAGED_UPLOADS - staged);
+    const existing = entriesRef.current;
+    const stagedNames = stagedFilenameSet(existing);
+    const stagedCount = countStagedEntries(existing);
 
     const accepted: BillEntry[] = [];
+    const toRetry: { id: string; file: File }[] = [];
     const rejected: BillEntry[] = [];
-    const overflow: string[] = [];
+    const batchNames = new Set<string>();
 
     for (const file of list) {
+      const norm = normalizeBillFilename(file.name);
+
+      if (stagedNames.has(norm) || batchNames.has(norm)) {
+        continue;
+      }
+
       const check = validateBillFilenameForZone(file.name, billType);
       if (!check.ok) {
         rejected.push({
@@ -506,10 +530,21 @@ export function BillUploadZone({
         });
         continue;
       }
-      if (accepted.length >= slotsLeft) {
-        overflow.push(file.name);
+
+      const existingError = existing.find(
+        (e) => e.status === "error" && normalizeBillFilename(e.filename) === norm
+      );
+      if (existingError) {
+        toRetry.push({ id: existingError.id, file });
+        batchNames.add(norm);
         continue;
       }
+
+      if (stagedCount + accepted.length >= MAX_STAGED_UPLOADS) {
+        continue;
+      }
+
+      batchNames.add(norm);
       accepted.push({
         id: entryId(),
         filename: file.name,
@@ -519,25 +554,46 @@ export function BillUploadZone({
       });
     }
 
-    if (overflow.length) {
-      setBatchError(
-        `Max ${MAX_STAGED_UPLOADS} files in the list — not added: ${overflow.join(", ")}. Process or remove files first, then attach the rest.`
-      );
+    let next = existing;
+
+    if (toRetry.length) {
+      for (const { id } of toRetry) {
+        const billId = existing.find((e) => e.id === id)?.result?.billId;
+        if (billId) void deleteBill(billId);
+      }
+      const retryById = new Map(toRetry.map((r) => [r.id, r.file]));
+      next = next.map((e) => {
+        const file = retryById.get(e.id);
+        if (!file) return e;
+        return {
+          ...e,
+          file,
+          status: "queued" as const,
+          error: undefined,
+          result: undefined,
+          expanded: false,
+        };
+      });
     }
 
     if (accepted.length) {
-      setEntriesLive([...accepted, ...entriesRef.current]);
-      enqueueIds(accepted.map((e) => e.id));
+      next = [...accepted, ...next];
     }
     if (rejected.length) {
-      setEntriesLive([...rejected, ...entriesRef.current]);
-      if (!overflow.length) {
-        setBatchError(
-          rejected.length === 1
-            ? rejected[0].error!
-            : `${rejected.length} files rejected — use PDF or PNG in the correct tab.`
-        );
-      }
+      next = [...rejected, ...next];
+    }
+
+    if (accepted.length || toRetry.length || rejected.length) {
+      setEntriesLive(next);
+      enqueueIds([...accepted.map((e) => e.id), ...toRetry.map((r) => r.id)]);
+    }
+
+    if (rejected.length) {
+      setBatchError(
+        rejected.length === 1
+          ? rejected[0].error!
+          : `${rejected.length} files rejected — use PDF or PNG in the correct tab.`
+      );
     }
 
     if (inputRef.current) inputRef.current.value = "";
@@ -717,6 +773,7 @@ export function BillUploadZone({
   const queuedCount = visibleEntries.filter((e) => e.status === "queued").length;
   const parsingCount = visibleEntries.filter((e) => e.status === "parsing").length;
   const processingCount = visibleEntries.filter((e) => e.status === "processing").length;
+  const stagedCount = visibleEntries.filter((e) => STAGING_STATUSES.has(e.status)).length;
   const parsedCount = visibleEntries.filter((e) => e.status === "parsed").length;
   const confirmedCount = entries.filter((e) => e.status === "confirmed").length;
   const errorCount = visibleEntries.filter((e) => e.status === "error").length;
@@ -729,7 +786,9 @@ export function BillUploadZone({
     !confirming;
 
   const isBusy = uploading || confirming || parsingCount > 0 || processingCount > 0;
-  const uploadsBlocked = confirming || processingCount > 0 || Boolean(uploadLocked);
+  const atMaxStaged = stagedCount >= MAX_STAGED_UPLOADS;
+  const uploadsBlocked =
+    confirming || processingCount > 0 || Boolean(uploadLocked) || atMaxStaged;
 
   return (
     <div className="sc-card p-5 sm:p-6">
@@ -778,10 +837,19 @@ export function BillUploadZone({
             <span className="font-medium">Uploads paused</span>
             <span className="text-sm">Wait for the other tab to finish.</span>
           </span>
+        ) : atMaxStaged ? (
+          <span className="flex flex-col items-center justify-center gap-1 text-chef-text-muted">
+            <span className="font-medium">Maximum {MAX_STAGED_UPLOADS} files</span>
+            <span className="text-sm">Process or remove files to add more.</span>
+          </span>
         ) : (
           <span>
             <span className="font-semibold text-chef-sage">Choose files</span>
-            <span className="text-chef-text-muted"> — PDF or photo, one or many</span>
+            <span className="text-chef-text-muted">
+              {" "}
+              — PDF or photo, up to {MAX_STAGED_UPLOADS} at a time
+              {stagedCount > 0 ? ` (${stagedCount}/${MAX_STAGED_UPLOADS})` : ""}
+            </span>
           </span>
         )}
       </button>
