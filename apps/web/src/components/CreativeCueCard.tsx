@@ -1,7 +1,7 @@
 "use client";
 
-import type { CreateCue } from "@/lib/create-cues";
-import { CUE_KIND_LABELS } from "@/lib/create-cues";
+import type { CreateCue } from "@backend/services/creative/create-cues";
+import { CUE_KIND_LABELS } from "@backend/services/creative/create-cues";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 export const CUE_STYLES: Record<CreateCue["kind"], string> = {

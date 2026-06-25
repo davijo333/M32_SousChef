@@ -12,6 +12,7 @@ A **recipe** is a priced ingredient list for one dish or add-on. Created automat
 | `dishName` | string | Display name at build time |
 | `servingQty` | number | Portions per recipe (default 1) |
 | `ingredients[]` | array | `{ ingredientSlug, ingredientName, qtyUsed, unit }` |
+| `instructions[]` | string[] | Ordered step-by-step prep instructions (optional, defaults to `[]`) |
 | `foodCost` | number | Sum of ingredient usage × `lastPurchasePrice` |
 | `margin` | number | Markup rate (default `3.0` → sell = cost × 4) |
 | `sellPrice` | number | Computed sell price; synced to Dish/AddOn |
@@ -34,6 +35,8 @@ sellPrice = max(foodCost × (1 + margin), category price floor)
 | Process purchase order | `runRecipePipeline()` — agent links empty dishes, then prices all |
 | Save dish/add-on with `ingredientLinks` | `scheduleRecipeBuild()` — prices recipe async |
 | Load test data | `buildAllRecipesForRestaurant()` after catalog seed |
+
+Instruction steps are preserved on recipe rows and shown in recipe detail views when present.
 
 ## API
 

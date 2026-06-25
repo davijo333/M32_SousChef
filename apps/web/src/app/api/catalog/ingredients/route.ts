@@ -1,14 +1,16 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@backend/services/infra/auth";
 import {
   applyIngredientStockUpdate,
   buildIngredientSku,
   findExistingIngredient,
-} from "@/lib/ingredient-identity";
-import { connectDB } from "@/lib/mongodb";
-import { persistCatalogImage } from "@/lib/r2-storage";
-import { Ingredient } from "@/models/Ingredient";
+} from "@backend/services/catalog/ingredient-identity";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { persistCatalogImage } from "@backend/services/infra/r2-storage";
+import { ingredientMissingPhotos } from "@backend/services/catalog/ingredient-image-status";
+import { regenerateIngredientImages } from "@backend/services/catalog/regenerate-ingredient-images";
+import { Ingredient } from "@backend/models/Ingredient";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -129,7 +131,7 @@ export async function POST(req: Request) {
     lastOrderedQty: addQty > 0 ? addQty : undefined,
     brandName,
     source: "manual_add",
-    imageGenerationAttempted: true,
+    imageGenerationAttempted: false,
     usageUnits: [{ unit: inventoryUnit, countPerInventoryUnit: 1 }],
   });
 
@@ -145,6 +147,21 @@ export async function POST(req: Request) {
       await ingredient.save();
     } catch {
       ingredient.imageUrl = remoteImageUrl;
+      ingredient.imageGenerationAttempted = true;
+      await ingredient.save();
+    }
+    if (ingredientMissingPhotos(ingredient)) {
+      try {
+        await regenerateIngredientImages(ingredient, "pair");
+      } catch {
+        /* keep partial upload */
+      }
+    }
+  } else {
+    try {
+      await regenerateIngredientImages(ingredient, "pair");
+    } catch {
+      ingredient.imageGenerationAttempted = true;
       await ingredient.save();
     }
   }

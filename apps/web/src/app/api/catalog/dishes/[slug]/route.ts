@@ -1,13 +1,14 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { applySelectedDishImage } from "@/lib/dish-enrichment";
-import { linkedAddOnSlugsForDish, syncDishAddOnLinks } from "@/lib/dish-addon-links";
-import { dishPayload, normalizeIngredientLinks } from "@/lib/dish-payload";
-import { refreshIngredientLabels } from "@/lib/ingredient-labels";
-import { scheduleRecipeBuild } from "@/lib/recipe-builder";
-import { connectDB } from "@/lib/mongodb";
-import { Dish } from "@/models/Dish";
+import { authOptions } from "@backend/services/infra/auth";
+import { applySelectedDishImage } from "@backend/services/catalog/dish-enrichment";
+import { linkedAddOnSlugsForDish, syncDishAddOnLinks } from "@backend/services/catalog/dish-addon-links";
+import { dishPayload, normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
+import { refreshIngredientLabels } from "@backend/services/catalog/ingredient-labels";
+import { scheduleRecipeBuild } from "@backend/services/recipes/recipe-builder";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Dish } from "@backend/models/Dish";
+import { Recipe } from "@backend/models/Recipe";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -125,6 +126,7 @@ export async function DELETE(_req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Dish not found" }, { status: 404 });
   }
 
+  await Recipe.deleteOne({ restaurantId, kind: "dish", targetSlug: slug });
   await syncDishAddOnLinks(restaurantId, slug, []);
   await refreshIngredientLabels(restaurantId);
 

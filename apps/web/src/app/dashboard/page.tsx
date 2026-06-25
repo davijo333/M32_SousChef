@@ -14,20 +14,20 @@ import { SectionInfo } from "@/components/ui/SectionInfo";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { useKitchenName } from "@/components/KitchenNameProvider";
 import { agentBrandLabel, type AgentBrandAgent } from "@/lib/agent-icons";
-import type { MarginDishRow } from "@/lib/dashboard-margins";
-import { MARGIN_RANKING_LIMIT } from "@/lib/dashboard-margins";
+import type { MarginDishRow } from "@backend/services/dashboard/dashboard-margins";
+import { MARGIN_RANKING_LIMIT } from "@backend/services/dashboard/dashboard-margins";
 import {
   filterByClassKeys,
   type ExpiryRankingRow,
   type ReorderRankingRow,
   type SalesRankingRow,
-} from "@/lib/dashboard-sales-analytics";
-import type { FinancePeriodPoint, FinanceSummary } from "@/lib/dashboard-stats";
+} from "@backend/services/dashboard/dashboard-sales-analytics";
+import type { FinancePeriodPoint, FinanceSummary } from "@backend/services/dashboard/dashboard-stats";
 import {
   financePeriodRange,
   formatCurrency,
   type DashboardFinancePeriod,
-} from "@/lib/dashboard-stats";
+} from "@backend/services/dashboard/dashboard-stats";
 import { loadTestDataAndNotify, TEST_DATA_LOADED_EVENT } from "@/lib/load-test-data";
 
 type DashboardSection = "inventory" | "business" | "create";

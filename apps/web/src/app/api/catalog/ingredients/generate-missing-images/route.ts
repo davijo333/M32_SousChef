@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { ingredientMissingPhotos } from "@/lib/ingredient-image-status";
-import { regenerateIngredientImages } from "@/lib/regenerate-ingredient-images";
-import { connectDB } from "@/lib/mongodb";
-import { Ingredient } from "@/models/Ingredient";
+import { authOptions } from "@backend/services/infra/auth";
+import { ingredientMissingPhotos } from "@backend/services/catalog/ingredient-image-status";
+import { regenerateIngredientImages } from "@backend/services/catalog/regenerate-ingredient-images";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Ingredient } from "@backend/models/Ingredient";
 
 function ingredientPayload(ing: {
   slug: string;

@@ -7,12 +7,12 @@ import { Tooltip } from "@/components/ui/Tooltip";
 import {
   connectBackButtonLabel,
   dashboardChatContextToBrandAgent,
-} from "@/lib/chat-handoff";
+} from "@backend/services/agents/chat-handoff";
 import {
   CHAT_ASSISTANT_NAMES,
   type DashboardChatContext,
-} from "@/lib/dashboard-chat";
-import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
+} from "@backend/services/agents/dashboard-chat";
+import type { DashboardFinancePeriod } from "@backend/services/dashboard/dashboard-stats";
 
 export type AgentChatDockProps = {
   /** Starts minimized — bottom-right icon until opened. */

@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { dishMissingPhotos } from "@/lib/dish-image-status";
-import { regenerateAddOnImages } from "@/lib/regenerate-addon-images";
-import { connectDB } from "@/lib/mongodb";
-import { AddOn } from "@/models/AddOn";
+import { authOptions } from "@backend/services/infra/auth";
+import { dishMissingPhotos } from "@backend/services/catalog/dish-image-status";
+import { regenerateAddOnImages } from "@backend/services/catalog/regenerate-addon-images";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { AddOn } from "@backend/models/AddOn";
 
 function addOnPayload(addOn: {
   slug: string;
@@ -65,8 +65,7 @@ export async function POST() {
       generated++;
     } catch (err) {
       failed++;
-      addOn.imageGenerationAttempted = true;
-      await addOn.save();
+      await AddOn.updateOne({ _id: addOn._id }, { $set: { imageGenerationAttempted: true } });
       errors.push({
         slug: addOn.slug,
         name: addOn.name,

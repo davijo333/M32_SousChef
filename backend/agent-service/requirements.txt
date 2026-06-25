@@ -1,0 +1,16 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+openai>=1.55.0
+pydantic>=2.10.0
+pydantic-settings>=2.6.0
+python-multipart>=0.0.17
+httpx>=0.28.0
+pymupdf>=1.24.0
+ddgs>=9.0.0
+# LangChain agent orchestration
+langchain>=0.3.14
+langchain-core>=0.3.28
+langchain-openai>=0.3.0
+langgraph>=0.2.60
+pymongo>=4.10.0
+pyyaml>=6.0.0

@@ -24,9 +24,9 @@ import {
   dishSubclassKey,
   formatClassificationLabel,
   groupByClassSubclass,
-} from "@/lib/catalog-classification";
-import { formatSuggestedMenuName } from "@/lib/suggested-menu-name";
-import type { SuggestionNote } from "@/lib/suggestion-notes";
+} from "@backend/services/catalog/catalog-classification";
+import { formatSuggestedMenuName } from "@backend/services/catalog/suggested-menu-name";
+import type { SuggestionNote } from "@backend/services/creative/suggestion-notes";
 
 type RecipeStatus = "new" | "active" | "inactive" | "suggested";
 type StatusTab = RecipeStatus;
@@ -334,6 +334,28 @@ export default function RecipesPage() {
     setStatusUpdating(itemKey(item));
     await setStatus([item], "active");
     setStatusUpdating(null);
+  }
+
+  async function deleteItem(item: SelectableItem, displayName: string) {
+    const confirmed = window.confirm(
+      `Delete "${displayName}"? This removes the menu item and recipe permanently.`
+    );
+    if (!confirmed) return;
+
+    setStatusUpdating(itemKey(item));
+    const endpoint =
+      item.kind === "dish"
+        ? `/api/catalog/dishes/${encodeURIComponent(item.slug)}`
+        : `/api/catalog/addons/${encodeURIComponent(item.slug)}`;
+    try {
+      const res = await fetch(endpoint, { method: "DELETE" });
+      if (res.ok) {
+        setModalItem(null);
+        await load();
+      }
+    } finally {
+      setStatusUpdating(null);
+    }
   }
 
   function renderDishTile(dish: DishRecipe) {
@@ -651,6 +673,12 @@ export default function RecipesPage() {
           }
           onRevive={() =>
             void reviveItem({ kind: modalItem.kind, slug: modalItem.slug })
+          }
+          onDelete={() =>
+            void deleteItem(
+              { kind: modalItem.kind, slug: modalItem.slug },
+              modalItem.name
+            )
           }
           actionBusy={modalKey ? statusUpdating === modalKey : false}
         />

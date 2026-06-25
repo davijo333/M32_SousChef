@@ -1,6 +1,6 @@
 # Sous Chef — Web app
 
-Next.js 15 app: UI, NextAuth, MongoDB API routes, and dashboard chat.
+Next.js app: UI, NextAuth, API route handlers, and dashboard chat.
 
 ## Run locally
 
@@ -23,22 +23,23 @@ Requires MongoDB and `.env` — see [../../README.md](../../README.md).
 
 ```
 src/
-├── app/              # Pages and API routes
+├── app/              # Pages and API routes (thin handlers)
 │   ├── dashboard/    # Inventory, Business, Create + chat dock
 │   ├── recipes/      # Recipe tabs (grouped by class)
 │   ├── kitchen-control/
 │   ├── upload-orders/
 │   └── api/          # bills, catalog, dashboard, recipes, seed
-├── components/       # UI including SousChefChatDock, DashboardChefChat
-├── lib/              # Chat, handoff, catalog, recipe pipeline
-└── models/           # Mongoose schemas
+├── components/       # React UI
+└── lib/              # UI-only: agent icons, hooks, chat markdown
+
+../../backend/api/    # Shared models + domain services (imported via @backend/*)
 ```
 
 ## Docs
 
 - [docs/UI/](../../docs/UI/) — pages and flows
-- [docs/Agents/](../../docs/Agents/) — chat agents
-- [docs/Agentic_Tools/Tool_Index.md](../../docs/Agentic_Tools/Tool_Index.md) — core chat tools
+- [agents/](../../agents/) — chat agent profiles
+- [tools/Tool_Index.md](../../tools/Tool_Index.md) — core chat tools
 - [docs/DB/](../../docs/DB/) — MongoDB collections
 
 ## Production build
@@ -48,4 +49,4 @@ npm run build
 npm run start
 ```
 
-Deploy root directory: `apps/web` (e.g. Vercel).
+Deploy root directory: `apps/web` (e.g. Vercel). Set `AGENT_SERVICE_URL` to the deployed `backend/agent-service`.

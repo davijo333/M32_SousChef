@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@backend/services/infra/auth";
 import {
   buildFinanceTimeline,
   computeFinanceSummary,
@@ -8,10 +8,10 @@ import {
   countIngredientStats,
   isIngredientExpiring,
   parseFinancePeriod,
-} from "@/lib/dashboard-stats";
+} from "@backend/services/dashboard/dashboard-stats";
 import {
   buildDishMarginRankings,
-} from "@/lib/dashboard-margins";
+} from "@backend/services/dashboard/dashboard-margins";
 import {
   buildApproachingExpiry,
   buildApproachingReorder,
@@ -20,18 +20,18 @@ import {
   buildSalesClassOptions,
   buildTopSellingDishes,
   buildTopUsedIngredients,
-} from "@/lib/dashboard-sales-analytics";
-import { ensureRecipesForRestaurant } from "@/lib/recipe-builder";
+} from "@backend/services/dashboard/dashboard-sales-analytics";
+import { ensureRecipesForRestaurant } from "@backend/services/recipes/recipe-builder";
 import {
   FINANCE_WEEK_PERIOD_COUNT,
-} from "@/lib/seed-order-dates";
-import { connectDB } from "@/lib/mongodb";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
-import { PurchaseOrder } from "@/models/PurchaseOrder";
-import { Restaurant } from "@/models/Restaurant";
-import { Recipe } from "@/models/Recipe";
-import { SalesOrder } from "@/models/SalesOrder";
+} from "@backend/services/infra/seed-order-dates";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Dish } from "@backend/models/Dish";
+import { Ingredient } from "@backend/models/Ingredient";
+import { PurchaseOrder } from "@backend/models/PurchaseOrder";
+import { Restaurant } from "@backend/models/Restaurant";
+import { Recipe } from "@backend/models/Recipe";
+import { SalesOrder } from "@backend/models/SalesOrder";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

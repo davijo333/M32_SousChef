@@ -1,13 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { applySelectedAddOnImage } from "@/lib/dish-enrichment";
-import { normalizeIngredientLinks } from "@/lib/dish-payload";
-import { refreshIngredientLabels } from "@/lib/ingredient-labels";
-import { scheduleRecipeBuild } from "@/lib/recipe-builder";
-import { connectDB } from "@/lib/mongodb";
-import { AddOn } from "@/models/AddOn";
-import { Recipe } from "@/models/Recipe";
+import { authOptions } from "@backend/services/infra/auth";
+import { applySelectedAddOnImage } from "@backend/services/catalog/dish-enrichment";
+import { normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
+import { refreshIngredientLabels } from "@backend/services/catalog/ingredient-labels";
+import { scheduleRecipeBuild } from "@backend/services/recipes/recipe-builder";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { AddOn } from "@backend/models/AddOn";
+import { Recipe } from "@backend/models/Recipe";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
@@ -100,6 +100,7 @@ export async function DELETE(_req: Request, context: RouteContext) {
     return NextResponse.json({ error: "Add-on not found" }, { status: 404 });
   }
 
+  await Recipe.deleteOne({ restaurantId, kind: "addon", targetSlug: slug });
   await refreshIngredientLabels(restaurantId);
 
   return NextResponse.json({ ok: true, slug });

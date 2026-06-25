@@ -1,19 +1,28 @@
 {
   "name": "sous-chef",
   "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/types"
+  ],
+  "overrides": {
+    "lru-cache": "6.0.0"
+  },
   "scripts": {
-    "start:agents": "bash services/agent/run.sh",
-    "start:schef": "bash scripts/start-web.sh",
-    "connect:mongodb": "docker compose up -d mongo",
-    "reset:db": "bash scripts/reset-db.sh",
-    "retest:upload": "bash scripts/retest-upload.sh",
+    "start:agents": "bash backend/agent-service/run.sh",
+    "start:schef": "bash infra/scripts/start-web.sh",
+    "connect:mongodb": "bash infra/scripts/connect-mongodb.sh",
+    "reset:db": "bash infra/scripts/reset-db.sh",
+    "retest:upload": "bash infra/scripts/retest-upload.sh",
+    "capture:test-images": "bash infra/scripts/capture-test-images.sh",
     "regenerate:bills": "python3 test/scripts/generate-bills.py",
-    "dev": "docker compose up -d mongo && cd apps/web && npm run dev",
-    "dev:web": "bash scripts/start-web.sh",
-    "dev:agent": "bash services/agent/run.sh",
-    "docker:up": "docker compose up -d mongo",
-    "docker:down": "docker compose down",
-    "docker:full": "docker compose --profile full up -d",
+    "generate:tool-docs": "python3 tools/tools/generate-tool-docs.py",
+    "dev": "docker compose -f infra/docker-compose.yml up -d mongo && cd apps/web && npm run dev",
+    "dev:web": "bash infra/scripts/start-web.sh",
+    "dev:agent": "bash backend/agent-service/run.sh",
+    "docker:up": "docker compose -f infra/docker-compose.yml up -d mongo",
+    "docker:down": "docker compose -f infra/docker-compose.yml down",
+    "docker:full": "docker compose -f infra/docker-compose.yml --profile full up -d",
     "build": "cd apps/web && npm run build"
   }
 }

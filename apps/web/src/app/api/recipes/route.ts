@@ -1,13 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/mongodb";
-import { ensureRecipesForRestaurant } from "@/lib/recipe-builder";
-import { isRecipeAgentCooking } from "@/lib/recipe-agent-status";
-import { AddOn } from "@/models/AddOn";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
-import { Recipe } from "@/models/Recipe";
+import { authOptions } from "@backend/services/infra/auth";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { ensureRecipesForRestaurant } from "@backend/services/recipes/recipe-builder";
+import { isRecipeAgentCooking } from "@backend/services/recipes/recipe-agent-status";
+import { AddOn } from "@backend/models/AddOn";
+import { Dish } from "@backend/models/Dish";
+import { Ingredient } from "@backend/models/Ingredient";
+import { Recipe } from "@backend/models/Recipe";
 
 function slugToDisplayName(slug: string): string {
   return slug.replace(/^(dish|addon|ing)-/, "").replace(/-/g, " ");

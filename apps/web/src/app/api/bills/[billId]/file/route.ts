@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/mongodb";
-import { readBillFileBuffer } from "@/lib/r2-storage";
-import { BillUpload } from "@/models/BillUpload";
+import { authOptions } from "@backend/services/infra/auth";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { readBillFileBuffer } from "@backend/services/infra/r2-storage";
+import { BillUpload } from "@backend/models/BillUpload";
 
 type RouteContext = { params: { billId: string } };
 

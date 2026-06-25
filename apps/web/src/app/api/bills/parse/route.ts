@@ -1,25 +1,25 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { matchLineToCatalog } from "@/lib/bill-normalizer";
+import { authOptions } from "@backend/services/infra/auth";
+import { matchLineToCatalog } from "@backend/services/bills/bill-normalizer";
 import {
   billLineDescription,
   inferAddOnClassification,
   inferDishClassification,
   inferIngredientCategory,
   normalizeIngredientCategory,
-} from "@/lib/catalog-classification";
-import { validateBillFilenameForZone } from "@/lib/bill-filename";
-import { applyPipelineEnrichment } from "@/lib/apply-pipeline-enrichment";
-import { extractNewItemsFromBill } from "@/lib/extract-new-items";
-import { connectDB } from "@/lib/mongodb";
-import { persistBillFile } from "@/lib/r2-storage";
-import { upsertPurchaseOrderFromBill } from "@/lib/purchase-order";
-import { upsertSalesOrderFromBill } from "@/lib/sales-order";
-import { BillUpload } from "@/models/BillUpload";
-import { AddOn } from "@/models/AddOn";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
+} from "@backend/services/catalog/catalog-classification";
+import { validateBillFilenameForZone } from "@backend/services/bills/bill-filename";
+import { applyPipelineEnrichment } from "@backend/services/bills/apply-pipeline-enrichment";
+import { extractNewItemsFromBill } from "@backend/services/catalog/extract-new-items";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { persistBillFile } from "@backend/services/infra/r2-storage";
+import { upsertPurchaseOrderFromBill } from "@backend/services/orders/purchase-order";
+import { upsertSalesOrderFromBill } from "@backend/services/orders/sales-order";
+import { BillUpload } from "@backend/models/BillUpload";
+import { AddOn } from "@backend/models/AddOn";
+import { Dish } from "@backend/models/Dish";
+import { Ingredient } from "@backend/models/Ingredient";
 
 const AGENT_URL = process.env.AGENT_SERVICE_URL ?? "http://localhost:8000";
 const PARSE_AGENT_TIMEOUT_MS = 180_000;

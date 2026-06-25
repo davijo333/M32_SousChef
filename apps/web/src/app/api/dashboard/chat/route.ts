@@ -2,53 +2,58 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import mongoose from "mongoose";
-import { authOptions } from "@/lib/auth";
-import { getRouteSession } from "@/lib/route-session";
+import { authOptions } from "@backend/services/infra/auth";
+import { getRouteSession } from "@backend/services/infra/route-session";
 import {
-  detectHandoffFromConversation,
   detectUploadBatchHandoffTarget,
   isSpecialistHandoffTarget,
   type SpecialistHandoffTarget,
-} from "@/lib/chat-handoff";
-import { MAX_CHAT_SESSIONS } from "@/lib/chat-retention";
-import { buildCreateCues, formatCuesForPrompt } from "@/lib/create-cues";
+} from "@backend/services/agents/chat-handoff";
+import { MAX_CHAT_SESSIONS } from "@backend/services/chat/chat-retention";
+import { buildCreateCues, formatCuesForPrompt } from "@backend/services/creative/create-cues";
 import {
   buildBusinessChatContext,
   buildChatSystemPrompt,
   buildCreativeChatContext,
   buildHeadChatContext,
   buildInventoryChatContext,
-} from "@/lib/dashboard-chat-context";
+} from "@backend/services/agents/dashboard-chat-context";
 import {
   CHAT_ASSISTANT_NAMES,
+  SHARED_CHAT_CONTEXT,
   type DashboardChatContext,
   isDashboardChatContext,
-} from "@/lib/dashboard-chat";
-import { fetchWeatherCue } from "@/lib/create-weather";
-import { createSuggestedDish } from "@/lib/create-suggestion";
-import { isIngredientExpiring, parseFinancePeriod } from "@/lib/dashboard-stats";
-import { connectDB } from "@/lib/mongodb";
-import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@/lib/suggestion-notes";
-import { Conversation } from "@/models/Conversation";
-import { BillUpload } from "@/models/BillUpload";
-import { Ingredient } from "@/models/Ingredient";
-import { callLangChainAgentChat } from "@/lib/agent-chat";
-import type { ChatUploadBatchPayload } from "@/lib/chat-bill-upload-queue";
-import type { RecipeBuildPlanPayload } from "@/lib/agent-recipe-build";
-import type { ChatCatalogDraftPayload } from "@/lib/chat-catalog-draft";
+} from "@backend/services/agents/dashboard-chat";
+import { fetchWeatherCue } from "@backend/services/creative/create-weather";
+import { createSuggestedDish } from "@backend/services/creative/create-suggestion";
+import { isIngredientExpiring, parseFinancePeriod } from "@backend/services/dashboard/dashboard-stats";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@backend/services/creative/suggestion-notes";
+import { Conversation } from "@backend/models/Conversation";
+import { BillUpload } from "@backend/models/BillUpload";
+import { Ingredient } from "@backend/models/Ingredient";
+import { suggestDishPriceMargin } from "@backend/services/agents/agent-menu-actions";
+import { callLangChainAgentChat } from "@backend/services/agents/agent-chat";
+import type { ChatUploadBatchPayload } from "@backend/services/chat/chat-bill-upload-queue";
+import type { RecipeBuildPlanPayload } from "@backend/services/recipes/recipe-build-plan";
+import { isRecipeBuildReadyToFinalize } from "@backend/services/recipes/recipe-build-plan";
+import type { ChatCatalogDraftPayload } from "@backend/services/chat/chat-catalog-draft";
+import { applyCatalogDraftCorrection, inferCatalogDraftFromThread } from "@backend/services/chat/chat-catalog-draft";
+import { deriveChatChoices } from "@backend/services/chat/chat-choices";
 import {
+  detectKitchenBuildConfirm,
+  detectPantryAddZeroConfirm,
   detectRecipeBuildIntent,
-  detectRecipeFinalizeConfirm,
   shouldUseSuggestionConfirmOnly,
-} from "@/lib/chat-recipe-build-intent";
-import { detectUploadConfirm } from "@/lib/chat-upload-intent";
+} from "@backend/services/chat/chat-recipe-build-intent";
+import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
 import {
   detectBusinessConfirm,
   detectInventoryConfirm,
   detectMenuConfirm,
   executeAgentPendingAction,
   executeConfirmedUploadBatch,
-} from "@/lib/agent-pending-actions";
+} from "@backend/services/agents/agent-pending-actions";
 
 const USE_LANGCHAIN_AGENTS = process.env.USE_LANGCHAIN_AGENTS !== "false";
 
@@ -153,6 +158,39 @@ function parseRecipeBuild(body: Record<string, unknown>): RecipeBuildPlanPayload
           const ing = row as Record<string, unknown>;
           const name = String(ing.name ?? "").trim();
           if (!name) return null;
+          const options = Array.isArray(ing.options)
+            ? ing.options
+                .map((opt) => {
+                  if (!opt || typeof opt !== "object") return null;
+                  const rowOpt = opt as Record<string, unknown>;
+                  const label = String(rowOpt.label ?? "").trim();
+                  if (!label) return null;
+                  return {
+                    label,
+                    brandName: rowOpt.brandName ? String(rowOpt.brandName) : undefined,
+                    store: rowOpt.store ? String(rowOpt.store) : undefined,
+                    imageUrl: String(rowOpt.imageUrl ?? ""),
+                    score: rowOpt.score != null ? Number(rowOpt.score) : undefined,
+                  };
+                })
+                .filter(Boolean)
+            : undefined;
+          const selectedRaw = ing.selectedOption;
+          const selectedOption =
+            selectedRaw && typeof selectedRaw === "object"
+              ? (() => {
+                  const rowOpt = selectedRaw as Record<string, unknown>;
+                  const label = String(rowOpt.label ?? "").trim();
+                  if (!label) return undefined;
+                  return {
+                    label,
+                    brandName: rowOpt.brandName ? String(rowOpt.brandName) : undefined,
+                    store: rowOpt.store ? String(rowOpt.store) : undefined,
+                    imageUrl: String(rowOpt.imageUrl ?? ""),
+                    score: rowOpt.score != null ? Number(rowOpt.score) : undefined,
+                  };
+                })()
+              : undefined;
           return {
             key: String(ing.key ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-")),
             name,
@@ -161,24 +199,26 @@ function parseRecipeBuild(body: Record<string, unknown>): RecipeBuildPlanPayload
             pantrySlug: ing.pantrySlug ? String(ing.pantrySlug) : undefined,
             pantryName: ing.pantryName ? String(ing.pantryName) : undefined,
             committedSlug: ing.committedSlug ? String(ing.committedSlug) : undefined,
-            options: Array.isArray(ing.options) ? ing.options : undefined,
-            selectedOption:
-              ing.selectedOption && typeof ing.selectedOption === "object"
-                ? (ing.selectedOption as RecipeBuildPlanPayload["ingredients"][0]["selectedOption"])
-                : undefined,
+            options: options as RecipeBuildPlanPayload["ingredients"][0]["options"],
+            selectedOption,
           };
         })
         .filter(Boolean)
     : [];
   if (!ingredients.length) return undefined;
-  return {
+  const parsed: RecipeBuildPlanPayload = {
     dishName,
     description: plan.description ? String(plan.description) : undefined,
+    visualBrief: plan.visualBrief ? String(plan.visualBrief) : undefined,
     classification: plan.classification ? String(plan.classification) : undefined,
     sellPrice: plan.sellPrice != null ? Number(plan.sellPrice) : null,
+    instructions: Array.isArray(plan.instructions)
+      ? plan.instructions.map((row) => String(row).trim()).filter(Boolean)
+      : undefined,
     ingredients: ingredients as RecipeBuildPlanPayload["ingredients"],
-    status: plan.status === "ready_to_finalize" ? "ready_to_finalize" : "selecting",
+    status: "ready_to_finalize",
   };
+  return parsed;
 }
 
 async function pendingUploadHandoffTarget(
@@ -195,8 +235,8 @@ async function pendingUploadHandoffTarget(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-async function pruneOldChatSessions(userId: string, context: DashboardChatContext) {
-  const excess = await Conversation.find({ userId, context })
+async function pruneOldChatSessions(userId: string) {
+  const excess = await Conversation.find({ userId })
     .sort({ updatedAt: 1 })
     .skip(MAX_CHAT_SESSIONS)
     .select("_id")
@@ -270,15 +310,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "No user" }, { status: 400 });
   }
 
-  const contextParam = new URL(req.url).searchParams.get("context") ?? "create";
+  const contextParam = new URL(req.url).searchParams.get("context") ?? "head";
   const conversationIdParam = new URL(req.url).searchParams.get("conversationId");
-  if (!isDashboardChatContext(contextParam)) {
+  if (contextParam && !isDashboardChatContext(contextParam)) {
     return NextResponse.json({ error: "Invalid context" }, { status: 400 });
   }
 
   await connectDB();
 
-  const sessions = await Conversation.find({ userId, context: contextParam })
+  const sessions = await Conversation.find({ userId })
     .sort({ updatedAt: -1 })
     .limit(MAX_CHAT_SESSIONS)
     .select("title updatedAt")
@@ -289,7 +329,6 @@ export async function GET(req: Request) {
     conversation = await Conversation.findOne({
       _id: conversationIdParam,
       userId,
-      context: contextParam,
     }).lean();
   } else if (sessions.length > 0) {
     conversation = await Conversation.findById(sessions[0]._id).lean();
@@ -338,15 +377,18 @@ export async function POST(req: Request) {
   const recipeBuild = parseRecipeBuild(body as Record<string, unknown>);
   const recipeBuildIntent = detectRecipeBuildIntent(userMessage);
   const confirmSuggestion =
-    (Boolean(body.confirmSuggestion) ||
-      detectMenuConfirm(userMessage, agentContextParam ?? contextParam)) &&
-    (shouldUseSuggestionConfirmOnly(userMessage) || !recipeBuildIntent);
-  const confirmRecipeBuild =
-    recipeBuildIntent && detectRecipeFinalizeConfirm(userMessage);
+    Boolean(body.confirmSuggestion) ||
+    (detectMenuConfirm(userMessage, agentContextParam ?? contextParam) &&
+      (shouldUseSuggestionConfirmOnly(userMessage) || !recipeBuildIntent));
+  const confirmRecipeBuild = detectKitchenBuildConfirm(userMessage, {
+    hasCatalogDish: catalogDraft?.itemType === "dish",
+    hasRecipePlan: Boolean(recipeBuild),
+  });
   const effectiveConfirmSuggestion = confirmSuggestion || Boolean(confirmRecipeBuild);
   const confirmInventory =
     Boolean(body.confirmInventory) ||
-    detectInventoryConfirm(userMessage, agentContextParam ?? contextParam);
+    detectInventoryConfirm(userMessage, agentContextParam ?? contextParam) ||
+    (contextParam === "head" && detectPantryAddZeroConfirm(userMessage));
   const confirmBusiness =
     Boolean(body.confirmBusiness) ||
     detectBusinessConfirm(userMessage, agentContextParam ?? contextParam);
@@ -379,33 +421,34 @@ export async function POST(req: Request) {
     agentContextParam && isDashboardChatContext(agentContextParam)
       ? agentContextParam
       : context;
+  if (context === "head" && !connectAgent) {
+    agentContext = "head";
+  }
 
   let conversation = null;
   if (!newChat && conversationId) {
-    conversation = await Conversation.findOne({ _id: conversationId, userId, context });
+    conversation = await Conversation.findOne({ _id: conversationId, userId });
   } else if (!newChat) {
-    conversation = await Conversation.findOne({ userId, context }).sort({ updatedAt: -1 });
+    conversation = await Conversation.findOne({ userId })
+      .sort({ updatedAt: -1 });
   }
 
   if (!conversation) {
     conversation = await Conversation.create({
       restaurantId,
       userId,
-      context,
+      context: SHARED_CHAT_CONTEXT,
       title: (message || CHAT_ASSISTANT_NAMES[connectAgent ?? "head"]).slice(0, 48),
       messages: [],
     });
-    await pruneOldChatSessions(userId, context);
+    await pruneOldChatSessions(userId);
+  } else if (conversation.context !== SHARED_CHAT_CONTEXT) {
+    conversation.context = SHARED_CHAT_CONTEXT;
   }
 
   const chefName = session.user.name ?? "Chef";
   const restaurantName =
     (session.user as { restaurantName?: string }).restaurantName ?? "your kitchen";
-
-  const historyForHandoff = conversation.messages.slice(-10).map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
 
   let handoff: SpecialistHandoffTarget | null = null;
   if (connectAgent) {
@@ -416,16 +459,7 @@ export async function POST(req: Request) {
       detectUploadBatchHandoffTarget(uploadBatch, confirmUpload) ??
       (confirmUpload ? await pendingUploadHandoffTarget(userId) : null);
     if (uploadHandoff) {
-      handoff = uploadHandoff;
-      agentContext = uploadHandoff;
-    } else {
-      const detected = detectHandoffFromConversation(userMessage, historyForHandoff, {
-        skipIfUploadConfirm: true,
-      });
-      if (detected) {
-        handoff = detected;
-        agentContext = detected;
-      }
+      // Keep the user in Sous Chef; supervisor will consult specialists behind the scenes.
     }
   }
 
@@ -450,19 +484,19 @@ export async function POST(req: Request) {
     cues = buildCreateCues(weather, new Date(), pantryExpiringNames);
     const cuesText = formatCuesForPrompt(cues);
     dataContext = await buildCreativeChatContext(restaurantId, cuesText);
-    createExtras = `When the chef wants a **full kitchen build** (dish + pantry ingredients + images), use apply_menu:
-1. plan_recipe_build with dish name and recipe_ingredients [{name, qty, unit}]
-2. update_recipe_selections when they pick store products (e.g. mango: 1)
-3. finalize_recipe_build after they confirm — NOT add_suggested_dish.
+    createExtras = `You are read-only — do not call apply_menu or apply_inventory.
+When the chef confirms a save, the system routes to **Inventory Agent** to persist.
 
-Use add_suggested_dish ONLY for brainstorm ideas to save in Recipes → Suggested (no pantry adds).
+**Lighter save (Recipes → Suggested):** Inventory \`add_suggested_dish\` with your drafted name, description, classification, ingredient_slugs from pantry search, and notes (at least one: expiring_ingredients, seasonal, high_margin, low_stock, cue, other).
 
-Note kinds for suggestions only: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
-Dish **name** must be short (2–5 words) without supplier brands.
-Only call apply_menu when the chef confirms${
-      effectiveConfirmSuggestion ? " — the chef just confirmed." : "."
-    }
-Never invent pantry items — only reference slugs from the pantry list when specifying ingredientSlugs.`;
+**Full kitchen build:** Inventory \`plan_recipe_build\` with recipe_ingredients [{name, qty, unit}], recipe_instructions, and \`visual_brief\` from Creative, then \`finalize_recipe_build\` — never ask the chef for qty/unit or photo picks in chat.
+
+Dish **name** must be short (2–5 words) without supplier brands (brands go in description only).
+Check query_menu suggested/active and query_inventory search before proposing duplicates.${
+      effectiveConfirmSuggestion
+        ? " The chef just confirmed — tell them to Connect to Inventory or the save will route automatically."
+        : ""
+    }`;
   }
 
   const handoffNote =
@@ -484,6 +518,19 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     content: m.content,
   }));
 
+  const recoveredCatalogDraft = inferCatalogDraftFromThread(history);
+  const effectiveCatalogDraft = applyCatalogDraftCorrection(
+    catalogDraft ?? recoveredCatalogDraft ?? undefined,
+    userMessage,
+    history
+  );
+  const isKitchenBuildConfirm = detectKitchenBuildConfirm(userMessage, {
+    hasCatalogDish: effectiveCatalogDraft?.itemType === "dish",
+    hasRecipePlan: Boolean(recipeBuild),
+  });
+  const resolvedConfirmSuggestion =
+    effectiveConfirmSuggestion || isKitchenBuildConfirm || Boolean(body.confirmSuggestion);
+
   const savedUserMessage = connectAgent
     ? `Connect to ${CHAT_ASSISTANT_NAMES[connectAgent]}`
     : message;
@@ -493,10 +540,60 @@ Never invent pantry items — only reference slugs from the pantry list when spe
   let agentResultHandoff: SpecialistHandoffTarget | null = handoff;
   let navigationAction: { path: string; label: string; agent?: SpecialistHandoffTarget } | null =
     null;
+  let activity:
+    | { orchestrator: "head"; consultedAgents: Array<"inventory" | "business" | "create"> }
+    | null = null;
 
   let recipeBuildPlan: RecipeBuildPlanPayload | null = recipeBuild ?? null;
+  let kitchenBuildComplete = false;
+  let builtDishName: string | null = null;
+  let finalizeAttempted = false;
 
-  if (USE_LANGCHAIN_AGENTS) {
+  const shouldFinalizeOnRoute =
+    resolvedConfirmSuggestion &&
+    recipeBuildPlan &&
+    isRecipeBuildReadyToFinalize(recipeBuildPlan);
+
+  if (
+    resolvedConfirmSuggestion &&
+    recipeBuildPlan &&
+    !isRecipeBuildReadyToFinalize(recipeBuildPlan)
+  ) {
+    finalizeAttempted = true;
+    reply =
+      "Recipe build plan is incomplete — need a dish name and at least one ingredient.";
+  }
+
+  if (shouldFinalizeOnRoute) {
+    finalizeAttempted = true;
+    try {
+      const actionMessage = await executeAgentPendingAction(restaurantId, userId, {
+        kind: "finalize_recipe_build",
+        dishName: recipeBuildPlan.dishName,
+        description: recipeBuildPlan.description,
+        classification: recipeBuildPlan.classification,
+        sellPrice: recipeBuildPlan.sellPrice ?? undefined,
+        recipeBuildPlan,
+      });
+      reply = actionMessage;
+      builtDishName = recipeBuildPlan.dishName;
+      recipeBuildPlan = null;
+      kitchenBuildComplete = true;
+      activity = { orchestrator: "head", consultedAgents: ["create"] };
+      const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
+      if (marginNote) {
+        reply += `\n\n**Business Agent** (margin pass)\n${marginNote}`;
+        activity = { orchestrator: "head", consultedAgents: ["create", "business"] };
+      }
+    } catch (err) {
+      reply =
+        err instanceof Error
+          ? err.message
+          : "Could not complete the kitchen build.";
+    }
+  }
+
+  if (USE_LANGCHAIN_AGENTS && !kitchenBuildComplete && !finalizeAttempted) {
     const agentResult = await callLangChainAgentChat({
       restaurantId,
       userId,
@@ -512,9 +609,9 @@ Never invent pantry items — only reference slugs from the pantry list when spe
       recentBillIds:
         uploadBatch?.slices.flatMap((slice) => slice.readyBillIds) ?? recentBillIds,
       uploadBatch,
-      catalogDraft,
+      catalogDraft: effectiveCatalogDraft,
       recipeBuild: recipeBuild ?? undefined,
-      confirmSuggestion: effectiveConfirmSuggestion,
+      confirmSuggestion: resolvedConfirmSuggestion,
       confirmInventory: confirmInventory || confirmUpload,
       confirmBusiness: confirmBusiness || confirmUpload,
     });
@@ -527,6 +624,9 @@ Never invent pantry items — only reference slugs from the pantry list when spe
       }
       if (agentResult.navigationAction) {
         navigationAction = agentResult.navigationAction;
+      }
+      if (agentResult.activity) {
+        activity = agentResult.activity;
       }
       if (agentResult.suggestionAction && !recipeBuildIntent && !recipeBuildPlan) {
         try {
@@ -569,9 +669,21 @@ Never invent pantry items — only reference slugs from the pantry list when spe
             agentResult.pendingAction
           );
           if (agentResult.pendingAction?.kind === "finalize_recipe_build") {
+            builtDishName = agentResult.pendingAction.dishName ?? builtDishName;
             recipeBuildPlan = null;
+            kitchenBuildComplete = true;
           }
           reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
+          if (kitchenBuildComplete && builtDishName) {
+            const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
+            if (marginNote) {
+              reply += `\n\nI consulted the **Business Agent** for a margin pass.\n\n**Business Agent**\n${marginNote}`;
+              activity = {
+                orchestrator: "head",
+                consultedAgents: ["create", "business"],
+              };
+            }
+          }
         } catch (err) {
           reply =
             (reply ? `${reply}\n\n` : "") +
@@ -634,6 +746,10 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     }
   }
 
+  if (agentContext === "head" && !kitchenBuildComplete && !finalizeAttempted && !/\?/.test(reply)) {
+    reply = `${reply}\n\nWhat would you like to do next?`;
+  }
+
   if (!reply) {
     const inventory = CHAT_ASSISTANT_NAMES.inventory;
     const business = CHAT_ASSISTANT_NAMES.business;
@@ -650,7 +766,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
 
   if (agentResultHandoff) {
     const specialistName = CHAT_ASSISTANT_NAMES[agentResultHandoff];
-    if (!/you're now connected with/i.test(reply)) {
+    if (connectAgent && !/you're now connected with/i.test(reply)) {
       reply = `You're now connected with the **${specialistName}**.\n\n${reply}`;
     }
   }
@@ -664,11 +780,17 @@ Never invent pantry items — only reference slugs from the pantry list when spe
   }
   await conversation.save();
 
-  const sessions = await Conversation.find({ userId, context })
+  const sessions = await Conversation.find({ userId })
     .sort({ updatedAt: -1 })
     .limit(MAX_CHAT_SESSIONS)
     .select("title updatedAt")
     .lean();
+
+  const chatChoices = deriveChatChoices({
+    catalogDraft: effectiveCatalogDraft ?? null,
+    recipeBuildPlan,
+    kitchenBuildComplete,
+  });
 
   return NextResponse.json({
     reply,
@@ -685,6 +807,10 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     cues,
     createdSuggestion,
     recipeBuildPlan,
+    kitchenBuildComplete,
+    catalogDraft: effectiveCatalogDraft ?? null,
+    choices: chatChoices,
+    activity,
   });
 }
 
@@ -699,11 +825,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "No user" }, { status: 400 });
   }
 
-  const contextParam = new URL(req.url).searchParams.get("context") ?? "create";
   const conversationId = new URL(req.url).searchParams.get("conversationId");
-  if (!isDashboardChatContext(contextParam)) {
-    return NextResponse.json({ error: "Invalid context" }, { status: 400 });
-  }
   if (!conversationId) {
     return NextResponse.json({ error: "conversationId required" }, { status: 400 });
   }
@@ -716,20 +838,18 @@ export async function DELETE(req: Request) {
   const deleted = await Conversation.deleteOne({
     _id: conversationId,
     userId,
-    context: contextParam,
   });
   if (!deleted.deletedCount) {
     return NextResponse.json({ error: "Chat not found" }, { status: 404 });
   }
 
-  const sessions = await Conversation.find({ userId, context: contextParam })
+  const sessions = await Conversation.find({ userId })
     .sort({ updatedAt: -1 })
     .limit(MAX_CHAT_SESSIONS)
     .select("title updatedAt")
     .lean();
 
   return NextResponse.json({
-    context: contextParam,
     deletedId: conversationId,
     conversations: sessions.map((row) => ({
       id: row._id.toString(),

@@ -14,6 +14,7 @@
       "menuId": "mi-sig-sunrise-stack",
       "name": "The Sunrise Stack",
       "classification": "sandwich",
+      "description": "Croissant sandwich with bacon, fried egg, and melted cheddar",
       "sellPrice": 9.12,
       "posName": "Sunrise Stack\u2122 \u2014 Tyson Bacon, Eggland's Egg, Tillamook Cheddar on Vie de France Croissant",
       "ingredientSlugs": [
@@ -50,13 +51,19 @@
           "unit": "oz"
         }
       ],
-      "foodCost": 2.28
+      "foodCost": 2.28,
+      "instructions": [
+        "Toast the croissant until warm and lightly crisp.",
+        "Cook bacon until crisp and fry one egg sunny-side or over-easy.",
+        "Layer cheddar, egg, and bacon on croissant and finish with a small butter brush."
+      ]
     },
     {
       "slug": "dish-garden-morning-croissant",
       "menuId": "mi-sig-garden-morning",
       "name": "Garden Morning Croissant",
       "classification": "sandwich",
+      "description": "Croissant sandwich with eggs, Swiss cheese, spinach, tomato, and avocado",
       "sellPrice": 7.87,
       "posName": "Garden Morning Croissant \u2014 Earthbound Spinach, Roma Tomato, Hass Avocado",
       "ingredientSlugs": [
@@ -99,13 +106,19 @@
           "unit": "each"
         }
       ],
-      "foodCost": 1.97
+      "foodCost": 1.97,
+      "instructions": [
+        "Warm the croissant and prepare eggs to order.",
+        "Add Swiss, spinach, tomato slices, and avocado on the base.",
+        "Top with eggs, close sandwich, and serve immediately."
+      ]
     },
     {
       "slug": "dish-farmers-double",
       "menuId": "mi-sig-farmers-double",
       "name": "The Farmer's Double",
       "classification": "sandwich",
+      "description": "Sandwich on sourdough with sausage, bacon, fried egg, and American cheese",
       "sellPrice": 9.98,
       "posName": "Farmer's Double \u2014 Jimmy Dean Sausage, Egg, Kraft American on La Brea Sourdough",
       "ingredientSlugs": [
@@ -148,13 +161,19 @@
           "unit": "oz"
         }
       ],
-      "foodCost": 2.49
+      "foodCost": 2.49,
+      "instructions": [
+        "Butter both sourdough slices and toast on flat top.",
+        "Cook sausage links and egg, then melt American cheese over the protein.",
+        "Assemble double-protein stack on toasted sourdough and plate hot."
+      ]
     },
     {
       "slug": "dish-build-your-own-croissant",
       "menuId": "mi-custom-croissant",
       "name": "Build-Your-Own Croissant",
       "classification": "byo-sandwich",
+      "description": "Warm croissant with bacon, fried egg, and Swiss cheese",
       "sellPrice": 7.1,
       "posName": "Build-Your-Own Croissant \u2014 Tyson Bacon, Fried Egg, Boar's Head Swiss",
       "ingredientSlugs": [
@@ -192,6 +211,7 @@
       "menuId": "mi-custom-bread",
       "name": "Build-Your-Own Sourdough",
       "classification": "byo-sandwich",
+      "description": "Toasted sourdough sandwich with sausage and fried egg",
       "sellPrice": 5.62,
       "posName": "Build-Your-Own Sourdough \u2014 Jimmy Dean Sausage, Eggland's Egg",
       "ingredientSlugs": [
@@ -229,6 +249,7 @@
       "menuId": "mi-custom-bagel",
       "name": "Build-Your-Own Bagel",
       "classification": "byo-sandwich",
+      "description": "Toasted bagel with bacon, spinach, and tomato",
       "sellPrice": 7.17,
       "posName": "Build-Your-Own Bagel \u2014 Tyson Bacon, Baby Spinach, Roma Tomato",
       "ingredientSlugs": [
@@ -272,6 +293,7 @@
       "menuId": "mi-coffee-hot",
       "name": "Hot Coffee",
       "classification": "coffee",
+      "description": "Cup of hot coffee with whole milk",
       "sellPrice": 2.99,
       "posName": "Starbucks Pike Place Coffee 16oz \u2014 Land O Lakes Whole Milk",
       "ingredientSlugs": [
@@ -297,6 +319,7 @@
       "menuId": "mi-coffee-hot",
       "name": "Lavazza House Hot Coffee",
       "classification": "coffee",
+      "description": "Cup of hot house coffee, served black",
       "sellPrice": 3.18,
       "posName": "Lavazza House Hot Coffee 12oz \u2014 Black",
       "ingredientSlugs": [
@@ -316,6 +339,7 @@
       "menuId": "mi-coffee-hot",
       "name": "Oat Vanilla Coffee",
       "classification": "coffee",
+      "description": "Cup of hot coffee with oat milk and vanilla syrup",
       "sellPrice": 5.47,
       "posName": "House Hot Coffee 20oz \u2014 Oatly Barista Oat + Monin Vanilla Syrup",
       "ingredientSlugs": [
@@ -347,6 +371,7 @@
       "menuId": "mi-coffee-frappe",
       "name": "Iced Skim Frappe",
       "classification": "coffee",
+      "description": "Iced frappe with skim milk and whipped cream in a tall glass",
       "sellPrice": 5.52,
       "posName": "Iced Land O Lakes Skim Milk Frappe 16oz",
       "ingredientSlugs": [
@@ -384,6 +409,7 @@
       "menuId": "mi-coffee-frappe",
       "name": "Caramel Almond Frappe",
       "classification": "coffee",
+      "description": "Iced caramel frappe with almond milk and whipped cream in a tall glass",
       "sellPrice": 9.35,
       "posName": "Iced Monin Caramel Frappe 24oz \u2014 Califia Farms Almond Milk",
       "ingredientSlugs": [
@@ -427,6 +453,7 @@
       "menuId": "mi-coffee-mocha",
       "name": "Hazelnut Mocha",
       "classification": "coffee",
+      "description": "Cup of mocha with whole milk and hazelnut syrup",
       "sellPrice": 6.45,
       "posName": "Monin Dark Chocolate Mocha 16oz \u2014 Whole Milk + Monin Hazelnut",
       "ingredientSlugs": [
@@ -464,6 +491,7 @@
       "menuId": "mi-coffee-cappuccino",
       "name": "Vanilla Cappuccino",
       "classification": "coffee",
+      "description": "Cup of cappuccino with half and half and vanilla syrup",
       "sellPrice": 5.77,
       "posName": "Classic Cappuccino 20oz \u2014 Land O Lakes Half & Half + Monin Vanilla",
       "ingredientSlugs": [
@@ -501,6 +529,7 @@
       "menuId": "mi-coffee-mocha",
       "name": "Oat Milk Mocha",
       "classification": "coffee",
+      "description": "Cup of mocha with oat milk",
       "sellPrice": 8.15,
       "posName": "Oatly Oat Milk Monin Mocha 12oz",
       "ingredientSlugs": [
@@ -532,6 +561,7 @@
       "menuId": "mi-tea-english",
       "name": "English Breakfast Tea",
       "classification": "tea",
+      "description": "Cup of English breakfast tea",
       "sellPrice": 2.49,
       "posName": "Taylors of Harrogate English Breakfast Tea 16oz",
       "ingredientSlugs": [
@@ -551,6 +581,7 @@
       "menuId": "mi-tea-green",
       "name": "Green Tea",
       "classification": "tea",
+      "description": "Cup of green tea",
       "sellPrice": 2.49,
       "posName": "Twinings Pure Green Tea 20oz",
       "ingredientSlugs": [
@@ -570,6 +601,7 @@
       "menuId": "mi-juice-orange",
       "name": "Orange Juice",
       "classification": "juice",
+      "description": "Glass of orange juice",
       "sellPrice": 3.49,
       "posName": "Kirkland Signature Orange Juice 16oz",
       "ingredientSlugs": [
@@ -589,6 +621,7 @@
       "menuId": "mi-juice-apple",
       "name": "Apple Juice",
       "classification": "juice",
+      "description": "Glass of apple juice",
       "sellPrice": 3.49,
       "posName": "Martinelli's Gold Medal Apple Juice 16oz",
       "ingredientSlugs": [
@@ -608,6 +641,7 @@
       "menuId": "mi-juice-cranberry",
       "name": "Cranberry Juice",
       "classification": "juice",
+      "description": "Glass of cranberry juice",
       "sellPrice": 4.08,
       "posName": "Ocean Spray Cranberry Juice Cocktail 20oz",
       "ingredientSlugs": [
@@ -627,6 +661,7 @@
       "menuId": "mi-coffee-hot",
       "name": "Soy Milk Coffee",
       "classification": "coffee",
+      "description": "Cup of hot coffee with soy milk",
       "sellPrice": 3.2,
       "posName": "House Coffee 16oz \u2014 Silk Original Soy Milk",
       "ingredientSlugs": [
@@ -652,6 +687,7 @@
       "menuId": "mi-sig-garden-morning",
       "name": "Veggie Croissant",
       "classification": "sandwich",
+      "description": "Croissant sandwich with spinach, tomato, and bell pepper",
       "sellPrice": 4.49,
       "posName": "Veggie Croissant \u2014 Earthbound Spinach, Roma Tomato, Green Bell Pepper",
       "ingredientSlugs": [
@@ -689,6 +725,7 @@
       "menuId": "mi-custom-bread",
       "name": "Sourdough Melt",
       "classification": "sandwich",
+      "description": "Grilled sourdough melt with bacon and cheddar",
       "sellPrice": 8.09,
       "posName": "La Brea Sourdough Melt \u2014 Tyson Applewood Bacon, Tillamook Cheddar",
       "ingredientSlugs": [
@@ -726,6 +763,7 @@
       "menuId": "mi-custom-bagel",
       "name": "Loaded Bagel",
       "classification": "byo-sandwich",
+      "description": "Toasted bagel with sausage, fried egg, and American cheese",
       "sellPrice": 7.33,
       "posName": "Thomas' Bagel \u2014 Jimmy Dean Sausage, Eggland's Egg, Kraft American",
       "ingredientSlugs": [
@@ -769,7 +807,7 @@
       "menuId": "mi-byo-bagel",
       "name": "Classic Bagel",
       "classification": "byo-sandwich",
-      "description": "Plain Thomas' bagel \u2014 build your own toppings",
+      "description": "Plain toasted bagel \u2014 build your own toppings",
       "sellPrice": 3.49,
       "posName": "Classic Bagel \u2014 Thomas' Plain",
       "ingredientSlugs": [
@@ -795,7 +833,7 @@
       "menuId": "mi-byo-bagel",
       "name": "Multigrain Bagel",
       "classification": "byo-sandwich",
-      "description": "Thomas' multigrain bagel \u2014 build your own toppings",
+      "description": "Multigrain toasted bagel \u2014 build your own toppings",
       "sellPrice": 3.49,
       "posName": "Multigrain Bagel \u2014 Thomas' 12 Grain",
       "ingredientSlugs": [

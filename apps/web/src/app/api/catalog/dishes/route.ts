@@ -1,13 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { dishSlugFromName } from "@/lib/dish-catalog";
-import { linkedAddOnSlugsForDish, syncDishAddOnLinks } from "@/lib/dish-addon-links";
-import { dishPayload, normalizeIngredientLinks } from "@/lib/dish-payload";
-import { refreshIngredientLabels } from "@/lib/ingredient-labels";
-import { scheduleRecipeBuild } from "@/lib/recipe-builder";
-import { connectDB } from "@/lib/mongodb";
-import { Dish } from "@/models/Dish";
+import { authOptions } from "@backend/services/infra/auth";
+import { dishSlugFromName } from "@backend/services/catalog/dish-catalog";
+import { linkedAddOnSlugsForDish, syncDishAddOnLinks } from "@backend/services/catalog/dish-addon-links";
+import { dishPayload, normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
+import { refreshIngredientLabels } from "@backend/services/catalog/ingredient-labels";
+import { scheduleRecipeBuild } from "@backend/services/recipes/recipe-builder";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Dish } from "@backend/models/Dish";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);

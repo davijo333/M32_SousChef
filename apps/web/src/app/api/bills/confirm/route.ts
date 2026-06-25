@@ -1,12 +1,12 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { ingestBill } from "@/lib/bill-ingest";
-import { applyPipelineEnrichment } from "@/lib/apply-pipeline-enrichment";
-import { pruneOldBillUploads } from "@/lib/bill-retention";
-import { extractNewItemsFromBill, mergeNewCatalogItems } from "@/lib/extract-new-items";
-import { connectDB } from "@/lib/mongodb";
-import { BillUpload } from "@/models/BillUpload";
+import { authOptions } from "@backend/services/infra/auth";
+import { ingestBill } from "@backend/services/bills/bill-ingest";
+import { applyPipelineEnrichment } from "@backend/services/bills/apply-pipeline-enrichment";
+import { pruneOldBillUploads } from "@backend/services/bills/bill-retention";
+import { extractNewItemsFromBill, mergeNewCatalogItems } from "@backend/services/catalog/extract-new-items";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { BillUpload } from "@backend/models/BillUpload";
 
 export const maxDuration = 300;
 

@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { dishMissingPhotos } from "@/lib/dish-image-status";
-import { dishPayload } from "@/lib/dish-payload";
-import { regenerateDishImages } from "@/lib/regenerate-dish-images";
-import { connectDB } from "@/lib/mongodb";
-import { Dish } from "@/models/Dish";
+import { authOptions } from "@backend/services/infra/auth";
+import { dishMissingPhotos } from "@backend/services/catalog/dish-image-status";
+import { dishPayload } from "@backend/services/catalog/dish-payload";
+import { regenerateDishImages } from "@backend/services/catalog/regenerate-dish-images";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Dish } from "@backend/models/Dish";
 
 export async function POST() {
   const session = await getServerSession(authOptions);
@@ -34,8 +34,7 @@ export async function POST() {
       generated++;
     } catch (err) {
       failed++;
-      dish.imageGenerationAttempted = true;
-      await dish.save();
+      await Dish.updateOne({ _id: dish._id }, { $set: { imageGenerationAttempted: true } });
       errors.push({
         slug: dish.slug,
         name: dish.name,

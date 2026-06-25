@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/mongodb";
-import { AddOn } from "@/models/AddOn";
-import { Dish } from "@/models/Dish";
-import { Recipe } from "@/models/Recipe";
-import type { RecipeStatus } from "@/models/Dish";
+import { authOptions } from "@backend/services/infra/auth";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { AddOn } from "@backend/models/AddOn";
+import { Dish } from "@backend/models/Dish";
+import { Recipe } from "@backend/models/Recipe";
+import type { RecipeStatus } from "@backend/models/Dish";
 
 const ALLOWED: RecipeStatus[] = ["active", "inactive", "suggested"];
 

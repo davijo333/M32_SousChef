@@ -10,8 +10,8 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import type { NewCatalogItem } from "@/lib/extract-new-items";
-import { validateBillFilenameForZone } from "@/lib/bill-filename";
+import type { NewCatalogItem } from "@backend/services/catalog/extract-new-items";
+import { validateBillFilenameForZone } from "@backend/services/bills/bill-filename";
 import { useOrderWorkOptional, type OrderBillType } from "@/components/OrderWorkProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
 

@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ImageSuggestion, NewCatalogItem } from "@/lib/extract-new-items";
-import { relinkBillsForItems } from "@/lib/catalog-add";
+import type { ImageSuggestion, NewCatalogItem } from "@backend/services/catalog/extract-new-items";
+import { relinkBillsForItems } from "@backend/services/catalog/catalog-add";
 import {
   bestSuggestedImageUrl,
   initialModalImageUrl,
   sortImagesByScore,
-} from "@/lib/image-selection";
+} from "@backend/services/catalog/image-selection";
 
 type Props = {
   item: NewCatalogItem;

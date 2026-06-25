@@ -5,20 +5,20 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageSquarePlus, Minimize2, Paperclip, Send, X } from "lucide-react";
 import { CreativeCueCard } from "@/components/CreativeCueCard";
-import type { CreateCue } from "@/lib/create-cues";
-import { cueToChatPrompt } from "@/lib/create-cues";
+import type { CreateCue } from "@backend/services/creative/create-cues";
+import { cueToChatPrompt } from "@backend/services/creative/create-cues";
 import {
   CHAT_ATTACHMENT_ACCEPT,
   MAX_CHAT_ATTACHMENTS,
   MAX_CHAT_SESSIONS,
-} from "@/lib/chat-retention";
-import { CREATIVE_CUE_SELECT_EVENT } from "@/lib/creative-cue-events";
+} from "@backend/services/chat/chat-retention";
+import { CREATIVE_CUE_SELECT_EVENT } from "@backend/services/creative/creative-cue-events";
 import {
   buildAssistantGreeting,
   CHAT_ASSISTANT_PROFILES,
   CHAT_PLACEHOLDER,
   type DashboardChatContext,
-} from "@/lib/dashboard-chat";
+} from "@backend/services/agents/dashboard-chat";
 import {
   connectAgentButtonLabel,
   connectBackButtonLabel,
@@ -26,7 +26,7 @@ import {
   handoffToDashboardSection,
   isSpecialistHandoffTarget,
   type SpecialistHandoffTarget,
-} from "@/lib/chat-handoff";
+} from "@backend/services/agents/chat-handoff";
 import { renderChatMarkdown } from "@/lib/chat-markdown";
 import { AgentBrandMark } from "@/components/BrandMark";
 import { AgentSwitcher } from "@/components/AgentSwitcher";
@@ -38,25 +38,39 @@ import {
   runChatMixedBillUploadQueue,
   type ChatBillUploadEntry,
   type ChatUploadBatchPayload,
-} from "@/lib/chat-bill-upload-queue";
+} from "@backend/services/chat/chat-bill-upload-queue";
 import {
+  applyCatalogDraftCorrection,
   buildCatalogDraftFromChat,
+  inferCatalogDraftFromThread,
   type ChatCatalogDraftPayload,
-} from "@/lib/chat-catalog-draft";
-import { shouldParseAttachmentsAsBills } from "@/lib/chat-catalog-intent";
+} from "@backend/services/chat/chat-catalog-draft";
+import { shouldParseAttachmentsAsBills } from "@backend/services/chat/chat-catalog-intent";
 import {
+  detectKitchenBuildConfirm,
+  detectPantryAddZeroConfirm,
   detectRecipeBuildIntent,
-  detectRecipeFinalizeConfirm,
   shouldUseSuggestionConfirmOnly,
-} from "@/lib/chat-recipe-build-intent";
-import { detectUploadConfirm } from "@/lib/chat-upload-intent";
-import type { RecipeBuildPlanPayload } from "@/lib/agent-recipe-build";
+} from "@backend/services/chat/chat-recipe-build-intent";
+import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
+import {
+  isRecipeBuildReadyToFinalize,
+  type RecipeBuildPlanPayload,
+} from "@backend/services/recipes/recipe-build-plan";
+import { deriveChatChoices, type ChatChoice, type ChatChoiceSet } from "@backend/services/chat/chat-choices";
+import { ChatChoiceBar } from "@/components/ChatChoiceBar";
+import { RecipeBuildPicker } from "@/components/RecipeBuildPicker";
 import { Tooltip } from "@/components/ui/Tooltip";
-import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
+import type { DashboardFinancePeriod } from "@backend/services/dashboard/dashboard-stats";
 
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
+  choices?: ChatChoiceSet | null;
+  activity?: {
+    orchestrator: "head";
+    consultedAgents: Array<"inventory" | "business" | "create">;
+  } | null;
 };
 
 type ChatSession = {
@@ -82,88 +96,6 @@ type DashboardChefChatProps = {
   onAgentContextChange?: (context: DashboardChatContext) => void;
   onAgentHandoff?: (section: "inventory" | "business" | "create") => void;
 };
-
-function RecipeBuildPicker({
-  plan,
-  disabled,
-  onPick,
-  onFinalize,
-}: {
-  plan: RecipeBuildPlanPayload;
-  disabled: boolean;
-  onPick: (ingredientKey: string, optionIndex: number) => void;
-  onFinalize: () => void;
-}) {
-  return (
-    <div className="rounded-xl border border-chef-sage/40 bg-chef-sage/5 p-3 space-y-3">
-      <p className="text-xs font-medium text-chef-text-muted">
-        Recipe build — {plan.dishName}
-      </p>
-      {plan.ingredients.map((row) => {
-        if (row.committedSlug || row.pantrySlug) {
-          return (
-            <p key={row.key} className="text-xs text-chef-text-muted">
-              {row.name}: already in pantry
-            </p>
-          );
-        }
-        if (row.selectedOption) {
-          return (
-            <p key={row.key} className="text-xs text-chef-text">
-              {row.name}: {row.selectedOption.label}
-              {row.selectedOption.store ? ` (${row.selectedOption.store})` : ""}
-            </p>
-          );
-        }
-        const options = row.options ?? [];
-        if (!options.length) {
-          return (
-            <p key={row.key} className="text-xs text-chef-text-muted">
-              {row.name}: no store options — describe a brand in chat
-            </p>
-          );
-        }
-        return (
-          <div key={row.key} className="space-y-1.5">
-            <p className="text-xs font-medium text-chef-text">{row.name}</p>
-            <div className="flex flex-wrap gap-2">
-              {options.map((opt, index) => (
-                <button
-                  key={`${row.key}-${index}`}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onPick(row.key, index + 1)}
-                  className="flex max-w-[10rem] flex-col items-start gap-1 rounded-lg border border-chef-border bg-white p-1.5 text-left text-xs hover:border-chef-sage disabled:opacity-50"
-                >
-                  {opt.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={opt.imageUrl}
-                      alt={opt.label}
-                      className="h-14 w-full rounded object-cover"
-                    />
-                  ) : null}
-                  <span className="line-clamp-2 font-medium text-chef-text">{opt.label}</span>
-                  {opt.store ? (
-                    <span className="text-chef-text-muted">{opt.store}</span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onFinalize}
-        className="sc-btn-primary w-full py-2 text-sm disabled:opacity-50"
-      >
-        Add to Kitchen (ingredients + dish + images)
-      </button>
-    </div>
-  );
-}
 
 function MinimizeChatButton({
   onClick,
@@ -330,6 +262,7 @@ export function DashboardChefChat({
   const [cues, setCues] = useState<CreateCue[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [tryAskingPrompts, setTryAskingPrompts] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -338,6 +271,7 @@ export function DashboardChefChat({
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState<string | null>(null);
   const [recipeBuildPlan, setRecipeBuildPlan] = useState<RecipeBuildPlanPayload | null>(null);
+  const [catalogDraft, setCatalogDraft] = useState<ChatCatalogDraftPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -370,6 +304,22 @@ export function DashboardChefChat({
     }
   }, [showCues]);
 
+  const loadPromptSuggestions = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({ page: context, agent: agentContext });
+      const res = await fetch(`/api/dashboard/chat-suggestions?${params}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        sampleQueries?: string[];
+        tryAsking?: string[];
+      };
+      const queries = data.sampleQueries?.filter(Boolean) ?? data.tryAsking?.filter(Boolean) ?? [];
+      setTryAskingPrompts(queries);
+    } catch {
+      // ignore
+    }
+  }, [agentContext, context]);
+
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ prompt: string }>).detail;
@@ -393,6 +343,10 @@ export function DashboardChefChat({
       setDraftNewChat(false);
       if (data.messages.length > 0) {
         setMessages(data.messages);
+        const recovered = inferCatalogDraftFromThread(
+          data.messages.map((row) => ({ role: row.role, content: row.content }))
+        );
+        setCatalogDraft(recovered ?? null);
         if (expandOnLoad) setExpanded(true);
       } else {
         setMessages([]);
@@ -405,7 +359,7 @@ export function DashboardChefChat({
   const loadConversation = useCallback(
     async (selectedId?: string | null, expandOnLoad?: boolean) => {
       try {
-        const params = new URLSearchParams({ context });
+        const params = new URLSearchParams();
         if (selectedId) params.set("conversationId", selectedId);
         const res = await fetch(`/api/dashboard/chat?${params}`);
         if (!res.ok) return;
@@ -424,19 +378,17 @@ export function DashboardChefChat({
         setLoaded(true);
       }
     },
-    [applyConversationPayload, context, variant]
+    [applyConversationPayload, variant]
   );
 
   useEffect(() => {
-    setSessions([]);
-    setConversationId(null);
-    setDraftNewChat(false);
-    setMessages([]);
-    setExpanded(false);
-    setLoaded(false);
-    void loadConversation();
+    void loadConversation(undefined, variant !== "dock" && variant !== "floating");
     void loadCues();
-  }, [context, loadConversation, loadCues]);
+  }, [loadConversation, loadCues, variant]);
+
+  useEffect(() => {
+    void loadPromptSuggestions();
+  }, [loadPromptSuggestions]);
 
   useEffect(() => {
     if (expanded) {
@@ -469,6 +421,7 @@ export function DashboardChefChat({
     setError("");
     setLastCreated(null);
     setRecipeBuildPlan(null);
+    setCatalogDraft(null);
     setAttachments([]);
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
@@ -494,7 +447,7 @@ export function DashboardChefChat({
     setDeletingId(id);
     setError("");
     try {
-      const params = new URLSearchParams({ context, conversationId: id });
+      const params = new URLSearchParams({ conversationId: id });
       const res = await fetch(`/api/dashboard/chat?${params}`, {
         method: "DELETE",
         credentials: "same-origin",
@@ -627,6 +580,10 @@ export function DashboardChefChat({
         createdSuggestion?: { name: string };
         handoff?: SpecialistHandoffTarget;
         agentContext?: DashboardChatContext;
+        activity?: {
+          orchestrator: "head";
+          consultedAgents: Array<"inventory" | "business" | "create">;
+        } | null;
       };
 
       if (!res.ok) {
@@ -655,6 +612,13 @@ export function DashboardChefChat({
       handoff?: SpecialistHandoffTarget;
       agentContext?: DashboardChatContext;
       recipeBuildPlan?: RecipeBuildPlanPayload | null;
+      kitchenBuildComplete?: boolean;
+      catalogDraft?: ChatCatalogDraftPayload | null;
+      choices?: ChatChoiceSet | null;
+      activity?: {
+        orchestrator: "head";
+        consultedAgents: Array<"inventory" | "business" | "create">;
+      } | null;
     }
   ) {
     if (data.conversationId) setConversationId(data.conversationId);
@@ -666,6 +630,14 @@ export function DashboardChefChat({
     if (data.recipeBuildPlan !== undefined) {
       setRecipeBuildPlan(data.recipeBuildPlan);
     }
+    if (data.kitchenBuildComplete) {
+      setCatalogDraft(null);
+      setRecipeBuildPlan(null);
+    }
+    if (data.catalogDraft !== undefined) {
+      setCatalogDraft(data.catalogDraft);
+    }
+    void loadPromptSuggestions();
 
     if (data.handoff) {
       applyHandoff(data.handoff);
@@ -675,13 +647,27 @@ export function DashboardChefChat({
 
     setMessages((prev) => [
       ...prev,
-      { role: "assistant", content: data.reply ?? "Done." },
+      {
+        role: "assistant",
+        content: data.reply ?? "Done.",
+        choices: data.choices ?? null,
+        activity: data.activity ?? null,
+      },
     ]);
   }
 
-  async function sendMessage(text: string, confirmSuggestion = false) {
+  async function sendChoice(choice: ChatChoice) {
+    await sendMessage(choice.message);
+  }
+
+  async function sendMessage(
+    text: string,
+    options?: { confirmSuggestion?: boolean; recipeBuildPlan?: RecipeBuildPlanPayload }
+  ) {
     const trimmed = text.trim();
     const filesToSend = [...attachments];
+    const confirmSuggestion = options?.confirmSuggestion ?? false;
+    const outboundRecipeBuild = options?.recipeBuildPlan ?? recipeBuildPlan;
     if ((!trimmed && filesToSend.length === 0) || sending || parsingBatch) return;
 
     if (filesToSend.length > 0 && uploadLocked) {
@@ -694,20 +680,35 @@ export function DashboardChefChat({
         trimmed
       );
     const recipeIntent = detectRecipeBuildIntent(trimmed);
+    const threadHistory = messages.map((row) => ({ role: row.role, content: row.content }));
+    const activeCatalogDraft =
+      catalogDraft ?? inferCatalogDraftFromThread(threadHistory) ?? null;
     const confirmSuggestionFlag =
       confirmSuggestion ||
-      (agentContext === "create" && recipeBuildPlan && menuConfirmPattern) ||
+      (agentContext === "create" && outboundRecipeBuild && menuConfirmPattern) ||
       (agentContext === "create" &&
-        !recipeBuildPlan &&
+        !outboundRecipeBuild &&
         menuConfirmPattern &&
         (shouldUseSuggestionConfirmOnly(trimmed) ||
           /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(trimmed))) ||
-      (agentContext === "create" && recipeIntent && detectRecipeFinalizeConfirm(trimmed));
+      (agentContext === "create" && recipeIntent && detectKitchenBuildConfirm(trimmed)) ||
+      (context === "head" &&
+        detectKitchenBuildConfirm(trimmed, {
+          hasCatalogDish: activeCatalogDraft?.itemType === "dish",
+          hasRecipePlan: Boolean(outboundRecipeBuild),
+        })) ||
+      (context === "head" &&
+        detectPantryAddZeroConfirm(trimmed) &&
+        activeCatalogDraft?.itemType === "dish") ||
+      (Boolean(outboundRecipeBuild) &&
+        isRecipeBuildReadyToFinalize(outboundRecipeBuild) &&
+        menuConfirmPattern);
     const confirmUpload = detectUploadConfirm(trimmed);
     const confirmInventory =
       (agentContext === "inventory" &&
         /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
-      (context === "head" && confirmUpload);
+      (context === "head" && confirmUpload) ||
+      (context === "head" && detectPantryAddZeroConfirm(trimmed));
     const confirmBusiness =
       (agentContext === "business" &&
         /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
@@ -720,7 +721,7 @@ export function DashboardChefChat({
     let uploadNote = "";
     let uploadBatch: ChatUploadBatchPayload | undefined;
     let catalogNote = "";
-    let catalogDraft: ChatCatalogDraftPayload | undefined;
+    let outboundCatalogDraft: ChatCatalogDraftPayload | undefined = activeCatalogDraft ?? undefined;
     try {
       if (filesToSend.length > 0 && shouldParseAttachmentsAsBills(trimmed, filesToSend)) {
         uploadBatch = await parseAttachmentBatch(filesToSend, trimmed);
@@ -738,13 +739,15 @@ export function DashboardChefChat({
         if (!catalogResult.draft) {
           throw new Error("Could not identify a menu or pantry item from that photo.");
         }
-        catalogDraft = catalogResult.draft;
+        outboundCatalogDraft = catalogResult.draft;
+        setCatalogDraft(catalogResult.draft);
         catalogNote = catalogResult.note;
         setAttachments([]);
       } else {
         const catalogResult = await buildCatalogDraftFromChat(trimmed, [], agentContext);
         if (catalogResult.draft) {
-          catalogDraft = catalogResult.draft;
+          outboundCatalogDraft = catalogResult.draft;
+          setCatalogDraft(catalogResult.draft);
           catalogNote = catalogResult.note;
         }
       }
@@ -755,6 +758,15 @@ export function DashboardChefChat({
     }
 
     const outbound = [trimmed, uploadNote, catalogNote].filter(Boolean).join("\n\n");
+    const correctedCatalogDraft = applyCatalogDraftCorrection(
+      outboundCatalogDraft ?? activeCatalogDraft ?? undefined,
+      trimmed,
+      threadHistory
+    );
+    if (correctedCatalogDraft) {
+      setCatalogDraft(correctedCatalogDraft);
+    }
+
     setMessages((prev) => [...prev, { role: "user", content: outbound }]);
     setInput("");
 
@@ -774,8 +786,8 @@ export function DashboardChefChat({
           confirmInventory,
           confirmBusiness,
           uploadBatch,
-          catalogDraft,
-          recipeBuild: recipeBuildPlan ?? undefined,
+          catalogDraft: correctedCatalogDraft ?? outboundCatalogDraft,
+          recipeBuild: outboundRecipeBuild ?? undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -788,6 +800,12 @@ export function DashboardChefChat({
         handoff?: "inventory" | "business" | "create";
         agentContext?: DashboardChatContext;
         recipeBuildPlan?: RecipeBuildPlanPayload | null;
+        kitchenBuildComplete?: boolean;
+        catalogDraft?: ChatCatalogDraftPayload | null;
+        activity?: {
+          orchestrator: "head";
+          consultedAgents: Array<"inventory" | "business" | "create">;
+        } | null;
       };
 
       if (!res.ok) {
@@ -819,6 +837,16 @@ export function DashboardChefChat({
   const showSessionTabs = sessions.length + (draftNewChat ? 1 : 0) >= 2;
   const showGreeting = expanded && !hasUserMessages(messages);
   const showSampleQueries = showGreeting;
+  const effectiveTryAsking = tryAskingPrompts.length
+    ? tryAskingPrompts
+    : profile.sampleQueries;
+
+  function queuePrompt(prompt: string) {
+    setInput(prompt);
+    setExpanded(true);
+    queueMicrotask(() => inputRef.current?.focus());
+  }
+
   const showCreativeCues = showCues;
   const isFloating = variant === "floating";
   const isDock = variant === "dock" || isFloating;
@@ -1111,6 +1139,25 @@ export function DashboardChefChat({
                   msg.role === "assistant" ? detectSuggestedAgentHandoff(msg.content) : null;
                 const showConnectButton =
                   suggestedAgent !== null && suggestedAgent !== agentContext;
+                const isLastAssistant =
+                  msg.role === "assistant" &&
+                  !messages.slice(index + 1).some((row) => row.role === "assistant");
+                const liveChoices =
+                  isLastAssistant && index === messages.length - 1
+                    ? deriveChatChoices({
+                        catalogDraft: catalogDraft ?? inferCatalogDraftFromThread(
+                          messages.map((row) => ({ role: row.role, content: row.content }))
+                        ),
+                        recipeBuildPlan,
+                        kitchenBuildComplete: false,
+                      })
+                    : null;
+                const displayChoices = liveChoices ?? msg.choices;
+                const showChoices =
+                  isLastAssistant &&
+                  displayChoices &&
+                  !sending &&
+                  index === messages.length - 1;
 
                 return (
                   <div
@@ -1130,6 +1177,15 @@ export function DashboardChefChat({
                         {renderChatMarkdown(msg.content)}
                       </div>
                     </div>
+                    {msg.role === "assistant" && msg.activity?.consultedAgents?.length ? (
+                      <p className="mt-1 px-1 text-xs text-chef-text-muted">
+                        Sous Chef consulted{" "}
+                        {msg.activity.consultedAgents
+                          .map((agent) => CHAT_ASSISTANT_PROFILES[agent].name)
+                          .join(", ")}
+                        .
+                      </p>
+                    ) : null}
                     {showConnectButton && (
                       <button
                         type="button"
@@ -1140,32 +1196,39 @@ export function DashboardChefChat({
                         {connectAgentButtonLabel(suggestedAgent)}
                       </button>
                     )}
+                    {showChoices && displayChoices ? (
+                      <ChatChoiceBar
+                        choiceSet={displayChoices}
+                        disabled={sending}
+                        onSelect={(choice) => void sendChoice(choice)}
+                      />
+                    ) : null}
                   </div>
                 );
               })}
 
-              {recipeBuildPlan && agentContext === "create" && (
+              {recipeBuildPlan && (context === "head" || agentContext === "create") && (
                 <RecipeBuildPicker
                   plan={recipeBuildPlan}
                   disabled={sending}
-                  onPick={(ingredientKey, optionIndex) => {
-                    const row = recipeBuildPlan.ingredients.find((ing) => ing.key === ingredientKey);
-                    const name = row?.name ?? ingredientKey;
-                    void sendMessage(`${name}: ${optionIndex}`);
-                  }}
-                  onFinalize={() => void sendMessage("go ahead")}
+                  onFinalize={(plan) =>
+                    void sendMessage("Go ahead — add the dish, ingredients, and recipe", {
+                      confirmSuggestion: true,
+                      recipeBuildPlan: plan,
+                    })
+                  }
                 />
               )}
 
               {showSampleQueries && (
                 <div className="space-y-2 pt-1">
-                  <p className="text-xs font-medium text-chef-text-muted">Sample questions</p>
+                  <p className="text-xs font-medium text-chef-text-muted">Sample Queries</p>
                   <div className="flex flex-wrap gap-2">
-                    {profile.sampleQueries.map((query) => (
+                    {effectiveTryAsking.map((query) => (
                       <button
                         key={query}
                         type="button"
-                        onClick={() => void sendMessage(query)}
+                        onClick={() => queuePrompt(query)}
                         disabled={sending}
                         className="rounded-full border border-chef-border bg-white px-3 py-1.5 text-left text-xs text-chef-text hover:border-chef-sage hover:bg-chef-sage-light/30 disabled:opacity-50"
                       >
@@ -1177,10 +1240,15 @@ export function DashboardChefChat({
               )}
 
               {sending && (
-                <p className="flex items-center gap-2 text-sm text-chef-text-muted">
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  {profile.name} is thinking…
-                </p>
+                <div className="space-y-1">
+                  <p className="flex items-center gap-2 text-sm text-chef-text-muted">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Sous Chef is thinking…
+                  </p>
+                  <p className="text-xs text-chef-text-muted">
+                    Sous Chef may consult specialists before replying.
+                  </p>
+                </div>
               )}
             </div>
 

@@ -1,4 +1,4 @@
-import type { DashboardChatContext } from "@/lib/dashboard-chat";
+import type { DashboardChatContext } from "@backend/services/agents/dashboard-chat";
 
 const BRAND = "/brand";
 

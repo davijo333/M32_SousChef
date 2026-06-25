@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { prepareNewItemsForReview } from "@/lib/enrich-client";
-import { mergeNewCatalogItems, type NewCatalogItem } from "@/lib/extract-new-items";
-import { isItemReadyForCard } from "@/lib/image-selection";
+import { prepareNewItemsForReview } from "@backend/services/infra/enrich-client";
+import { mergeNewCatalogItems, type NewCatalogItem } from "@backend/services/catalog/extract-new-items";
+import { isItemReadyForCard } from "@backend/services/catalog/image-selection";
 
 export const REVIEW_STORAGE_KEY = "souschef-upload-review";
 export const NEW_CATALOG_EVENT = "souschef:new-catalog-items";

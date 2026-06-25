@@ -12,8 +12,8 @@ npm install
 cd apps/web && npm install && cd ../..
 
 npm run connect:mongodb   # MongoDB on :27017
-npm run start:agents      # FastAPI agents on :8000
-npm run start:schef       # Next.js on :3000
+npm run start:agents    # FastAPI agent service on :8000
+npm run start:schef     # Next.js on :3000
 ```
 
 Open [http://localhost:3000](http://localhost:3000), sign up, and set your kitchen name.
@@ -37,14 +37,18 @@ Run from the **repo root**:
 
 | Script | Description |
 |--------|-------------|
-| `npm run connect:mongodb` | Start MongoDB via Docker Compose |
+| `npm run connect:mongodb` | Start MongoDB via Docker Compose (`infra/docker-compose.yml`) |
 | `npm run start:agents` | Start Python agent service (`:8000`) |
 | `npm run start:schef` | Start Next.js web app (`:3000`) |
 | `npm run dev` | Mongo + Next.js dev server |
+| `npm run dev:web` | Clean restart of Next.js |
+| `npm run dev:agent` | Agent service only |
 | `npm run build` | Production build of the web app |
-| `npm run regenerate:bills` | Regenerate test purchase/sales bill PDFs & PNGs |
+| `npm run regenerate:bills` | Regenerate purchase/sales bill PDFs & PNGs |
+| `npm run generate:tool-docs` | Regenerate tool spec markdown from `tools/tools/manifest.json` |
 | `npm run reset:db` | Wipe MongoDB and local `storage/r2/` files |
-| `npm run retest:upload` | Sign in, seed, and parse all test bills via API |
+| `npm run retest:upload` | Sign in, seed, and parse all fixture bills via API |
+| `npm run docker:full` | Mongo + agent service in Docker |
 
 ## App overview
 
@@ -61,7 +65,7 @@ Run from the **repo root**:
 - **Inventory / Business / Creative** — section tabs with dedicated agent branding; chat connects via **Connect to … Agent** when Sous Chef delegates.
 - Up to **5 saved chat sessions**; attach up to **5 files** per message in Sous Chef chat.
 
-See [docs/Agents/README.md](docs/Agents/README.md) for agents and [Tool_Index](docs/Agentic_Tools/Tool_Index.md) for chat tools.
+See [agents/README.md](agents/README.md) for agents and [tools/Tool_Index.md](tools/Tool_Index.md) for chat tools.
 
 ### Upload flow
 
@@ -84,7 +88,9 @@ Details: [docs/Recipes/classifications.md](docs/Recipes/classifications.md).
 
 ## Test data
 
-### 1. Generate bill fixtures
+The `test/` directory holds catalog JSON, bill generators, and generated PDF/PNG files. It is **committed to the repo** so **Load test data** and upload retests work after clone without extra setup. Regenerate bills only when you change inventory fixtures:
+
+### 1. Regenerate bill fixtures (optional)
 
 Bills are built from [`test/inventory/`](test/inventory/) JSON (ingredients, dishes, purchase/sales order lines).
 
@@ -133,26 +139,35 @@ npm run retest:upload
 
 ```
 M32_SousChef/
-├── apps/web/              # Next.js — UI, API routes, MongoDB models
-├── services/agent/        # FastAPI — bill parse, LangChain chat agents, image suggestions
-├── test/
-│   ├── inventory/       # Catalog + order JSON (source of truth for bills)
-│   ├── bills/           # Generated PDF/PNG fixtures
-│   └── scripts/         # generate-bills.py, recalculate-pricing.py
-├── docs/                  # UI, agents, DB, inventory, recipes reference
-├── storage/r2/            # Local mirror of catalog images + uploaded bill files
-├── scripts/               # start-web, reset-db, retest-upload
-└── docker-compose.yml     # MongoDB
+├── apps/web/                    # Next.js frontend + API route handlers
+│   └── src/
+│       ├── app/                 # Pages and thin API routes
+│       ├── components/          # React UI
+│       └── lib/                 # UI-only helpers (icons, hooks, markdown)
+├── backend/
+│   ├── api/                     # Shared server logic
+│   │   ├── models/              # Mongoose schemas
+│   │   └── services/            # Domain services (agents, bills, catalog, …)
+│   └── agent-service/           # FastAPI — LangGraph chat + bill workers
+│       ├── agents/              # Supervisor + specialists
+│       ├── tools/               # LangChain @tool implementations
+│       ├── workers/             # Bill parse, images, recipe linker
+│       └── chat/                # POST /chat
+├── agents/                      # Agent profiles (spec)
+├── tools/                       # Tool index + manifest (spec)
+├── test/                        # Catalog JSON, generated bills, seed images, generators (in repo)
+│   └── storage/r2/              # Committed catalog photos (copied to storage/r2 on seed)
+├── docs/                        # DB, UI, inventory, recipes reference
+├── infra/                       # docker-compose, dev scripts
+├── packages/types/              # Shared TypeScript types (workspace)
+└── storage/r2/                  # Local mirror of catalog images + bills
 ```
 
 ## Documentation
 
-- [`docs/README.md`](docs/README.md) — doc index
-- [`docs/UI/README.md`](docs/UI/README.md) — pages and flows
-- [`docs/Agents/README.md`](docs/Agents/README.md) — 4 chat agents (one file each)
-- [`docs/Agentic_Tools/Tool_Index.md`](docs/Agentic_Tools/Tool_Index.md) — 9 core tools (8 shipped · 1 partial)
-- [`docs/Agentic_Tools/tools/`](docs/Agentic_Tools/tools/) — one file per core tool
-- [`docs/Agentic_Tools/Development.md`](docs/Agentic_Tools/Development.md) — LangGraph architecture
-- [`docs/DB/README.md`](docs/DB/README.md) — MongoDB collections
-- [`docs/Recipes/`](docs/Recipes/) — recipe workflow and classifications
+- [`docs/README.md`](docs/README.md) — reference doc index (DB, UI, inventory, recipes)
+- [`agents/README.md`](agents/README.md) — 4 chat agents (one file each)
+- [`tools/Tool_Index.md`](tools/Tool_Index.md) — 9 core tools
+- [`tools/tools/`](tools/tools/) — one markdown file per core tool
+- [`tools/Development.md`](tools/Development.md) — LangGraph architecture
 - [`storage/r2/README.md`](storage/r2/README.md) — image and bill file layout

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { INGREDIENT_CATEGORY_OPTIONS } from "@/lib/catalog-classification";
-import { isUsableImageCandidate } from "@/lib/image-selection";
+import { INGREDIENT_CATEGORY_OPTIONS } from "@backend/services/catalog/catalog-classification";
+import { isUsableImageCandidate } from "@backend/services/catalog/image-selection";
+import { validIngredientImageCount } from "@backend/services/catalog/ingredient-image-status";
 
 export type IngredientDetail = {
   slug: string;
@@ -28,6 +29,7 @@ type Props = {
   item: IngredientDetail;
   onClose: () => void;
   onSaved?: (updated: IngredientDetail) => void;
+  onDeleted?: (slug: string) => void;
 };
 
 type ImageCandidate = NonNullable<IngredientDetail["imageCandidates"]>[number];
@@ -72,7 +74,7 @@ async function parseResponseBody<T>(res: Response): Promise<T | null> {
   }
 }
 
-export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
+export function KitchenIngredientModal({ item, onClose, onSaved, onDeleted }: Props) {
   const isNew = item.isNew ?? !item.slug;
   const [ingredientSlug, setIngredientSlug] = useState(item.slug);
   const [name, setName] = useState(item.name);
@@ -93,6 +95,7 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
   );
   const [selectedImageIndex, setSelectedImageIndex] = useState(item.selectedImageIndex ?? 0);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
 
@@ -111,8 +114,11 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
     setSelectedImageIndex(item.selectedImageIndex ?? 0);
   }, [item]);
 
-  const hasDefaultAndSecondary = Boolean(candidates[0]?.url && candidates[1]?.url);
-  const hasImages = candidates.some((c) => Boolean(c?.url));
+  const photoCount = validIngredientImageCount(candidates);
+  const missingPhotos = photoCount < 2;
+  const hasAnyPhoto = photoCount >= 1;
+  const hasDefaultAndSecondary = photoCount >= 2;
+  const hasImages = hasAnyPhoto;
   const low = Number(currentQty) < Number(reorderThreshold);
 
   function buildSavePayload() {
@@ -266,6 +272,33 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
     }
   }
 
+  async function handleDelete() {
+    if (!ingredientSlug) return;
+    const confirmed = window.confirm(
+      `Remove ingredient "${name || ingredientSlug}" from pantry? This unlinks it from dishes and cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/catalog/ingredients/${encodeURIComponent(ingredientSlug)}`, {
+        method: "DELETE",
+      });
+      const data = await parseResponseBody<{ error?: string }>(res);
+      if (!res.ok) {
+        setError(data?.error ?? "Remove failed");
+        return;
+      }
+      onDeleted?.(ingredientSlug);
+      onClose();
+    } catch {
+      setError("Remove failed");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setError("");
@@ -294,7 +327,7 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
   }
 
   async function handlePrimaryAction() {
-    if (hasImages) {
+    if (!missingPhotos) {
       await handleSave();
     } else {
       await handleGenerateImage();
@@ -521,6 +554,20 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
                   </button>
                 </div>
               )}
+              {missingPhotos && hasAnyPhoto && !hasDefaultAndSecondary && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={generating || saving}
+                    onClick={() =>
+                      ingredientSlug && void generateImages(ingredientSlug, "pair", true)
+                    }
+                    className="rounded-lg border border-chef-sage/50 px-3 py-1.5 text-sm font-medium text-chef-sage hover:bg-chef-sage-light/40 disabled:opacity-50"
+                  >
+                    {generating ? "Generating…" : "Generate secondary photo"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -528,7 +575,20 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
         </div>
 
         <div className="shrink-0 border-t border-chef-muted/60 bg-chef-surface px-5 py-3 sm:px-6">
-          <div className="flex justify-end gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              {ingredientSlug && !isNew && (
+                <button
+                  type="button"
+                  onClick={() => void handleDelete()}
+                  disabled={saving || generating || deleting}
+                  className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deleting ? "Removing…" : "Remove"}
+                </button>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
@@ -539,17 +599,20 @@ export function KitchenIngredientModal({ item, onClose, onSaved }: Props) {
             <button
               type="button"
               onClick={() => void handlePrimaryAction()}
-              disabled={saving || generating}
+              disabled={saving || generating || deleting}
               className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             >
               {generating
                 ? "Generating…"
                 : saving
                   ? "Saving…"
-                  : hasImages
-                    ? "Save"
-                    : "Generate Image"}
+                  : missingPhotos
+                    ? hasAnyPhoto
+                      ? "Complete photos"
+                      : "Generate images"
+                    : "Save"}
             </button>
+            </div>
           </div>
         </div>
       </div>

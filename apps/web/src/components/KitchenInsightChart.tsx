@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { formatCurrency } from "@/lib/dashboard-stats";
-import { formatPercent } from "@/lib/dashboard-margins";
+import { formatCurrency } from "@backend/services/dashboard/dashboard-stats";
+import { formatPercent } from "@backend/services/dashboard/dashboard-margins";
 
 type RankingRow = {
   slug: string;

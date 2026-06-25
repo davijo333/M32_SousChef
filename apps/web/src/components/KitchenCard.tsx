@@ -4,14 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import {
   formatIngredientPrice,
   formatInventoryLevel,
-  formatLastBoughtDate,
-} from "@/lib/ingredient-purchase-stats";
-import { formatMenuSellPrice } from "@/lib/menu-sales-stats";
-import type { IngredientLabel } from "@/models/Ingredient";
+} from "@backend/services/catalog/ingredient-purchase-stats";
+import { formatMenuSellPrice } from "@backend/services/dashboard/menu-sales-stats";
+import type { IngredientLabel } from "@backend/models/Ingredient";
 
 export type IngredientPantryInfo = {
   lastPurchasePrice?: number;
-  lastPurchaseDate?: string | null;
   currentQty: number;
   inventoryUnit: string;
   reorderThreshold: number;
@@ -158,12 +156,6 @@ export function KitchenCard({
               Last bought price:{" "}
               <span className="font-medium text-chef-text">
                 {formatIngredientPrice(ingredientPantry.lastPurchasePrice)}
-              </span>
-            </p>
-            <p>
-              Last date bought:{" "}
-              <span className="font-medium text-chef-text">
-                {formatLastBoughtDate(ingredientPantry.lastPurchaseDate)}
               </span>
             </p>
             <p>

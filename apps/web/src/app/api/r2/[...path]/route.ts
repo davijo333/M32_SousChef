@@ -1,8 +1,8 @@
 import fs from "fs/promises";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { isCatalogSlugImageKey, isUserBillR2Key, resolveR2Path } from "@/lib/r2-storage";
+import { authOptions } from "@backend/services/infra/auth";
+import { isCatalogSlugImageKey, isUserBillR2Key, resolveR2Path } from "@backend/services/infra/r2-storage";
 
 const MIME: Record<string, string> = {
   jpg: "image/jpeg",

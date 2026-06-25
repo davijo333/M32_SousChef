@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { buildCreateCues } from "@/lib/create-cues";
-import { fetchWeatherCue } from "@/lib/create-weather";
-import { isIngredientExpiring } from "@/lib/dashboard-stats";
-import { connectDB } from "@/lib/mongodb";
-import { Ingredient } from "@/models/Ingredient";
+import { authOptions } from "@backend/services/infra/auth";
+import { buildCreateCues } from "@backend/services/creative/create-cues";
+import { fetchWeatherCue } from "@backend/services/creative/create-weather";
+import { isIngredientExpiring } from "@backend/services/dashboard/dashboard-stats";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Ingredient } from "@backend/models/Ingredient";
 
 export async function GET() {
   const session = await getServerSession(authOptions);

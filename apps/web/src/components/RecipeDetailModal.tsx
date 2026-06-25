@@ -4,8 +4,8 @@ import {
   suggestionNoteLabel,
   type SuggestionNote,
   type SuggestionNoteKind,
-} from "@/lib/suggestion-notes";
-import { formatClassificationLabel } from "@/lib/catalog-classification";
+} from "@backend/services/creative/suggestion-notes";
+import { formatClassificationLabel } from "@backend/services/catalog/catalog-classification";
 
 export type RecipeLink = {
   ingredientSlug: string;
@@ -32,6 +32,7 @@ export type RecipeMeta = {
     qtyUsed: number;
     unit: string;
   }>;
+  instructions?: string[];
 };
 
 export type RecipeModalItem =
@@ -68,6 +69,7 @@ type Props = {
   onAccept?: () => void;
   onReject?: () => void;
   onRevive?: () => void;
+  onDelete?: () => void;
   actionBusy?: boolean;
 };
 
@@ -149,6 +151,7 @@ export function RecipeDetailModal({
   onAccept,
   onReject,
   onRevive,
+  onDelete,
   actionBusy,
 }: Props) {
   const recipe = item.recipe;
@@ -286,6 +289,19 @@ export function RecipeDetailModal({
           </p>
           <RecipeLinkList links={links} />
 
+          {recipe?.instructions?.length ? (
+            <>
+              <p className="mt-5 text-xs font-medium uppercase tracking-wide text-chef-text-muted">
+                Instructions
+              </p>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-chef-text">
+                {recipe.instructions.map((step, index) => (
+                  <li key={`${index}-${step.slice(0, 24)}`}>{step}</li>
+                ))}
+              </ol>
+            </>
+          ) : null}
+
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-chef-border pt-4">
             {showCheckbox && onSelect && (
               <label className="mr-auto flex items-center gap-2 text-sm text-chef-text">
@@ -327,15 +343,29 @@ export function RecipeDetailModal({
                 {actionBusy ? "Saving…" : "Reject"}
               </button>
             )}
-            {tab === "inactive" && onRevive && (
-              <button
-                type="button"
-                disabled={actionBusy}
-                onClick={onRevive}
-                className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
-              >
-                {actionBusy ? "Saving…" : "Revive"}
-              </button>
+            {tab === "inactive" && (onDelete || onRevive) && (
+              <div className="ml-auto flex flex-wrap gap-2">
+                {onDelete && (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={onDelete}
+                    className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {actionBusy ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+                {onRevive && (
+                  <button
+                    type="button"
+                    disabled={actionBusy}
+                    onClick={onRevive}
+                    className="rounded-lg bg-chef-sage px-4 py-2 text-sm font-medium text-white hover:bg-chef-sage-dark disabled:opacity-50"
+                  >
+                    {actionBusy ? "Saving…" : "Revive"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>

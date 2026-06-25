@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { matchLineToCatalog } from "@/lib/bill-normalizer";
-import { connectDB } from "@/lib/mongodb";
-import { BillUpload } from "@/models/BillUpload";
-import { Ingredient } from "@/models/Ingredient";
+import { authOptions } from "@backend/services/infra/auth";
+import { matchLineToCatalog } from "@backend/services/bills/bill-normalizer";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { BillUpload } from "@backend/models/BillUpload";
+import { Ingredient } from "@backend/models/Ingredient";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);

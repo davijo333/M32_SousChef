@@ -1,13 +1,13 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/mongodb";
+import { authOptions } from "@backend/services/infra/auth";
+import { connectDB } from "@backend/services/infra/mongodb";
 import {
   assignKitchenName,
   ensureRestaurantForSession,
   ensureRestaurantNameKey,
-} from "@/lib/restaurant-name-server";
-import { Restaurant } from "@/models/Restaurant";
+} from "@backend/services/infra/restaurant-name-server";
+import { Restaurant } from "@backend/models/Restaurant";
 
 export async function GET() {
   const session = await getServerSession(authOptions);

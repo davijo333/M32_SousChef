@@ -1,7 +1,7 @@
-import { PLACEHOLDER_KITCHEN_NAME } from "@/lib/kitchen-name";
-import { connectDB } from "@/lib/mongodb";
-import { Restaurant } from "@/models/Restaurant";
-import { User } from "@/models/User";
+import { PLACEHOLDER_KITCHEN_NAME } from "@backend/services/infra/kitchen-name";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Restaurant } from "@backend/models/Restaurant";
+import { User } from "@backend/models/User";
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { z } from "zod";

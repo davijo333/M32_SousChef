@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { ImageSuggestion, NewCatalogItem } from "@/lib/extract-new-items";
-import { REQUIRED_CARD_IMAGES, resolveItemImageUrl, sortImagesByScore } from "@/lib/image-selection";
+import type { ImageSuggestion, NewCatalogItem } from "@backend/services/catalog/extract-new-items";
+import { REQUIRED_CARD_IMAGES, resolveItemImageUrl, sortImagesByScore } from "@backend/services/catalog/image-selection";
 
 function CatalogImage({
   src,

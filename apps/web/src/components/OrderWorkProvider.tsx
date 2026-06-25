@@ -10,7 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { ActiveUploadFile, StoredBillEntry } from "@/lib/order-work-entries";
+import type { ActiveUploadFile, StoredBillEntry } from "@backend/services/orders/order-work-entries";
 
 export type OrderBillType = "supplier" | "customer";
 

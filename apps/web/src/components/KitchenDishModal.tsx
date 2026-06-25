@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { DishDetail, DishIngredientLink } from "@/lib/dish-payload";
-import { isUsableImageCandidate } from "@/lib/image-selection";
+import type { DishDetail, DishIngredientLink } from "@backend/services/catalog/dish-payload";
+import { isUsableImageCandidate } from "@backend/services/catalog/image-selection";
+import { validDishImageCount } from "@backend/services/catalog/dish-image-status";
 
 type PantryOption = {
   slug: string;
@@ -211,8 +212,11 @@ export function KitchenDishModal({
     [description, ingredientLinks, name, pantryBySlug, resolvedClassification]
   );
 
-  const hasDefaultAndSecondary = Boolean(candidates[0]?.url && candidates[1]?.url);
-  const hasImages = candidates.some((c) => Boolean(c?.url));
+  const photoCount = validDishImageCount(candidates);
+  const missingPhotos = photoCount < 2;
+  const hasAnyPhoto = photoCount >= 1;
+  const hasDefaultAndSecondary = photoCount >= 2;
+  const hasImages = hasAnyPhoto;
 
   function buildSavePayload() {
     return {
@@ -442,7 +446,7 @@ export function KitchenDishModal({
   }
 
   async function handlePrimaryAction() {
-    if (hasImages) {
+    if (!missingPhotos) {
       await handleSave();
     } else {
       await handleGenerateImage();
@@ -850,6 +854,18 @@ export function KitchenDishModal({
                   </button>
                 </div>
               )}
+              {missingPhotos && hasAnyPhoto && !hasDefaultAndSecondary && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={generating || saving}
+                    onClick={() => dishSlug && void generateImages(dishSlug, "pair", { keepSelection: true })}
+                    className="rounded-lg border border-chef-sage/50 px-3 py-1.5 text-sm font-medium text-chef-sage hover:bg-chef-sage-light/40 disabled:opacity-50"
+                  >
+                    {generating ? "Generating…" : "Generate secondary photo"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -888,9 +904,11 @@ export function KitchenDishModal({
                 ? "Generating…"
                 : saving
                   ? "Saving…"
-                  : hasImages
-                    ? "Save"
-                    : "Generate Image"}
+                  : missingPhotos
+                    ? hasAnyPhoto
+                      ? "Complete photos"
+                      : "Generate images"
+                    : "Save"}
             </button>
             </div>
           </div>

@@ -14,12 +14,13 @@ import { Nav } from "@/components/Nav";
 import { AgentChatDock } from "@/components/AgentChatDock";
 import { NewItemsEnrichingPanel } from "@/components/NewItemsEnrichingPanel";
 import { NewItemsReview } from "@/components/NewItemsReview";
-import { ingredientMissingPhotos } from "@/lib/ingredient-image-status";
+import { ingredientMissingPhotos } from "@backend/services/catalog/ingredient-image-status";
+import { dishMissingPhotos } from "@backend/services/catalog/dish-image-status";
 import {
   matchesAnyPantryStatus,
   PANTRY_STATUS_OPTIONS,
   type PantryStatus,
-} from "@/lib/ingredient-pantry-status";
+} from "@backend/services/catalog/ingredient-pantry-status";
 import {
   dishClassKey,
   dishClassLabel,
@@ -29,9 +30,9 @@ import {
   ingredientClassKey,
   ingredientClassLabel,
   ingredientSubclassKey,
-} from "@/lib/catalog-classification";
-import type { DishDetail, DishIngredientLink } from "@/lib/dish-payload";
-import type { IngredientLabel } from "@/models/Ingredient";
+} from "@backend/services/catalog/catalog-classification";
+import type { DishDetail, DishIngredientLink } from "@backend/services/catalog/dish-payload";
+import type { IngredientLabel } from "@backend/models/Ingredient";
 import { useNewCatalogReview, NEW_CATALOG_EVENT } from "@/lib/use-new-catalog-review";
 
 type IngredientRow = IngredientDetail & {
@@ -741,7 +742,6 @@ export default function KitchenControlPage() {
   function ingredientPantryForItem(item: IngredientRow) {
     return {
       lastPurchasePrice: item.lastPurchasePrice,
-      lastPurchaseDate: item.lastPurchaseDate,
       currentQty: item.currentQty,
       inventoryUnit: item.inventoryUnit,
       reorderThreshold: item.reorderThreshold,
@@ -1307,7 +1307,7 @@ export default function KitchenControlPage() {
                       imageCandidates: updated.imageCandidates,
                       selectedImageIndex: updated.selectedImageIndex,
                       imageGenerationAttempted: updated.imageGenerationAttempted,
-                      missingPhotos: !updated.imageUrl,
+                      missingPhotos: dishMissingPhotos(updated),
                       ingredientLinks: updated.ingredientLinks ?? [],
                       linkedAddOnSlugs: updated.linkedAddOnSlugs ?? [],
                     },
@@ -1329,7 +1329,7 @@ export default function KitchenControlPage() {
                         imageCandidates: updated.imageCandidates,
                         selectedImageIndex: updated.selectedImageIndex,
                         imageGenerationAttempted: updated.imageGenerationAttempted,
-                        missingPhotos: !updated.imageUrl,
+                        missingPhotos: dishMissingPhotos(updated),
                         ingredientLinks: updated.ingredientLinks ?? [],
                         linkedAddOnSlugs: updated.linkedAddOnSlugs ?? [],
                       }
@@ -1392,6 +1392,7 @@ export default function KitchenControlPage() {
                       imageCandidates: addOn.imageCandidates,
                       selectedImageIndex: addOn.selectedImageIndex,
                       imageGenerationAttempted: addOn.imageGenerationAttempted,
+                      missingPhotos: dishMissingPhotos(addOn),
                       ingredientLinks: addOn.ingredientLinks ?? [],
                       linkedDishSlugs: addOn.linkedDishSlugs ?? [],
                     },
@@ -1413,6 +1414,7 @@ export default function KitchenControlPage() {
                         imageCandidates: addOn.imageCandidates,
                         selectedImageIndex: addOn.selectedImageIndex,
                         imageGenerationAttempted: addOn.imageGenerationAttempted,
+                        missingPhotos: dishMissingPhotos(addOn),
                         ingredientLinks: addOn.ingredientLinks ?? [],
                         linkedDishSlugs: addOn.linkedDishSlugs ?? [],
                       }
@@ -1488,6 +1490,17 @@ export default function KitchenControlPage() {
                 isNew: false,
               });
             }
+            void load();
+          }}
+          onDeleted={(slug) => {
+            setData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                ingredients: prev.ingredients.filter((row) => row.slug !== slug),
+              };
+            });
+            setIngredientModal(null);
             void load();
           }}
         />

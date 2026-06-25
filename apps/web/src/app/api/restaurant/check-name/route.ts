@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { validateKitchenName } from "@/lib/kitchen-name";
-import { connectDB } from "@/lib/mongodb";
-import { ensureRestaurantForSession, isKitchenNameTaken } from "@/lib/restaurant-name-server";
+import { authOptions } from "@backend/services/infra/auth";
+import { validateKitchenName } from "@backend/services/infra/kitchen-name";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { ensureRestaurantForSession, isKitchenNameTaken } from "@backend/services/infra/restaurant-name-server";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

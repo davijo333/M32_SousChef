@@ -35,11 +35,14 @@ python3 test/scripts/generate-bills.py
 
 **Load Panera Cafe demo** on the dashboard (`POST /api/seed`) reads the same files and inserts:
 
+- **Catalog images** — copies `test/storage/r2/` → `storage/r2/` (dishes, ingredients, add-ons) so photos load without regenerating
 - **Ingredients** → `Ingredient` collection (with `currentQty`, `category`, `imageGenerationAttempted`)
 - **Dishes** → `Dish` collection (`classification`, `description`, ingredient links)
 - **Add-ons** → `AddOn` collection (`classification`, `linkedDishSlugs` from `linkedDishClassifications`)
 
 Use `POST /api/seed?force=1` to replace an existing demo catalog.
+
+After changing images in the app, refresh the committed snapshot: `npm run capture:test-images`.
 
 ## Date windows (relative to load / generate day)
 

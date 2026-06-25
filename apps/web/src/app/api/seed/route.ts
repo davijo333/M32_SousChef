@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { connectDB } from "@/lib/mongodb";
-import { assignKitchenName } from "@/lib/restaurant-name-server";
-import { seedKitchenCatalog } from "@/lib/seed-kitchen";
-import { seedKitchenOrders } from "@/lib/seed-orders";
-import { Restaurant } from "@/models/Restaurant";
+import { authOptions } from "@backend/services/infra/auth";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { assignKitchenName } from "@backend/services/infra/restaurant-name-server";
+import { seedKitchenCatalog } from "@backend/services/infra/seed-kitchen";
+import { seedKitchenOrders } from "@backend/services/infra/seed-orders";
+import { Restaurant } from "@backend/models/Restaurant";
 
 const DEMO_KITCHEN_NAME = "Panera Cafe";
 

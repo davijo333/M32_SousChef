@@ -1,4 +1,4 @@
-import type { ClassifiedGroup } from "@/lib/catalog-classification";
+import type { ClassifiedGroup } from "@backend/services/catalog/catalog-classification";
 
 type Props<T> = {
   groups: ClassifiedGroup<T>[];

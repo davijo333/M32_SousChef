@@ -1,10 +1,10 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { dishPayload, normalizeIngredientLinks } from "@/lib/dish-payload";
-import { regenerateDishImages } from "@/lib/regenerate-dish-images";
-import { connectDB } from "@/lib/mongodb";
-import { Dish } from "@/models/Dish";
+import { authOptions } from "@backend/services/infra/auth";
+import { dishPayload, normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
+import { regenerateDishImages } from "@backend/services/catalog/regenerate-dish-images";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { Dish } from "@backend/models/Dish";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 

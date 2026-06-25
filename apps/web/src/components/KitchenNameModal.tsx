@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { KITCHEN_NAME_MAX, validateKitchenName } from "@/lib/kitchen-name";
+import { KITCHEN_NAME_MAX, validateKitchenName } from "@backend/services/infra/kitchen-name";
 import { loadTestDataAndNotify } from "@/lib/load-test-data";
 
 type Props = {

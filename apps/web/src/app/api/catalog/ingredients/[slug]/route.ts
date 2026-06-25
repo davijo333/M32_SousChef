@@ -1,12 +1,12 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { applySelectedImage } from "@/lib/ingredient-enrichment";
-import { refreshIngredientLabels } from "@/lib/ingredient-labels";
-import { connectDB } from "@/lib/mongodb";
-import { AddOn } from "@/models/AddOn";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
+import { authOptions } from "@backend/services/infra/auth";
+import { applySelectedImage } from "@backend/services/catalog/ingredient-enrichment";
+import { refreshIngredientLabels } from "@backend/services/catalog/ingredient-labels";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { AddOn } from "@backend/models/AddOn";
+import { Dish } from "@backend/models/Dish";
+import { Ingredient } from "@backend/models/Ingredient";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 

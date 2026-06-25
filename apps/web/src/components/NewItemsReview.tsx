@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AddCatalogItemModal } from "@/components/AddCatalogItemModal";
 import { CatalogItemCard } from "@/components/CatalogItemCard";
-import { addCatalogItemToKitchen, countIncludedForAdd, relinkBillsForItems } from "@/lib/catalog-add";
-import type { NewCatalogItem } from "@/lib/extract-new-items";
+import { addCatalogItemToKitchen, countIncludedForAdd, relinkBillsForItems } from "@backend/services/catalog/catalog-add";
+import type { NewCatalogItem } from "@backend/services/catalog/extract-new-items";
 import {
   applySuggestedImages,
   countSuggestedAssignable,
-} from "@/lib/image-selection";
+} from "@backend/services/catalog/image-selection";
 
 type Props = {
   newIngredients: NewCatalogItem[];

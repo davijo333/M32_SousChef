@@ -1,9 +1,11 @@
 # Documentation
 
+Reference docs for UI, database schemas, inventory, and recipes. Agent and tool **specs** live at the repo root.
+
 | Folder | Contents |
 |--------|----------|
-| [Agents/](./Agents/) | **4 chat agents** — [index](./Agents/README.md), one file each + workers |
-| [Agentic_Tools/](./Agentic_Tools/) | [Tool index](./Agentic_Tools/Tool_Index.md), [9 core tools](./Agentic_Tools/tools/), [development](./Agentic_Tools/Development.md) |
+| [../agents/](../agents/) | **4 chat agents** — profiles, handoff, workers |
+| [../tools/](../tools/) | [Tool index](../tools/Tool_Index.md), [9 core tools](../tools/tools/), [development](../tools/Development.md) |
 | [UI/](./UI/) | Pages and routes |
 | [DB/](./DB/) | MongoDB collections |
 | [Inventory/](./Inventory/) | Catalog reference (dishes, ingredients, add-ons) |
@@ -17,6 +19,7 @@
 | Sales order | `billType: "customer"` |
 | Upload orders | `/upload-orders`, `/api/bills/*` |
 | Sous Chef | Chat context `head` |
+| Creative Agent | Chat context `create` |
 
 ## Test data
 
@@ -24,4 +27,4 @@
 - `npm run regenerate:bills` — bill fixtures
 - Dashboard → Load test data, or `POST /api/seed?force=1`
 
-Catalog source: [test/inventory/](../test/inventory/)
+Catalog source: `test/inventory/` (committed — optional `npm run regenerate:bills` after editing fixtures)

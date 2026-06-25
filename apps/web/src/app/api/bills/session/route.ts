@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { extractNewItemsFromBill, mergeNewCatalogItems } from "@/lib/extract-new-items";
-import { connectDB } from "@/lib/mongodb";
-import { BillUpload } from "@/models/BillUpload";
+import { authOptions } from "@backend/services/infra/auth";
+import { extractNewItemsFromBill, mergeNewCatalogItems } from "@backend/services/catalog/extract-new-items";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { BillUpload } from "@backend/models/BillUpload";
 
 function formatBill(bill: {
   _id: { toString(): string };

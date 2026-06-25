@@ -11,7 +11,7 @@
       "slug": "addon-bacon",
       "name": "Bacon",
       "classification": "protein",
-      "description": "Extra Tyson Applewood Bacon on any sandwich",
+      "description": "Extra applewood smoked bacon on any sandwich",
       "sellPrice": 3.25,
       "posName": "Extra Tyson Applewood Bacon",
       "ingredientSlugs": [
@@ -34,7 +34,7 @@
       "slug": "addon-sausage",
       "name": "Sausage",
       "classification": "protein",
-      "description": "Extra Jimmy Dean breakfast sausage",
+      "description": "Extra breakfast sausage links",
       "sellPrice": 2.85,
       "posName": "Extra Jimmy Dean Sausage",
       "ingredientSlugs": [
@@ -57,7 +57,7 @@
       "slug": "addon-egg",
       "name": "Egg",
       "classification": "protein",
-      "description": "Fried Eggland's Best egg",
+      "description": "Fried egg",
       "sellPrice": 0.99,
       "posName": "Fried Eggland's Best Egg",
       "ingredientSlugs": [
@@ -80,7 +80,7 @@
       "slug": "addon-cheese",
       "name": "Cheddar",
       "classification": "cheese",
-      "description": "Tillamook cheddar slice",
+      "description": "Cheddar cheese slice",
       "sellPrice": 0.99,
       "posName": "Tillamook Cheddar Slice",
       "ingredientSlugs": [
@@ -103,7 +103,7 @@
       "slug": "addon-american-cheese",
       "name": "American Cheese",
       "classification": "cheese",
-      "description": "Kraft American cheese single",
+      "description": "American cheese slice",
       "sellPrice": 0.99,
       "posName": "Kraft American Cheese Slice",
       "ingredientSlugs": [
@@ -126,7 +126,7 @@
       "slug": "addon-swiss",
       "name": "Swiss",
       "classification": "cheese",
-      "description": "Boar's Head Swiss slice",
+      "description": "Swiss cheese slice",
       "sellPrice": 1.23,
       "posName": "Boar's Head Swiss Slice",
       "ingredientSlugs": [
@@ -184,7 +184,7 @@
       "slug": "addon-whipped-cream",
       "name": "Whipped cream",
       "classification": "coffee",
-      "description": "Land O Lakes heavy cream whipped topping",
+      "description": "Heavy cream whipped topping",
       "sellPrice": 0.99,
       "posName": "Extra Land O Lakes Heavy Cream Whipped Topping",
       "ingredientSlugs": [
@@ -207,7 +207,7 @@
       "slug": "addon-extra-shot",
       "name": "Extra espresso shot",
       "classification": "coffee",
-      "description": "Additional Lavazza espresso pull",
+      "description": "Additional espresso shot",
       "sellPrice": 1.59,
       "posName": "Extra Lavazza Espresso Shot",
       "ingredientSlugs": [

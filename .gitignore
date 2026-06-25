@@ -17,6 +17,7 @@ dist/
 apps/web/.env
 apps/web/.env.local
 services/agent/.env
+backend/agent-service/.env
 
 # Python
 __pycache__/

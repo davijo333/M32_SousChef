@@ -1,17 +1,17 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
-import { authOptions } from "@/lib/auth";
-import { dishMissingPhotos } from "@/lib/dish-image-status";
-import { reconcileKitchenInventory } from "@/lib/kitchen-inventory";
-import { buildSoldThisWeekMaps } from "@/lib/menu-sales-stats";
-import { buildLastPurchaseDateByIngredientSlug } from "@/lib/ingredient-purchase-stats";
-import { connectDB } from "@/lib/mongodb";
-import { AddOn } from "@/models/AddOn";
-import { Dish } from "@/models/Dish";
-import { Ingredient } from "@/models/Ingredient";
-import { PurchaseOrder } from "@/models/PurchaseOrder";
-import { Restaurant } from "@/models/Restaurant";
-import { SalesOrder } from "@/models/SalesOrder";
+import { authOptions } from "@backend/services/infra/auth";
+import { dishMissingPhotos } from "@backend/services/catalog/dish-image-status";
+import { reconcileKitchenInventory } from "@backend/services/infra/kitchen-inventory";
+import { buildSoldThisWeekMaps } from "@backend/services/dashboard/menu-sales-stats";
+import { buildLastPurchaseDateByIngredientSlug } from "@backend/services/catalog/ingredient-purchase-stats";
+import { connectDB } from "@backend/services/infra/mongodb";
+import { AddOn } from "@backend/models/AddOn";
+import { Dish } from "@backend/models/Dish";
+import { Ingredient } from "@backend/models/Ingredient";
+import { PurchaseOrder } from "@backend/models/PurchaseOrder";
+import { Restaurant } from "@backend/models/Restaurant";
+import { SalesOrder } from "@backend/models/SalesOrder";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -27,16 +27,30 @@ export async function GET() {
   await connectDB();
   await reconcileKitchenInventory(restaurantId);
 
-  // Legacy rows ingested before imageGenerationAttempted existed
+  // Legacy bill rows ingested before imageGenerationAttempted existed
   await Ingredient.updateMany(
     { restaurantId, source: "bill_upload", imageGenerationAttempted: { $ne: true } },
+    { $set: { imageGenerationAttempted: true } }
+  );
+  // Recipe-build / chat / manual pantry adds list immediately (not wait on async image jobs)
+  await Ingredient.updateMany(
+    {
+      restaurantId,
+      source: { $in: ["agent_chat", "manual_add"] },
+      imageGenerationAttempted: { $ne: true },
+    },
     { $set: { imageGenerationAttempted: true } }
   );
 
   const [restaurant, ingredients, dishes, addOns, salesOrders, purchaseOrders, purchaseOrderCount, salesOrderCount] =
     await Promise.all([
       Restaurant.findById(restaurantId).lean(),
-      Ingredient.find({ restaurantId, imageGenerationAttempted: true }).sort({ name: 1 }).lean(),
+      Ingredient.find({
+        restaurantId,
+        $or: [{ imageGenerationAttempted: true }, { source: { $in: ["agent_chat", "manual_add"] } }],
+      })
+        .sort({ name: 1 })
+        .lean(),
       Dish.find({ restaurantId }).sort({ name: 1 }).lean(),
       AddOn.find({ restaurantId }).sort({ name: 1 }).lean(),
       SalesOrder.find({ restaurantId }).select("saleDate uploadDate items").lean(),

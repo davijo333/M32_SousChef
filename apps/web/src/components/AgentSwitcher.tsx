@@ -2,12 +2,12 @@
 
 import { AgentCircleCard } from "@/components/BrandMark";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { dashboardChatContextToBrandAgent } from "@/lib/chat-handoff";
+import { dashboardChatContextToBrandAgent } from "@backend/services/agents/chat-handoff";
 import {
   CHAT_ASSISTANT_NAMES,
   DASHBOARD_CHAT_CONTEXTS,
   type DashboardChatContext,
-} from "@/lib/dashboard-chat";
+} from "@backend/services/agents/dashboard-chat";
 
 type AgentSwitcherProps = {
   active: DashboardChatContext;

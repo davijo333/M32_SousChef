@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { CreativeCueCard } from "@/components/CreativeCueCard";
 import { SectionInfo } from "@/components/ui/SectionInfo";
-import { cueToChatPrompt, type CreateCue } from "@/lib/create-cues";
-import { dispatchCreativeCueSelect } from "@/lib/creative-cue-events";
+import { cueToChatPrompt, type CreateCue } from "@backend/services/creative/create-cues";
+import { dispatchCreativeCueSelect } from "@backend/services/creative/creative-cue-events";
 
 export function CreativeCuesPanel() {
   const [cues, setCues] = useState<CreateCue[]>([]);
