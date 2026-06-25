@@ -13,6 +13,8 @@ COPY package.json package-lock.json ./
 COPY apps/web ./apps/web
 COPY backend/api ./backend/api
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PATH="/app/node_modules/.bin:${PATH}"
+WORKDIR /app/apps/web
 RUN npm run build
 
 FROM base AS runner
