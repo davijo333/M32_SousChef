@@ -4,6 +4,8 @@ Four **chat agents** chefs talk to, plus **background workers** they never chat 
 
 Manual UI always works in parallel — see [dual path](../tools/README.md#dual-path).
 
+Overview doc: [docs/Agents.md](../docs/Agents.md) · Architecture: [docs/Architecture.md](../docs/Architecture.md)
+
 ---
 
 ## Chat agents

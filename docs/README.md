@@ -1,15 +1,35 @@
 # Documentation
 
-Reference docs for UI, database schemas, inventory, and recipes. Agent and tool **specs** live at the repo root.
+Reference docs for Sous Chef. Agent and tool **specs** also live at the repo root (`agents/`, `tools/`).
+
+## Core
+
+| Doc | Contents |
+|-----|----------|
+| [Architecture.md](./Architecture.md) | System diagram, repo layout, chat dual path, deployment overview |
+| [Agents.md](./Agents.md) | Four chat agents, workers, tools, confirmation flow |
+| [Technologies.md](./Technologies.md) | Full stack list and **Railway** deployment |
+
+## Product & UI
 
 | Folder | Contents |
 |--------|----------|
-| [../agents/](../agents/) | **4 chat agents** — profiles, handoff, workers |
-| [../tools/](../tools/) | [Tool index](../tools/Tool_Index.md), [9 core tools](../tools/tools/), [development](../tools/Development.md) |
-| [UI/](./UI/) | Pages and routes |
-| [DB/](./DB/) | MongoDB collections |
-| [Inventory/](./Inventory/) | Catalog reference (dishes, ingredients, add-ons) |
-| [Recipes/](./Recipes/) | Workflow and classifications |
+| [UI/](./UI/) | Pages, routes, Sous Chef chat dock |
+| [Recipes/](./Recipes/) | Workflow, classifications, test recipes |
+| [Inventory/](./Inventory/) | Dishes, ingredients, add-ons reference |
+
+## Data
+
+| Folder | Contents |
+|--------|----------|
+| [DB/](./DB/) | MongoDB collections and schemas |
+
+## Agent & tool specs (repo root)
+
+| Path | Contents |
+|------|----------|
+| [../agents/](../agents/) | Per-agent profiles — [README](../agents/README.md) |
+| [../tools/](../tools/) | [Tool index](../tools/Tool_Index.md), [development](../tools/Development.md) |
 
 ## Terminology
 
@@ -23,8 +43,6 @@ Reference docs for UI, database schemas, inventory, and recipes. Agent and tool 
 
 ## Test data
 
-- `python3 test/scripts/recalculate-pricing.py` — refresh costs
-- `npm run regenerate:bills` — bill fixtures
-- Dashboard → Load test data, or `POST /api/seed?force=1`
-
-Catalog source: `test/inventory/` (committed — optional `npm run regenerate:bills` after editing fixtures)
+- Dashboard → **Load test data**, or `POST /api/seed?force=1`
+- `npm run regenerate:bills` — rebuild bill PDFs/PNGs from `test/inventory/`
+- Details: [../test/inventory/README.md](../test/inventory/README.md)

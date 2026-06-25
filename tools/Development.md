@@ -6,13 +6,15 @@ How to develop the agentic chat layer locally and deploy to production.
 
 | Component | Location | Host (prod) |
 |-----------|----------|-------------|
-| Web UI + auth + chat API | `apps/web` (Next.js) | **Vercel** |
+| Web UI + auth + chat API | `apps/web` (Next.js) | **Railway** |
 | Bill parse + chat agents | `backend/agent-service` (FastAPI) | **Railway** |
 | Database | MongoDB | **MongoDB Atlas** |
 | LLM (chat) | OpenAI | `OPENAI_API_KEY` (both services) |
 
+Full stack and env vars: [../docs/Technologies.md](../docs/Technologies.md).
+
 ```
-Browser → Vercel (Next.js)
+Browser → Railway (Next.js)
             ↓ AGENT_SERVICE_URL (/chat + bill parse workers)
           Railway (FastAPI)
             ↓
@@ -150,21 +152,11 @@ Persist graph state across turns and sessions (MongoDB or Redis checkpointer). N
 
 ---
 
-## Railway (agent service)
+## Railway deployment
 
-1. New Railway project → deploy from GitHub
-2. Root directory: `backend/agent-service`
-3. Env: `OPENAI_API_KEY`, `MONGODB_URI`
-4. Start: `uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}`
+See [../docs/Technologies.md](../docs/Technologies.md) for Railway setup (agent service + web app, MongoDB Atlas, env vars).
 
-Raise HTTP timeout for `/parse-bill-pipeline` (bills can take ~180s).
-
----
-
-## Vercel (web app)
-
-1. Root directory: `apps/web`
-2. Env: `MONGODB_URI`, `NEXTAUTH_*`, `OPENAI_API_KEY`, `AGENT_SERVICE_URL`, `USE_LANGCHAIN_AGENTS=true`
+Raise HTTP timeout for `/parse-bill-pipeline` on the agent service (bills can take ~180s).
 
 ---
 
@@ -189,5 +181,8 @@ Raise HTTP timeout for `/parse-bill-pipeline` (bills can take ~180s).
 
 - [README.md](./README.md) — Agentic Tools overview
 - [Tool_Index.md](./Tool_Index.md) — core tools and Built? column
-- [../Agents/README.md](../Agents/README.md) — chat agents and workers
-- [../../README.md](../../README.md) — project quick start
+- [../docs/Architecture.md](../docs/Architecture.md) — system design
+- [../docs/Agents.md](../docs/Agents.md) — chat agents overview
+- [../docs/Technologies.md](../docs/Technologies.md) — stack and Railway deployment
+- [../agents/README.md](../agents/README.md) — per-agent specs
+- [../README.md](../README.md) — project quick start
