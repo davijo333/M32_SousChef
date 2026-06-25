@@ -8,11 +8,11 @@ RUN npm ci
 FROM node:20-bookworm-slim AS web-builder
 WORKDIR /app
 COPY --from=web-deps /app/node_modules ./node_modules
+COPY --from=web-deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY package.json package-lock.json ./
 COPY apps/web ./apps/web
 COPY backend/api ./backend/api
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PATH="/app/node_modules/.bin:${PATH}"
 WORKDIR /app/apps/web
 RUN npm run build
 
@@ -29,6 +29,7 @@ RUN pip install --no-cache-dir -r agent/requirements.txt
 
 COPY backend/agent-service ./agent
 COPY --from=web-builder /app/node_modules ./node_modules
+COPY --from=web-builder /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=web-builder /app/package.json ./package.json
 COPY --from=web-builder /app/apps/web ./apps/web
 COPY --from=web-builder /app/backend/api ./backend/api
