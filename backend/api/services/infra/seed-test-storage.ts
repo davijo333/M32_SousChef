@@ -5,10 +5,15 @@ import path from "path";
 const CATALOG_DIRS = ["dishes", "ingredients", "addons"] as const;
 
 function resolveRepoRoot(): string {
+  const configured = process.env.REPO_ROOT?.trim();
+  if (configured && fs.existsSync(path.join(configured, "test/inventory/ingredients.json"))) {
+    return configured;
+  }
   const candidates = [
     process.cwd(),
     path.join(process.cwd(), "../.."),
     path.join(process.cwd(), "../../.."),
+    "/app",
   ];
   for (const root of candidates) {
     if (fs.existsSync(path.join(root, "test/inventory/ingredients.json"))) {

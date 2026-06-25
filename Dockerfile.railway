@@ -38,10 +38,14 @@ COPY --from=web-builder /app/package.json ./package.json
 COPY --from=web-builder /app/apps/web ./apps/web
 COPY --from=web-builder /app/backend/api ./backend/api
 
+COPY test/inventory ./test/inventory
+COPY test/storage/r2 ./test/storage/r2
+
 COPY infra/scripts/railway-start.sh ./railway-start.sh
 RUN chmod +x ./railway-start.sh
 
 ENV NODE_ENV=production
+ENV REPO_ROOT=/app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV AGENT_SERVICE_URL=http://127.0.0.1:8000
 ENV USE_LANGCHAIN_AGENTS=true

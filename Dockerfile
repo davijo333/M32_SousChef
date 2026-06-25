@@ -29,6 +29,9 @@ COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/web ./apps/web
 COPY --from=builder /app/backend/api ./backend/api
+COPY test/inventory ./test/inventory
+COPY test/storage/r2 ./test/storage/r2
 WORKDIR /app/apps/web
+ENV REPO_ROOT=/app
 EXPOSE 3000
 CMD ["npm", "start"]

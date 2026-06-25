@@ -11,10 +11,15 @@ import { attachSeedCatalogImages } from "@backend/services/infra/seed-catalog-im
 import { syncTestCatalogImagesToR2 } from "@backend/services/infra/seed-test-storage";
 
 function resolveInventoryRoot(): string {
+  const configured = process.env.REPO_ROOT?.trim();
+  if (configured && fs.existsSync(path.join(configured, "test/inventory/ingredients.json"))) {
+    return path.join(configured, "test/inventory");
+  }
   const candidates = [
     path.join(process.cwd(), "test/inventory"),
     path.join(process.cwd(), "../../test/inventory"),
     path.join(process.cwd(), "../../../test/inventory"),
+    "/app/test/inventory",
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(path.join(candidate, "ingredients.json"))) return candidate;
