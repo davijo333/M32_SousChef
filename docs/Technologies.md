@@ -88,7 +88,7 @@ Production target is **Railway** for deployable services.
    | `MONGODB_URI` | Yes (Atlas connection string) |
    | `PORT` | Set by Railway |
 
-5. Increase HTTP timeout for `/parse-bill-pipeline` (bills can take ~180s)
+5. Railway assigns `PORT` dynamically (often `8080`) — point the public domain at that port, not `3000`.
 
 ### Web app
 
