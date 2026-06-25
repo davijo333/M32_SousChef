@@ -68,6 +68,10 @@ type Props = {
 
 export const KITCHEN_CARD_SIZE_CLASS = "h-[18.5rem] w-[10.75rem] sm:w-[11rem]";
 
+/** Min/max height for a scroll area that shows two card rows before scrolling. */
+export const KITCHEN_CARD_TWO_ROW_SCROLL_CLASS =
+  "min-h-[37.75rem] max-h-[37.75rem] overflow-y-auto pb-2";
+
 export function KitchenCard({
   name,
   imageUrl,

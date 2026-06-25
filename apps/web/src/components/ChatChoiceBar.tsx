@@ -9,13 +9,25 @@ type ChatChoiceBarProps = {
   onSelect: (choice: ChatChoice) => void;
 };
 
+function choiceButtonClass(choice: ChatChoice): string {
+  const base =
+    "rounded-full px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50";
+  if (choice.id.includes("confirm") || choice.id === "full_build") {
+    return `${base} border border-chef-sage bg-chef-sage text-white hover:bg-chef-sage/90`;
+  }
+  if (choice.id.includes("cancel") || choice.id === "later") {
+    return `${base} border border-chef-border bg-white text-chef-text-muted hover:border-chef-text-muted`;
+  }
+  return `${base} border border-chef-border bg-white text-chef-text hover:border-chef-sage hover:bg-chef-sage-light/30`;
+}
+
 export function ChatChoiceBar({ choiceSet, disabled, onSelect }: ChatChoiceBarProps) {
   if (!choiceSet.choices.length) return null;
 
   return (
-    <div className="mt-2 max-w-[85%] space-y-2">
+    <div className="mt-3 max-w-[85%] space-y-2">
       {choiceSet.prompt ? (
-        <div className="text-xs font-medium text-chef-text-muted">
+        <div className="text-sm font-medium text-chef-text">
           {renderChatMarkdown(choiceSet.prompt)}
         </div>
       ) : null}
@@ -27,7 +39,7 @@ export function ChatChoiceBar({ choiceSet, disabled, onSelect }: ChatChoiceBarPr
             disabled={disabled}
             onClick={() => onSelect(choice)}
             title={choice.description}
-            className="rounded-full border border-chef-border bg-white px-3 py-1.5 text-left text-xs text-chef-text transition-colors hover:border-chef-sage hover:bg-chef-sage hover:text-white disabled:opacity-50"
+            className={choiceButtonClass(choice)}
           >
             {choice.label}
           </button>

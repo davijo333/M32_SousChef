@@ -5,6 +5,7 @@ import {
   extractDirectImageUrls,
   shouldIdentifyCatalogAttachments,
 } from "@backend/services/chat/chat-catalog-intent";
+import { inferDishSubjectFromThread } from "@backend/services/chat/chat-dish-pricing";
 import { identifyCatalogFile, identifyCatalogImageUrl } from "@backend/services/catalog/catalog-identify";
 import type { DashboardChatContext } from "@backend/services/agents/dashboard-chat";
 
@@ -168,6 +169,20 @@ export function inferCatalogDraftFromThread(
     };
   }
   return undefined;
+}
+
+/** Lock dish context from pricing Q&A or catalog reads (follow-up price updates). */
+export function inferPricingSubjectDraftFromThread(
+  history: Array<{ role: string; content: string }>
+): ChatCatalogDraftPayload | undefined {
+  const name = inferDishSubjectFromThread(history);
+  if (!name) return undefined;
+  return {
+    itemType: "dish",
+    name: titleCaseDishName(name),
+    confidence: 1,
+    source: "pricing",
+  };
 }
 
 export function formatCatalogDraftNote(draft: ChatCatalogDraftPayload): string {

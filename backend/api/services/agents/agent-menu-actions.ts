@@ -1,6 +1,8 @@
 import { dishSlugFromName, addOnSlugFromName } from "@backend/services/catalog/dish-catalog";
+import { findDishByNameQuery } from "@backend/services/catalog/dish-lookup";
 import { syncDishAddOnLinks } from "@backend/services/catalog/dish-addon-links";
 import { normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
+import { ensureIngredientSlugs } from "@backend/services/catalog/ingredient-provision";
 import { refreshIngredientLabels } from "@backend/services/catalog/ingredient-labels";
 import { regenerateDishImages } from "@backend/services/catalog/regenerate-dish-images";
 import { regenerateAddOnImages } from "@backend/services/catalog/regenerate-addon-images";
@@ -13,6 +15,35 @@ import { AddOn } from "@backend/models/AddOn";
 import { Ingredient } from "@backend/models/Ingredient";
 import { Recipe } from "@backend/models/Recipe";
 import type { AgentPendingAction } from "@backend/services/agents/agent-pending-actions";
+
+async function resolveLinkedDishSlugs(
+  restaurantId: string,
+  tokens: string[]
+): Promise<string[]> {
+  const slugs: string[] = [];
+  for (const token of tokens) {
+    const key = token.trim();
+    if (!key) continue;
+    const bySlug = await Dish.findOne({ restaurantId, slug: key });
+    if (bySlug) {
+      slugs.push(bySlug.slug);
+      continue;
+    }
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const byName = await Dish.findOne({
+      restaurantId,
+      name: new RegExp(`^${escaped}$`, "i"),
+    });
+    if (byName) {
+      slugs.push(byName.slug);
+      continue;
+    }
+    const guess = dishSlugFromName(key);
+    const byGuess = await Dish.findOne({ restaurantId, slug: guess });
+    if (byGuess) slugs.push(byGuess.slug);
+  }
+  return slugs;
+}
 
 export async function executeMenuPendingAction(
   restaurantId: string,
@@ -45,8 +76,9 @@ export async function executeMenuPendingAction(
     const slug = dishSlugFromName(name);
     const existing = await Dish.findOne({ restaurantId, slug });
     if (existing) throw new Error(`Dish '${name}' already exists.`);
+    const resolvedSlugs = await ensureIngredientSlugs(restaurantId, action.ingredientSlugs ?? []);
     const ingredientLinks = normalizeIngredientLinks(
-      (action.ingredientSlugs ?? []).map((ingredientSlug) => ({
+      resolvedSlugs.map((ingredientSlug) => ({
         ingredientSlug,
         qtyPerServing: 1,
         unit: "each",
@@ -144,13 +176,8 @@ export async function executeMenuPendingAction(
     if (!dish) throw new Error(`Dish '${slug}' not found.`);
 
     const mode = action.linkMode ?? "add";
-    const tokens = action.ingredientSlugs ?? [];
+    const tokens = await ensureIngredientSlugs(restaurantId, action.ingredientSlugs ?? []);
     if (!tokens.length) throw new Error("No ingredient slugs provided.");
-
-    for (const token of tokens) {
-      const ing = await Ingredient.findOne({ restaurantId, slug: token });
-      if (!ing) throw new Error(`Ingredient '${token}' not found.`);
-    }
 
     const qty = action.qtyPerServing ?? 1;
     const unit = action.unit?.trim() || "each";
@@ -213,17 +240,19 @@ export async function executeMenuPendingAction(
     const slug = addOnSlugFromName(name);
     const existing = await AddOn.findOne({ restaurantId, slug });
     if (existing) throw new Error(`Add-on '${name}' already exists.`);
+    const resolvedSlugs = await ensureIngredientSlugs(restaurantId, action.ingredientSlugs ?? []);
     const ingredientLinks = normalizeIngredientLinks(
-      (action.ingredientSlugs ?? []).map((ingredientSlug) => ({
+      resolvedSlugs.map((ingredientSlug) => ({
         ingredientSlug,
         qtyPerServing: 1,
         unit: "each",
         scalesWithSize: false,
       }))
     );
-    const linkedDishSlugs = (action.linkedDishSlugs ?? [])
-      .map((token) => token.trim())
-      .filter(Boolean);
+    const linkedDishSlugs = await resolveLinkedDishSlugs(
+      restaurantId,
+      action.linkedDishSlugs ?? []
+    );
     await AddOn.create({
       restaurantId,
       slug,
@@ -316,13 +345,8 @@ export async function executeMenuPendingAction(
     if (!addOn) throw new Error(`Add-on '${slug}' not found.`);
 
     const mode = action.linkMode ?? "add";
-    const tokens = action.ingredientSlugs ?? [];
+    const tokens = await ensureIngredientSlugs(restaurantId, action.ingredientSlugs ?? []);
     if (!tokens.length) throw new Error("No ingredient slugs provided.");
-
-    for (const token of tokens) {
-      const ing = await Ingredient.findOne({ restaurantId, slug: token });
-      if (!ing) throw new Error(`Ingredient '${token}' not found.`);
-    }
 
     const qty = action.qtyPerServing ?? 1;
     const unit = action.unit?.trim() || "each";
@@ -385,6 +409,14 @@ export async function executeMenuPendingAction(
     if (!dish) throw new Error(`Dish '${slug}' not found.`);
     dish.sellPrice = action.sellPrice;
     await dish.save();
+
+    const recipe = await Recipe.findOne({ restaurantId, kind: "dish", targetSlug: slug });
+    if (recipe) {
+      recipe.sellPrice = action.sellPrice;
+      recipe.margin = Math.round((action.sellPrice - (recipe.foodCost || 0)) * 100) / 100;
+      await recipe.save();
+    }
+
     return `Updated **${dish.name}** sell price to $${action.sellPrice.toFixed(2)}.`;
   }
 
@@ -397,12 +429,7 @@ export async function suggestDishPriceMargin(
   dishName: string
 ): Promise<string | null> {
   await connectDB();
-  const dish = await Dish.findOne({
-    restaurantId,
-    name: new RegExp(`^${dishName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
-  })
-    .select("name slug sellPrice")
-    .lean();
+  const dish = await findDishByNameQuery(restaurantId, dishName);
   if (!dish) return null;
 
   const recipe = await Recipe.findOne({
@@ -413,12 +440,13 @@ export async function suggestDishPriceMargin(
     .select("foodCost sellPrice")
     .lean();
 
-  const sell = Number(dish.sellPrice ?? recipe?.sellPrice ?? 0);
+  const sell = Number(dish.sellPrice ?? 0);
   const cost = Number(recipe?.foodCost ?? 0);
   if (sell <= 0) {
     return (
-      `**${dish.name}** has no sell price yet. Set one in Kitchen control, ` +
-      "or say **update the price** after food cost is calculated."
+      `**${dish.name}** has no sell price yet. Food cost is calculated in the background after ` +
+      "ingredients link (usually within a minute — check Recipes). Set a sell price in Kitchen control, " +
+      "or say **update the price to $X** once food cost appears."
     );
   }
   if (cost <= 0) {
@@ -433,14 +461,18 @@ export async function suggestDishPriceMargin(
   const suggested = Math.round((cost / (1 - targetPct / 100)) * 100) / 100;
   if (pct >= targetPct) {
     return (
-      `**${dish.name}**: $${sell.toFixed(2)} sell · $${cost.toFixed(2)} cost · ` +
-      `$${margin.toFixed(2)} margin (${pct.toFixed(0)}%) — healthy; no change needed.`
+      `**${dish.name}**\n` +
+      `- **Sell price (menu):** $${sell.toFixed(2)}\n` +
+      `- **Food cost:** $${cost.toFixed(2)}\n` +
+      `- **Margin:** $${margin.toFixed(2)} (${pct.toFixed(0)}%) — healthy; no change needed.`
     );
   }
   return (
-    `**${dish.name}**: $${sell.toFixed(2)} sell · $${cost.toFixed(2)} cost · ` +
-    `$${margin.toFixed(2)} margin (${pct.toFixed(0)}%) — below target.\n` +
-    `Suggested price for ~${targetPct}% margin: **$${suggested.toFixed(2)}**. ` +
+    `**${dish.name}**\n` +
+    `- **Sell price (menu):** $${sell.toFixed(2)}\n` +
+    `- **Food cost:** $${cost.toFixed(2)}\n` +
+    `- **Margin:** $${margin.toFixed(2)} (${pct.toFixed(0)}%) — below target.\n` +
+    `Suggested **sell price** for ~${targetPct}% margin: **$${suggested.toFixed(2)}**. ` +
     "Say **yes, update the price** to apply."
   );
 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Loader2, Receipt, ShoppingCart } from "lucide-react";
 import { Nav } from "@/components/Nav";
-import { AgentChatDock } from "@/components/AgentChatDock";
+import { SousChefChatDock } from "@/components/SousChefChatDock";
 import { useOrderWork } from "@/components/OrderWorkProvider";
 import { BillUploadZone, type SavedBill } from "@/components/BillUploadZone";
 import { PurchaseOrderTable } from "@/components/PurchaseOrderTable";
@@ -286,11 +286,7 @@ export default function UploadOrdersPage() {
           <SalesOrderTable refreshKey={soTableKey} />
         </div>
       </main>
-      <AgentChatDock
-        chatContext="inventory"
-        defaultAgent="inventory"
-        showAttachments
-      />
+      <SousChefChatDock showAttachments />
     </>
   );
 }

@@ -73,7 +73,7 @@ export async function buildBusinessChatContext(
       .select("purchaseDate uploadDate items")
       .lean(),
     Recipe.find({ restaurantId, progress: "ready", kind: "dish" }).lean(),
-    Dish.find({ restaurantId }).select("name recipeStatus sellPrice").lean(),
+    Dish.find({ restaurantId }).select("name slug recipeStatus sellPrice").lean(),
   ]);
 
   const recipesByKey = new Map(
@@ -86,16 +86,26 @@ export async function buildBusinessChatContext(
     financePeriod
   );
 
-  const topMargins = recipes
-    .filter((r) => r.foodCost > 0)
-    .map((r) => ({
-      name: r.dishName,
-      margin: r.sellPrice - r.foodCost,
-      pct: r.sellPrice > 0 ? ((r.sellPrice - r.foodCost) / r.sellPrice) * 100 : 0,
-    }))
+  const recipeCostBySlug = new Map(
+    recipes.map((r) => [r.targetSlug, r.foodCost])
+  );
+
+  const topMargins = dishes
+    .filter((d) => d.sellPrice > 0)
+    .map((d) => {
+      const cost = recipeCostBySlug.get(d.slug) ?? 0;
+      if (cost <= 0) return null;
+      const margin = d.sellPrice - cost;
+      const pct = (margin / d.sellPrice) * 100;
+      return { name: d.name, sell: d.sellPrice, margin, pct };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 5)
-    .map((r) => `${r.name} $${r.margin.toFixed(2)} (${r.pct.toFixed(0)}%)`)
+    .map(
+      (r) =>
+        `${r.name} sell $${r.sell.toFixed(2)} margin $${r.margin.toFixed(2)} (${r.pct.toFixed(0)}%)`
+    )
     .join("; ");
 
   const periodLabel = financePeriodRange(financePeriod).label;
@@ -117,7 +127,7 @@ export async function buildCreativeChatContext(
 ): Promise<string> {
   const [ingredients, dishes, recipes] = await Promise.all([
     Ingredient.find({ restaurantId })
-      .select("slug name category currentQty inventoryUnit expiryDate")
+      .select("slug name category currentQty inventoryUnit expiryDate reorderThreshold")
       .lean(),
     Dish.find({ restaurantId })
       .select("slug name classification recipeStatus sellPrice")
@@ -131,12 +141,19 @@ export async function buildCreativeChatContext(
       .map((ing) => `${ing.name} (${ing.slug}) — ${ing.currentQty} ${ing.inventoryUnit}`)
       .join("\n") || "None";
 
+  const dishSellBySlug = new Map(dishes.map((d) => [d.slug, d.sellPrice]));
+
   const topMarginRecipes = recipes
-    .filter((recipe) => recipe.foodCost > 0 && recipe.sellPrice > 0)
-    .map((recipe) => ({
-      marginPct: ((recipe.sellPrice - recipe.foodCost) / recipe.sellPrice) * 100,
-      ingredients: recipe.ingredients,
-    }))
+    .filter((recipe) => recipe.foodCost > 0)
+    .map((recipe) => {
+      const sell = dishSellBySlug.get(recipe.targetSlug) ?? 0;
+      if (sell <= 0) return null;
+      return {
+        marginPct: ((sell - recipe.foodCost) / sell) * 100,
+        ingredients: recipe.ingredients,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
     .sort((a, b) => b.marginPct - a.marginPct)
     .slice(0, 5);
 
@@ -152,7 +169,7 @@ export async function buildCreativeChatContext(
     .slice(0, 40)
     .map(
       (ing) =>
-        `${ing.name} (${ing.slug}, ${ing.category}, ${ing.currentQty} ${ing.inventoryUnit})`
+        `${ing.name} (${ing.slug}, ${ing.category}, on hand ${ing.currentQty} ${ing.inventoryUnit}, reorder ${ing.reorderThreshold})`
     )
     .join("\n");
 
@@ -244,6 +261,7 @@ ${dataContext}`;
 You OWN **all kitchen catalog DB writes** — ingredients, dishes, add-ons, recipes, links, and images.
 Use apply_inventory for pantry, bills (process_purchase_bills, process_sales_bills), and apply_price_change.
 Use apply_menu for menu/recipe catalog (create/update/delete, plan_recipe_build → finalize_recipe_build, add_suggested_dish).
+For stock qty, reorder level, sell price, or margin questions, call query_inventory ingredient_detail / dish_detail / addon_detail / catalog_search — quote DB values exactly.
 Delegate to **${business}** for finance **reads** and margin suggestions (query_business suggest_price_change).
 Delegate to **${creative}** for brainstorming only — you persist when the chef confirms.
 
@@ -258,6 +276,7 @@ You OWN **promotion and profitability analysis** — margins, slow sellers, pric
 Use query_business: finance_summary, margins, top_selling, slow_sellers, promotion_opportunities, suggest_price_change, suggest_reorder_threshold, sales_queue.
 Use query_inventory for pantry context when stock informs reorder advice.
 Never call write tools — delegate apply_price_change, update_reorder_threshold, and process_sales_bills to **${inventory}**.
+For any sell price, margin, on-hand qty, or reorder level, call query_business or query_inventory read tools — quote DB values exactly.
 Delegate expiry-driven recipe and special ideas to **${creative}**.
 
 Live business data:

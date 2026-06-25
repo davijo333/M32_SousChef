@@ -128,7 +128,8 @@ def read_inventory(
             return f"No ingredients matching '{query}'."
         return "\n".join(
             f"- {i['name']} ({i.get('slug', '')}, {i.get('category', '')}): "
-            f"{i.get('currentQty', 0)} {i.get('inventoryUnit', 'each')}"
+            f"on hand {i.get('currentQty', 0)} {i.get('inventoryUnit', 'each')}, "
+            f"reorder {i.get('reorderThreshold', 0)}"
             for i in matches
         )
     if act in ("ingredient_detail", "detail"):
@@ -187,13 +188,25 @@ def read_inventory(
         low = _is_low_stock(ing)
         return (
             f"{ing['name']} ({ing.get('slug', '')})\n"
-            f"Category: {ing.get('category', '')}\n"
-            f"On hand: {ing.get('currentQty', 0)} {ing.get('inventoryUnit', 'each')}\n"
-            f"Reorder threshold: {ing.get('reorderThreshold', 0)}"
+            f"- **On hand:** {ing.get('currentQty', 0)} {ing.get('inventoryUnit', 'each')}\n"
+            f"- **Reorder level:** {ing.get('reorderThreshold', 0)}"
+            f"\nCategory: {ing.get('category', '')}"
             + (f"\nExpires: {expiry_str}" if expiry_str else "")
             + (f"\nLabel: {ing.get('label')}" if ing.get("label") else "")
             + ("\n⚠ Below reorder threshold." if low else "")
         )
+    if act in ("dish_detail", "dish_lookup"):
+        from tools.core.catalog_reads import format_dish_detail
+
+        return format_dish_detail(restaurant_id, slug=slug, name=query)
+    if act in ("addon_detail", "addon_lookup"):
+        from tools.core.catalog_reads import format_addon_detail
+
+        return format_addon_detail(restaurant_id, slug=slug, name=query)
+    if act in ("catalog_search", "kitchen_search"):
+        from tools.core.catalog_reads import format_catalog_search
+
+        return format_catalog_search(restaurant_id, query or slug, limit=limit)
     if act in ("purchase_queue", "purchase_parse_queue", "queue"):
         return format_bill_queue(
             user_id,
@@ -208,7 +221,8 @@ def read_inventory(
         return get_bill_summary(restaurant_id, bill_id)
     return (
         "Unknown action. Use: pantry_summary, low_stock, expiring, search, "
-        "ingredient_detail, purchase_queue, purchase_bill_summary."
+        "ingredient_detail, dish_detail, addon_detail, catalog_search, "
+        "purchase_queue, purchase_bill_summary."
     )
 
 
@@ -253,28 +267,17 @@ def read_business(
             restaurant_id, finance_period, slug=slug, name=dish_name, limit=limit
         )
     if act in ("margins", "dish_margins", "margin_rankings"):
-        recipes = find_many(
-            "recipes",
-            restaurant_id,
-            {"dishName": 1, "foodCost": 1, "sellPrice": 1, "progress": 1, "kind": 1},
-            extra_filter={"progress": "ready", "kind": "dish"},
-        )
-        rows = []
-        for recipe in recipes:
-            sell = float(recipe.get("sellPrice", 0) or 0)
-            cost = float(recipe.get("foodCost", 0) or 0)
-            if sell <= 0 or cost <= 0:
-                continue
-            margin = sell - cost
-            pct = margin / sell * 100
-            rows.append((recipe.get("dishName", "dish"), margin, pct))
-        if not rows:
-            return "No priced recipes yet."
-        reverse = view.lower() != "lowest"
-        rows.sort(key=lambda row: row[1], reverse=reverse)
-        return "\n".join(
-            f"- {name}: ${margin:.2f} margin ({pct:.0f}%)" for name, margin, pct in rows[:10]
-        )
+        from tools.core.catalog_reads import format_margin_rankings
+
+        return format_margin_rankings(restaurant_id, view=view, limit=limit or 10)
+    if act in ("dish_pricing", "dish_price", "sell_price", "menu_price"):
+        from tools.core.catalog_reads import format_dish_pricing_text
+
+        return format_dish_pricing_text(restaurant_id, slug=slug, name=dish_name)
+    if act in ("addon_pricing", "addon_price"):
+        from tools.core.catalog_reads import format_addon_detail
+
+        return format_addon_detail(restaurant_id, slug=slug, name=dish_name)
     if act in ("sales_vs_purchases", "compare"):
         window = finance_period_range(period)
         sales_orders = find_many(
@@ -339,9 +342,9 @@ def read_business(
         )
     return (
         "Unknown action. Use: finance_summary, top_selling, slow_sellers, margins, "
-        "sales_vs_purchases, sales_queue, sales_bill_summary, purchase_prerequisite, "
-        "top_used_ingredients, promotion_opportunities, suggest_price_change, "
-        "suggest_reorder_threshold."
+        "dish_pricing, addon_pricing, sales_vs_purchases, sales_queue, sales_bill_summary, "
+        "purchase_prerequisite, top_used_ingredients, promotion_opportunities, "
+        "suggest_price_change, suggest_reorder_threshold."
     )
 
 
@@ -379,7 +382,8 @@ def read_menu(
         if not matches:
             return f"No dishes matching '{query}'."
         return "\n".join(
-            f"- {d['name']} ({d.get('slug', '')}, {d.get('recipeStatus', 'new')})"
+            f"- {d['name']} ({d.get('slug', '')}, {d.get('recipeStatus', 'new')}): "
+            f"sell ${float(d.get('sellPrice', 0) or 0):.2f}"
             for d in matches
         )
     if act in ("suggested", "suggested_dishes"):
@@ -410,10 +414,19 @@ def read_menu(
         if not addons:
             return "No add-ons in catalog."
         return "\n".join(
-            f"- {a['name']} ({a.get('classification', '')})" for a in addons
+            f"- {a['name']} ({a.get('slug', '')}, {a.get('classification', '')}): "
+            f"sell ${float(a.get('sellPrice', 0) or 0):.2f}"
+            for a in addons
         )
+    if act in ("dish_detail", "addon_detail"):
+        from tools.core.catalog_reads import format_addon_detail, format_dish_detail
+
+        if act == "addon_detail":
+            return format_addon_detail(restaurant_id, slug=query, name=query)
+        return format_dish_detail(restaurant_id, slug=query, name=query)
     return (
-        "Unknown action. Use: cues, search_dishes, suggested, active, addons, promotion_targets."
+        "Unknown action. Use: cues, search_dishes, suggested, active, addons, "
+        "dish_detail, addon_detail, promotion_targets."
     )
 
 

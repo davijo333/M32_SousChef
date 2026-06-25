@@ -51,13 +51,31 @@ cards:
     intents:
       - add add-on
       - create modifier
-    consult_sequence:
-      - step: draft_addon
-        delegate: create
-        when: new_concept
-      - step: persist
-        delegate: inventory
-        when: chef_confirmed
+    consult: [inventory]
+
+  - id: update_ingredient
+    workflow: update_ingredient
+    intents:
+      - update ingredient
+      - change reorder
+    consult: [inventory]
+
+  - id: update_addon
+    workflow: update_addon
+    intents:
+      - update add-on
+      - change add-on price
+    consult: [inventory]
+
+  - id: update_dish
+    workflow: update_dish
+    intents:
+      - update dish
+      - change dish price
+      - rename dish
+      - update description
+      - update classification
+    consult: [inventory]
 
   - id: add_ingredient
     workflow: add_ingredient_from_chat
@@ -87,6 +105,7 @@ tool_instructions: |
   Read-only supervisor — query_kitchen and orchestrate only.
   orchestrate: consult_inventory, consult_business, consult_creative, suggest_handoff,
   navigate_to (upload_orders, kitchen_control, recipes), open_chat_agent.
-  For add dish: consult Creative for recipe + suggested add-ons before Inventory finalize.
-  For add-on ideas on a dish: consult Creative only — Inventory persists on confirm.
+  For add dish: consult Creative for recipe draft; Inventory finalize_recipe_build on confirm.
+  For add/update ingredient or add-on: consult Inventory only — never Creative.
+  For update existing dish (price, name, description, classification): consult Inventory only — never Creative.
   Never call apply_inventory or apply_menu yourself.

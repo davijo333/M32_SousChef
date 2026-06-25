@@ -17,19 +17,9 @@ import {
   buildAssistantGreeting,
   CHAT_ASSISTANT_PROFILES,
   CHAT_PLACEHOLDER,
-  type DashboardChatContext,
 } from "@backend/services/agents/dashboard-chat";
-import {
-  connectAgentButtonLabel,
-  connectBackButtonLabel,
-  detectSuggestedAgentHandoff,
-  handoffToDashboardSection,
-  isSpecialistHandoffTarget,
-  type SpecialistHandoffTarget,
-} from "@backend/services/agents/chat-handoff";
 import { renderChatMarkdown } from "@/lib/chat-markdown";
 import { AgentBrandMark } from "@/components/BrandMark";
-import { AgentSwitcher } from "@/components/AgentSwitcher";
 import { useOrderWorkOptional } from "@/components/OrderWorkProvider";
 import type { AgentBrandAgent } from "@/lib/agent-icons";
 import {
@@ -43,22 +33,33 @@ import {
   applyCatalogDraftCorrection,
   buildCatalogDraftFromChat,
   inferCatalogDraftFromThread,
+  inferPricingSubjectDraftFromThread,
   type ChatCatalogDraftPayload,
 } from "@backend/services/chat/chat-catalog-draft";
 import { shouldParseAttachmentsAsBills } from "@backend/services/chat/chat-catalog-intent";
 import {
   detectKitchenBuildConfirm,
   detectPantryAddZeroConfirm,
-  detectRecipeBuildIntent,
-  shouldUseSuggestionConfirmOnly,
 } from "@backend/services/chat/chat-recipe-build-intent";
+import {
+  detectPriceAdjustmentConfirm,
+  detectSellPriceConfirm,
+  threadAwaitingPriceConfirm,
+} from "@backend/services/chat/chat-price-adjustment";
+import {
+  detectReorderThresholdConfirm,
+  threadAwaitingReorderConfirm,
+} from "@backend/services/chat/chat-reorder-adjustment";
+import {
+  threadAwaitingKitchenSaveConfirm,
+  threadHasKitchenBuildInThread,
+  threadHasRecipeDraft,
+} from "@backend/services/chat/chat-recipe-draft";
 import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
 import {
   isRecipeBuildReadyToFinalize,
   type RecipeBuildPlanPayload,
 } from "@backend/services/recipes/recipe-build-plan";
-import { deriveChatChoices, type ChatChoice, type ChatChoiceSet } from "@backend/services/chat/chat-choices";
-import { ChatChoiceBar } from "@/components/ChatChoiceBar";
 import { RecipeBuildPicker } from "@/components/RecipeBuildPicker";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DashboardFinancePeriod } from "@backend/services/dashboard/dashboard-stats";
@@ -66,7 +67,6 @@ import type { DashboardFinancePeriod } from "@backend/services/dashboard/dashboa
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
-  choices?: ChatChoiceSet | null;
   activity?: {
     orchestrator: "head";
     consultedAgents: Array<"inventory" | "business" | "create">;
@@ -80,7 +80,6 @@ type ChatSession = {
 };
 
 type DashboardChefChatProps = {
-  context: DashboardChatContext;
   financeView?: DashboardFinancePeriod;
   showCues?: boolean;
   /** Section title already shows avatar + name — omit duplicate in chat chrome. */
@@ -89,12 +88,6 @@ type DashboardChefChatProps = {
   variant?: "inline" | "dock" | "floating";
   showAttachments?: boolean;
   onRequestClose?: () => void;
-  /** Page home agent — used for “connect back” when switching away on specialist pages. */
-  homeAgent?: DashboardChatContext;
-  dashboardSection?: "inventory" | "business" | "create";
-  agentContext?: DashboardChatContext;
-  onAgentContextChange?: (context: DashboardChatContext) => void;
-  onAgentHandoff?: (section: "inventory" | "business" | "create") => void;
 };
 
 function MinimizeChatButton({
@@ -224,40 +217,21 @@ function hasUserMessages(messages: ChatMessage[]): boolean {
   return messages.some((message) => message.role === "user");
 }
 
-function chatContextAgent(context: DashboardChatContext): AgentBrandAgent {
-  if (context === "head") return "head_chef";
-  if (context === "create") return "create";
-  return context;
+function chatContextAgent(): AgentBrandAgent {
+  return "head_chef";
 }
 
 export function DashboardChefChat({
-  context,
   financeView = "week",
   showCues = false,
   hideHeaderIdentity = false,
   variant = "inline",
-  showAttachments: showAttachmentsProp,
+  showAttachments: showAttachmentsProp = true,
   onRequestClose,
-  homeAgent: homeAgentProp,
-  agentContext: controlledAgentContext,
-  onAgentContextChange,
-  onAgentHandoff,
 }: DashboardChefChatProps) {
   const { data: session, status } = useSession();
   const chefName = session?.user?.name ?? "Chef";
-  const [localAgentContext, setLocalAgentContext] = useState<DashboardChatContext>(context);
-  const agentContext = controlledAgentContext ?? localAgentContext;
-
-  function setAgentContext(next: DashboardChatContext) {
-    if (onAgentContextChange) {
-      onAgentContextChange(next);
-    } else {
-      setLocalAgentContext(next);
-    }
-  }
-
-  const profile = CHAT_ASSISTANT_PROFILES[agentContext];
-  const homeAgent = homeAgentProp ?? context;
+  const profile = CHAT_ASSISTANT_PROFILES.head;
 
   const [cues, setCues] = useState<CreateCue[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -284,13 +258,7 @@ export function DashboardChefChat({
 
   const uploadLocked = Boolean(orderWork?.anyBusy || parsingBatch);
 
-  const greeting = buildAssistantGreeting(agentContext, chefName);
-
-  useEffect(() => {
-    if (!onAgentContextChange) {
-      setLocalAgentContext(context);
-    }
-  }, [context, onAgentContextChange]);
+  const greeting = buildAssistantGreeting("head", chefName);
 
   const loadCues = useCallback(async () => {
     if (!showCues) return;
@@ -306,7 +274,7 @@ export function DashboardChefChat({
 
   const loadPromptSuggestions = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ page: context, agent: agentContext });
+      const params = new URLSearchParams({ page: "head", agent: "head" });
       const res = await fetch(`/api/dashboard/chat-suggestions?${params}`);
       if (!res.ok) return;
       const data = (await res.json()) as {
@@ -318,7 +286,7 @@ export function DashboardChefChat({
     } catch {
       // ignore
     }
-  }, [agentContext, context]);
+  }, []);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -326,7 +294,7 @@ export function DashboardChefChat({
       if (!detail?.prompt) return;
       setInput(detail.prompt);
       setExpanded(true);
-      queueMicrotask(() => inputRef.current?.focus());
+      queueMicrotask(() => focusChatInput());
     };
     window.addEventListener(CREATIVE_CUE_SELECT_EVENT, handler);
     return () => window.removeEventListener(CREATIVE_CUE_SELECT_EVENT, handler);
@@ -343,9 +311,13 @@ export function DashboardChefChat({
       setDraftNewChat(false);
       if (data.messages.length > 0) {
         setMessages(data.messages);
-        const recovered = inferCatalogDraftFromThread(
-          data.messages.map((row) => ({ role: row.role, content: row.content }))
-        );
+        const recovered =
+          inferCatalogDraftFromThread(
+            data.messages.map((row) => ({ role: row.role, content: row.content }))
+          ) ??
+          inferPricingSubjectDraftFromThread(
+            data.messages.map((row) => ({ role: row.role, content: row.content }))
+          );
         setCatalogDraft(recovered ?? null);
         if (expandOnLoad) setExpanded(true);
       } else {
@@ -410,6 +382,10 @@ export function DashboardChefChat({
 
   function openChat() {
     setExpanded(true);
+    focusChatInput();
+  }
+
+  function focusChatInput() {
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -423,7 +399,7 @@ export function DashboardChefChat({
     setRecipeBuildPlan(null);
     setCatalogDraft(null);
     setAttachments([]);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
+    focusChatInput();
   }
 
   function selectSession(id: string) {
@@ -526,81 +502,6 @@ export function DashboardChefChat({
     }
   }
 
-  function applyHandoff(target: DashboardChatContext) {
-    setAgentContext(target);
-    if (isSpecialistHandoffTarget(target)) {
-      onAgentHandoff?.(handoffToDashboardSection(target));
-    }
-    if (target === "create") void loadCues();
-  }
-
-  function specialistConnectNeeded(target: DashboardChatContext): boolean {
-    if (target === "head") return false;
-    if (context === "head") return true;
-    return target !== context;
-  }
-
-  async function switchToAgent(target: DashboardChatContext) {
-    if (target === agentContext || sending) return;
-
-    setExpanded(true);
-
-    if (!specialistConnectNeeded(target)) {
-      setAgentContext(target);
-      if (target === "create") void loadCues();
-      return;
-    }
-
-    setSending(true);
-    setError("");
-
-    const connectLabel = connectAgentButtonLabel(target);
-    setMessages((prev) => [...prev, { role: "user", content: connectLabel }]);
-
-    try {
-      const res = await fetch("/api/dashboard/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          connectAgent: target,
-          message: connectLabel,
-          conversationId: draftNewChat ? undefined : conversationId,
-          newChat: draftNewChat,
-          context,
-          agentContext: agentContext !== context ? agentContext : undefined,
-          financeView,
-        }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        reply?: string;
-        conversationId?: string;
-        conversations?: ChatSession[];
-        cues?: CreateCue[];
-        createdSuggestion?: { name: string };
-        handoff?: SpecialistHandoffTarget;
-        agentContext?: DashboardChatContext;
-        activity?: {
-          orchestrator: "head";
-          consultedAgents: Array<"inventory" | "business" | "create">;
-        } | null;
-      };
-
-      if (!res.ok) {
-        setError(data.error ?? "Could not connect to that agent.");
-        setMessages((prev) => prev.slice(0, -1));
-        return;
-      }
-
-      await handleChatResponse(data);
-    } catch {
-      setError("Network error — try again.");
-      setMessages((prev) => prev.slice(0, -1));
-    } finally {
-      setSending(false);
-    }
-  }
-
   async function handleChatResponse(
     data: {
       error?: string;
@@ -609,12 +510,9 @@ export function DashboardChefChat({
       conversations?: ChatSession[];
       cues?: CreateCue[];
       createdSuggestion?: { name: string };
-      handoff?: SpecialistHandoffTarget;
-      agentContext?: DashboardChatContext;
       recipeBuildPlan?: RecipeBuildPlanPayload | null;
       kitchenBuildComplete?: boolean;
       catalogDraft?: ChatCatalogDraftPayload | null;
-      choices?: ChatChoiceSet | null;
       activity?: {
         orchestrator: "head";
         consultedAgents: Array<"inventory" | "business" | "create">;
@@ -639,25 +537,14 @@ export function DashboardChefChat({
     }
     void loadPromptSuggestions();
 
-    if (data.handoff) {
-      applyHandoff(data.handoff);
-    } else if (data.agentContext) {
-      setAgentContext(data.agentContext);
-    }
-
     setMessages((prev) => [
       ...prev,
       {
         role: "assistant",
         content: data.reply ?? "Done.",
-        choices: data.choices ?? null,
         activity: data.activity ?? null,
       },
     ]);
-  }
-
-  async function sendChoice(choice: ChatChoice) {
-    await sendMessage(choice.message);
   }
 
   async function sendMessage(
@@ -679,40 +566,62 @@ export function DashboardChefChat({
       /\b(yes|confirm|go ahead|create it|update it|save (it|that)|add it|link it|delete it|remove it|do it|approved?|sure)\b/i.test(
         trimmed
       );
-    const recipeIntent = detectRecipeBuildIntent(trimmed);
     const threadHistory = messages.map((row) => ({ role: row.role, content: row.content }));
     const activeCatalogDraft =
-      catalogDraft ?? inferCatalogDraftFromThread(threadHistory) ?? null;
+      catalogDraft ??
+      inferCatalogDraftFromThread(threadHistory) ??
+      inferPricingSubjectDraftFromThread(threadHistory) ??
+      null;
+    const hasRecipeDraftInThread = threadHasRecipeDraft(threadHistory);
+    const kitchenBuiltInThread = threadHasKitchenBuildInThread(threadHistory);
+    const awaitingKitchenSave = threadAwaitingKitchenSaveConfirm(threadHistory);
+    const awaitingPriceConfirm = threadAwaitingPriceConfirm(threadHistory);
+    const awaitingReorderConfirm = threadAwaitingReorderConfirm(threadHistory);
+    const catalogDishForKitchenBuild =
+      activeCatalogDraft?.itemType === "dish" && activeCatalogDraft?.source !== "pricing";
+    const sellPriceConfirm = detectSellPriceConfirm(trimmed, threadHistory);
+    const priceAdjustConfirm = detectPriceAdjustmentConfirm(trimmed, threadHistory);
+    const reorderConfirm = detectReorderThresholdConfirm(trimmed, threadHistory);
+    const kitchenBuildConfirm = detectKitchenBuildConfirm(trimmed, {
+      hasCatalogDish: catalogDishForKitchenBuild,
+      hasRecipePlan: Boolean(outboundRecipeBuild),
+      hasRecipeDraftInThread,
+      hasKitchenBuildInThread: kitchenBuiltInThread,
+      awaitingKitchenSave,
+      awaitingPriceConfirm,
+      awaitingReorderConfirm,
+    });
+    const anyReorderConfirm =
+      (reorderConfirm ||
+        (awaitingReorderConfirm && /\b(yes|confirm|go ahead|proceed)\b/i.test(trimmed))) &&
+      !kitchenBuildConfirm &&
+      (!awaitingPriceConfirm || awaitingReorderConfirm);
+    const anyPriceConfirm =
+      (sellPriceConfirm ||
+        priceAdjustConfirm ||
+        (awaitingPriceConfirm && /\b(yes|confirm|go ahead|proceed)\b/i.test(trimmed))) &&
+      !kitchenBuildConfirm &&
+      !awaitingKitchenSave &&
+      !awaitingReorderConfirm;
     const confirmSuggestionFlag =
       confirmSuggestion ||
-      (agentContext === "create" && outboundRecipeBuild && menuConfirmPattern) ||
-      (agentContext === "create" &&
-        !outboundRecipeBuild &&
-        menuConfirmPattern &&
-        (shouldUseSuggestionConfirmOnly(trimmed) ||
-          /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(trimmed))) ||
-      (agentContext === "create" && recipeIntent && detectKitchenBuildConfirm(trimmed)) ||
-      (context === "head" &&
-        detectKitchenBuildConfirm(trimmed, {
-          hasCatalogDish: activeCatalogDraft?.itemType === "dish",
-          hasRecipePlan: Boolean(outboundRecipeBuild),
-        })) ||
-      (context === "head" &&
-        detectPantryAddZeroConfirm(trimmed) &&
-        activeCatalogDraft?.itemType === "dish") ||
+      (!anyPriceConfirm &&
+        !awaitingPriceConfirm &&
+        !anyReorderConfirm &&
+        !awaitingReorderConfirm &&
+        kitchenBuildConfirm) ||
+      (detectPantryAddZeroConfirm(trimmed) && activeCatalogDraft?.itemType === "dish") ||
       (Boolean(outboundRecipeBuild) &&
         isRecipeBuildReadyToFinalize(outboundRecipeBuild) &&
         menuConfirmPattern);
     const confirmUpload = detectUploadConfirm(trimmed);
     const confirmInventory =
-      (agentContext === "inventory" &&
-        /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
-      (context === "head" && confirmUpload) ||
-      (context === "head" && detectPantryAddZeroConfirm(trimmed));
-    const confirmBusiness =
-      (agentContext === "business" &&
-        /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it)\b/i.test(trimmed)) ||
-      (context === "head" && confirmUpload);
+      confirmUpload ||
+      detectPantryAddZeroConfirm(trimmed) ||
+      (!anyPriceConfirm && !anyReorderConfirm && kitchenBuildConfirm) ||
+      anyPriceConfirm ||
+      anyReorderConfirm;
+    const confirmBusiness = confirmUpload;
 
     setExpanded(true);
     setSending(true);
@@ -735,7 +644,7 @@ export function DashboardChefChat({
         uploadNote = formatUploadBatchNote(uploadBatch);
         setAttachments([]);
       } else if (filesToSend.length > 0) {
-        const catalogResult = await buildCatalogDraftFromChat(trimmed, filesToSend, agentContext);
+        const catalogResult = await buildCatalogDraftFromChat(trimmed, filesToSend, "head");
         if (!catalogResult.draft) {
           throw new Error("Could not identify a menu or pantry item from that photo.");
         }
@@ -744,7 +653,7 @@ export function DashboardChefChat({
         catalogNote = catalogResult.note;
         setAttachments([]);
       } else {
-        const catalogResult = await buildCatalogDraftFromChat(trimmed, [], agentContext);
+        const catalogResult = await buildCatalogDraftFromChat(trimmed, [], "head");
         if (catalogResult.draft) {
           outboundCatalogDraft = catalogResult.draft;
           setCatalogDraft(catalogResult.draft);
@@ -754,6 +663,7 @@ export function DashboardChefChat({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload files.");
       setSending(false);
+      focusChatInput();
       return;
     }
 
@@ -779,8 +689,7 @@ export function DashboardChefChat({
           userMessage: trimmed,
           conversationId: draftNewChat ? undefined : conversationId,
           newChat: draftNewChat,
-          context,
-          agentContext: agentContext !== context ? agentContext : undefined,
+          context: "head",
           financeView,
           confirmSuggestion: confirmSuggestionFlag,
           confirmInventory,
@@ -797,8 +706,6 @@ export function DashboardChefChat({
         conversations?: ChatSession[];
         cues?: CreateCue[];
         createdSuggestion?: { name: string };
-        handoff?: "inventory" | "business" | "create";
-        agentContext?: DashboardChatContext;
         recipeBuildPlan?: RecipeBuildPlanPayload | null;
         kitchenBuildComplete?: boolean;
         catalogDraft?: ChatCatalogDraftPayload | null;
@@ -820,6 +727,7 @@ export function DashboardChefChat({
       setMessages((prev) => prev.slice(0, -1));
     } finally {
       setSending(false);
+      focusChatInput();
     }
   }
 
@@ -844,21 +752,15 @@ export function DashboardChefChat({
   function queuePrompt(prompt: string) {
     setInput(prompt);
     setExpanded(true);
-    queueMicrotask(() => inputRef.current?.focus());
+    queueMicrotask(() => focusChatInput());
   }
 
   const showCreativeCues = showCues;
   const isFloating = variant === "floating";
   const isDock = variant === "dock" || isFloating;
-  const switchedFromHome = agentContext !== homeAgent;
-  const showAttachments =
-    showAttachmentsProp ?? (context === "head" || agentContext === "inventory");
+  const showAttachments = showAttachmentsProp;
 
   const canSend = Boolean(input.trim()) || attachments.length > 0;
-
-  function returnToHomeAgent() {
-    void switchToAgent(homeAgent);
-  }
 
   const attachmentChips =
     showAttachments && attachments.length > 0 ? (
@@ -1007,14 +909,6 @@ export function DashboardChefChat({
                 </div>
               </div>
             )}
-            {isDock && (
-              <AgentSwitcher
-                active={agentContext}
-                onSelect={(agent) => void switchToAgent(agent)}
-                disabled={sending}
-                size="compact"
-              />
-            )}
             {isDock && showSessionTabs && (
               <SessionTabsRow
                 sessions={sessions}
@@ -1035,7 +929,7 @@ export function DashboardChefChat({
                   type="text"
                   readOnly
                   value=""
-                  placeholder={CHAT_PLACEHOLDER[agentContext]}
+                  placeholder={CHAT_PLACEHOLDER.head}
                   onClick={openChat}
                   onFocus={openChat}
                   aria-label={`Open ${profile.name}`}
@@ -1063,7 +957,7 @@ export function DashboardChefChat({
                   <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-chef-text">
                     {!hideHeaderIdentity && (
                       <>
-                        <AgentBrandMark agent={chatContextAgent(context)} size={32} />
+                        <AgentBrandMark agent={chatContextAgent()} size={32} />
                         {profile.name}
                         <span className="font-normal text-chef-text-muted">·</span>
                       </>
@@ -1074,24 +968,8 @@ export function DashboardChefChat({
                       Up to {MAX_CHAT_SESSIONS} saved chats
                     </span>
                   </p>
-                  <AgentSwitcher
-                    active={agentContext}
-                    onSelect={(agent) => void switchToAgent(agent)}
-                    disabled={sending}
-                  />
                 </div>
                 <div className="flex gap-1.5">
-                  {switchedFromHome && (
-                    <Tooltip content={connectBackButtonLabel(homeAgent)}>
-                      <button
-                        type="button"
-                        onClick={returnToHomeAgent}
-                        className="sc-btn-secondary px-3 py-1.5 text-sm"
-                      >
-                        {connectBackButtonLabel(homeAgent)}
-                      </button>
-                    </Tooltip>
-                  )}
                   <Tooltip content={`Start a new chat (up to ${MAX_CHAT_SESSIONS} saved)`}>
                     <button
                       type="button"
@@ -1135,30 +1013,6 @@ export function DashboardChefChat({
               )}
 
               {messages.map((msg, index) => {
-                const suggestedAgent =
-                  msg.role === "assistant" ? detectSuggestedAgentHandoff(msg.content) : null;
-                const showConnectButton =
-                  suggestedAgent !== null && suggestedAgent !== agentContext;
-                const isLastAssistant =
-                  msg.role === "assistant" &&
-                  !messages.slice(index + 1).some((row) => row.role === "assistant");
-                const liveChoices =
-                  isLastAssistant && index === messages.length - 1
-                    ? deriveChatChoices({
-                        catalogDraft: catalogDraft ?? inferCatalogDraftFromThread(
-                          messages.map((row) => ({ role: row.role, content: row.content }))
-                        ),
-                        recipeBuildPlan,
-                        kitchenBuildComplete: false,
-                      })
-                    : null;
-                const displayChoices = liveChoices ?? msg.choices;
-                const showChoices =
-                  isLastAssistant &&
-                  displayChoices &&
-                  !sending &&
-                  index === messages.length - 1;
-
                 return (
                   <div
                     key={index}
@@ -1179,35 +1033,18 @@ export function DashboardChefChat({
                     </div>
                     {msg.role === "assistant" && msg.activity?.consultedAgents?.length ? (
                       <p className="mt-1 px-1 text-xs text-chef-text-muted">
-                        Sous Chef consulted{" "}
+                        Consulted with{" "}
                         {msg.activity.consultedAgents
                           .map((agent) => CHAT_ASSISTANT_PROFILES[agent].name)
                           .join(", ")}
                         .
                       </p>
                     ) : null}
-                    {showConnectButton && (
-                      <button
-                        type="button"
-                        onClick={() => void switchToAgent(suggestedAgent)}
-                        disabled={sending}
-                        className="mt-2 rounded-full border border-chef-sage bg-white px-3 py-1.5 text-xs font-medium text-chef-sage hover:bg-chef-sage-light/30 disabled:opacity-50"
-                      >
-                        {connectAgentButtonLabel(suggestedAgent)}
-                      </button>
-                    )}
-                    {showChoices && displayChoices ? (
-                      <ChatChoiceBar
-                        choiceSet={displayChoices}
-                        disabled={sending}
-                        onSelect={(choice) => void sendChoice(choice)}
-                      />
-                    ) : null}
                   </div>
                 );
               })}
 
-              {recipeBuildPlan && (context === "head" || agentContext === "create") && (
+              {recipeBuildPlan && (
                 <RecipeBuildPicker
                   plan={recipeBuildPlan}
                   disabled={sending}
@@ -1253,7 +1090,7 @@ export function DashboardChefChat({
             </div>
 
             {error && <p className="px-4 pb-2 text-sm text-red-600">{error}</p>}
-            {lastCreated && agentContext === "create" && (
+            {lastCreated && (
               <p className="border-t border-chef-border bg-chef-sage-light/30 px-4 py-2 text-sm text-chef-text">
                 Added <span className="font-semibold">{lastCreated}</span> to Suggested.{" "}
                 <Link href="/recipes" className="font-medium text-chef-sage underline">
@@ -1278,7 +1115,7 @@ export function DashboardChefChat({
                     type="text"
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
-                    placeholder={CHAT_PLACEHOLDER[agentContext]}
+                    placeholder={CHAT_PLACEHOLDER.head}
                     disabled={sending}
                     className={`w-full rounded-xl border border-chef-border px-3 text-chef-text placeholder:text-chef-text-muted/70 ${inputAttachPad} ${
                       isDock ? "py-3.5 text-base" : "py-2.5 text-sm"

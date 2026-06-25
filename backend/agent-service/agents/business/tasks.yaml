@@ -21,6 +21,8 @@ tools:
         - top_used_ingredients
         - promotion_opportunities
         - suggest_price_change
+        - dish_pricing
+        - addon_pricing
         - suggest_reorder_threshold
     pantry:
       name: query_inventory
@@ -28,6 +30,7 @@ tools:
         - low_stock
         - search
         - ingredient_detail
+        - catalog_search
       note: Read-only pantry context for reorder and margin analysis.
 
 owns:
@@ -56,7 +59,8 @@ workflows:
   - id: margin_pass
     trigger: chef asks about dish price or margin
     steps:
-      - query_business suggest_price_change with dish slug or name
+      - query_business suggest_price_change or dish_pricing with dish slug or name
+      - never use margins ranking alone for a single dish — margin $ is not sell price
       - if change needed, tell chef to confirm with Inventory apply_price_change
 
   - id: promotion_review

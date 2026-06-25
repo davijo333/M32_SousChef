@@ -15,6 +15,9 @@ tools:
         - expiring
         - search
         - ingredient_detail
+        - dish_detail
+        - addon_detail
+        - catalog_search
         - purchase_queue
         - purchase_bill_summary
     menu:
@@ -22,6 +25,8 @@ tools:
       actions:
         - search_dishes
         - addons
+        - dish_detail
+        - addon_detail
         - active
         - cues
         - suggested
@@ -85,10 +90,28 @@ workflows:
       - query_inventory action low_stock
 
   - id: create_ingredient
-    trigger: new pantry row
+    trigger: chef asks to add pantry item / ingredient
     steps:
       - query_inventory search
       - apply_inventory create_ingredient — auto-generate packaging image pair
+
+  - id: create_addon
+    trigger: chef asks to add add-on (no Creative)
+    steps:
+      - query_menu addons + search
+      - apply_menu create_addon — auto-generate images
+
+  - id: update_ingredient
+    trigger: chef updates pantry qty, reorder, or category
+    steps:
+      - query_inventory ingredient_detail
+      - apply_inventory update_ingredient or update_reorder_threshold
+
+  - id: update_addon
+    trigger: chef updates add-on price or description
+    steps:
+      - query_menu addon_detail
+      - apply_menu update_addon
 
   - id: recipe_build_finalize
     trigger: chef confirms full kitchen build

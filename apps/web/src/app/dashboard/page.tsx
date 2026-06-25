@@ -867,11 +867,7 @@ export default function DashboardPage() {
         {section === "create" && <CreativeCuesPanel />}
 
       </main>
-      <SousChefChatDock
-        financeView={financePeriod}
-        dashboardSection={section}
-        onAgentHandoff={setSection}
-      />
+      <SousChefChatDock financeView={financePeriod} showCues={section === "create"} />
     </>
   );
 }

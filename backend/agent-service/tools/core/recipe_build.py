@@ -98,7 +98,7 @@ def _parse_ingredient_line(text: str) -> dict[str, Any] | None:
         return None
 
     qty_match = re.search(
-        r"(\d+(?:\.\d+)?)\s*(cup|cups|oz|tbsp|tsp|ml|l|each|slice|slices|g|gram|grams)\b",
+        r"(\d+(?:\.\d+)?(?:/\d+)?)\s*(cup|cups|oz|tbsp|tsp|ml|l|each|slice|slices|g|gram|grams)\b",
         raw,
         re.I,
     )
@@ -142,8 +142,92 @@ def _looks_like_ingredient_line(text: str) -> bool:
         "sugar",
         "honey",
         "syrup",
+        "chia",
+        "almond",
+        "protein",
+        "yogurt",
     )
     return any(hint in lower for hint in food_hints)
+
+
+def extract_dish_name_from_history(messages: list[dict[str, str]]) -> str:
+    """Dish name from user intent or Creative's recipe draft in thread."""
+    from tools.core.catalog_draft_helpers import is_valid_recipe_dish_name, title_case_dish_name
+
+    for row in reversed(messages):
+        text = str(row.get("content") or "").strip()
+        if not text:
+            continue
+        for pattern in (
+            r"(?:\*\*)?(?:menu name|proposed dish|dish to add)\s*:?\s*\*?\*?\s*([^\n*]+)",
+            r"(?:^|\n)#{1,3}\s*([^\n#*]+)\s*\n",
+            r"(?:^|\n)\s*[-•*]?\s*name\s*:\s*([^\n]+)",
+            r"\b(?:confirm|kitchen build for)(?:\s+the)?\s+\*?\*?([^*\n.!?]+?)\*?\*?",
+        ):
+            match = re.search(pattern, text, re.I)
+            if match:
+                name = title_case_dish_name(match.group(1).strip().strip("*"))
+                if name and is_valid_recipe_dish_name(name):
+                    return name
+
+    for row in reversed(messages):
+        if str(row.get("role") or "") != "user":
+            continue
+        text = str(row.get("content") or "").strip()
+        quoted = re.search(r'\bdish\s+["“\']([^"”\']+)["”\']', text, re.I)
+        if quoted:
+            name = title_case_dish_name(quoted.group(1).strip())
+            if name and is_valid_recipe_dish_name(name):
+                return name
+        match = re.search(r"\b(?:add|create)\s+(?:a\s+)?dish\s+(.+)$", text, re.I)
+        if match:
+            name = title_case_dish_name(re.sub(r"\b(please|thanks)\b.*", "", match.group(1), flags=re.I))
+            if name and is_valid_recipe_dish_name(name):
+                return name
+    return ""
+
+
+def thread_has_kitchen_build_in_thread(messages: list[dict[str, str]]) -> bool:
+    for row in messages:
+        if row.get("role") != "assistant":
+            continue
+        text = str(row.get("content") or "")
+        if re.search(
+            r"\b(created dish|updated dish)\b.+\b(linked ingredient|recipe steps)\b",
+            text,
+            re.I,
+        ):
+            return True
+    return False
+
+
+def thread_has_recipe_draft(messages: list[dict[str, str]]) -> bool:
+    if thread_has_kitchen_build_in_thread(messages):
+        return False
+
+    extracted = extract_recipe_draft_from_history(messages)
+    if extracted.get("ingredients") and extracted.get("instructions"):
+        return True
+
+    assistant_text = "\n".join(
+        str(row.get("content") or "")
+        for row in messages
+        if row.get("role") == "assistant"
+    )
+    if not assistant_text.strip():
+        return False
+
+    has_dish_context = bool(
+        re.search(r"(?:menu name|proposed dish|pos description|visual brief|suggested add-?ons?)", assistant_text, re.I)
+    )
+    asks_confirm = bool(
+        re.search(
+            r"\b(please confirm|would you like to proceed|confirm if you(?:'d| would) like)\b",
+            assistant_text,
+            re.I,
+        )
+    )
+    return asks_confirm and has_dish_context
 
 
 def extract_recipe_draft_from_history(messages: list[dict[str, str]]) -> dict[str, Any]:
@@ -172,7 +256,7 @@ def extract_recipe_draft_from_history(messages: list[dict[str, str]]) -> dict[st
 
         if not instructions:
             step_block = re.search(
-                r"(?:recipe|instructions?|steps?)\s*:?\s*\n([\s\S]+?)(?:\n\n[A-Z*]|\Z)",
+                r"(?:recipe|instructions?|prep steps?|steps?)\s*:?\s*\n([\s\S]+?)(?:\n\n[A-Z*#]|\Z)",
                 text,
                 re.I,
             )

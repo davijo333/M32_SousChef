@@ -91,13 +91,19 @@ def build_business_context(restaurant_id: str, finance_period: str = "week") -> 
         {"purchaseDate": 1, "uploadDate": 1, "items": 1, "status": 1},
         extra_filter={"status": "processed"},
     )
+    dishes = find_many("dishes", restaurant_id, {"name": 1, "slug": 1, "recipeStatus": 1, "sellPrice": 1})
     recipes = find_many(
         "recipes",
         restaurant_id,
-        {"dishName": 1, "foodCost": 1, "sellPrice": 1, "progress": 1, "kind": 1},
+        {"foodCost": 1, "targetSlug": 1, "dishSlug": 1, "progress": 1, "kind": 1},
         extra_filter={"progress": "ready", "kind": "dish"},
     )
-    dishes = find_many("dishes", restaurant_id, {"name": 1, "recipeStatus": 1, "sellPrice": 1})
+    cost_by_slug: dict[str, float] = {}
+    for recipe in recipes:
+        slug = str(recipe.get("dishSlug") or recipe.get("targetSlug") or "")
+        if slug:
+            cost_by_slug[slug] = float(recipe.get("foodCost", 0) or 0)
+    sell_by_slug = {str(d.get("slug", "")): float(d.get("sellPrice", 0) or 0) for d in dishes}
 
     sales = 0.0
     items_sold = 0
@@ -131,24 +137,33 @@ def build_business_context(restaurant_id: str, finance_period: str = "week") -> 
     top_margins = sorted(
         (
             {
-                "name": r.get("dishName", "dish"),
-                "margin": float(r.get("sellPrice", 0) or 0) - float(r.get("foodCost", 0) or 0),
+                "name": str(d.get("name", "dish")),
+                "sell": sell_by_slug.get(str(d.get("slug", "")), 0.0),
+                "margin": sell_by_slug.get(str(d.get("slug", "")), 0.0)
+                - cost_by_slug.get(str(d.get("slug", "")), 0.0),
                 "pct": (
-                    ((float(r.get("sellPrice", 0) or 0) - float(r.get("foodCost", 0) or 0))
-                     / float(r.get("sellPrice", 0) or 1))
+                    (
+                        (
+                            sell_by_slug.get(str(d.get("slug", "")), 0.0)
+                            - cost_by_slug.get(str(d.get("slug", "")), 0.0)
+                        )
+                        / sell_by_slug.get(str(d.get("slug", "")), 1)
+                    )
                     * 100
-                    if float(r.get("sellPrice", 0) or 0) > 0
+                    if sell_by_slug.get(str(d.get("slug", "")), 0.0) > 0
                     else 0
                 ),
             }
-            for r in recipes
-            if float(r.get("foodCost", 0) or 0) > 0
+            for d in dishes
+            if sell_by_slug.get(str(d.get("slug", "")), 0.0) > 0
+            and cost_by_slug.get(str(d.get("slug", "")), 0.0) > 0
         ),
         key=lambda row: row["margin"],
         reverse=True,
     )[:5]
     top_margin_line = "; ".join(
-        f"{r['name']} ${r['margin']:.2f} ({r['pct']:.0f}%)" for r in top_margins
+        f"{r['name']} sell ${r['sell']:.2f} margin ${r['margin']:.2f} ({r['pct']:.0f}%)"
+        for r in top_margins
     )
 
     active_dishes = sum(1 for d in dishes if (d.get("recipeStatus") or "new") == "active")
@@ -186,9 +201,10 @@ def build_creative_context(restaurant_id: str, cues_text: str = "") -> str:
     recipes = find_many(
         "recipes",
         restaurant_id,
-        {"foodCost": 1, "sellPrice": 1, "ingredients": 1, "progress": 1, "kind": 1},
+        {"foodCost": 1, "targetSlug": 1, "dishSlug": 1, "ingredients": 1, "progress": 1, "kind": 1},
         extra_filter={"progress": "ready", "kind": "dish"},
     )
+    sell_by_slug = {str(d.get("slug", "")): float(d.get("sellPrice", 0) or 0) for d in dishes}
 
     expiring = [i for i in ingredients if _is_expiring(i)]
     expiring_lines = "\n".join(
@@ -200,16 +216,25 @@ def build_creative_context(restaurant_id: str, cues_text: str = "") -> str:
         (
             {
                 "margin_pct": (
-                    (float(r.get("sellPrice", 0) or 0) - float(r.get("foodCost", 0) or 0))
-                    / float(r.get("sellPrice", 0) or 1)
+                    (
+                        sell_by_slug.get(
+                            str(r.get("dishSlug") or r.get("targetSlug") or ""), 0.0
+                        )
+                        - float(r.get("foodCost", 0) or 0)
+                    )
+                    / sell_by_slug.get(
+                        str(r.get("dishSlug") or r.get("targetSlug") or ""), 1
+                    )
                 )
                 * 100
-                if float(r.get("sellPrice", 0) or 0) > 0
+                if sell_by_slug.get(str(r.get("dishSlug") or r.get("targetSlug") or ""), 0.0)
+                > 0
                 else 0,
                 "ingredients": r.get("ingredients") or [],
             }
             for r in recipes
-            if float(r.get("foodCost", 0) or 0) > 0 and float(r.get("sellPrice", 0) or 0) > 0
+            if float(r.get("foodCost", 0) or 0) > 0
+            and sell_by_slug.get(str(r.get("dishSlug") or r.get("targetSlug") or ""), 0.0) > 0
         ),
         key=lambda row: row["margin_pct"],
         reverse=True,
@@ -226,7 +251,8 @@ def build_creative_context(restaurant_id: str, cues_text: str = "") -> str:
 
     pantry = "\n".join(
         f"{i['name']} ({i.get('slug', '')}, {i.get('category', '')}, "
-        f"{i.get('currentQty', 0)} {i.get('inventoryUnit', 'each')})"
+        f"on hand {i.get('currentQty', 0)} {i.get('inventoryUnit', 'each')}, "
+        f"reorder {i.get('reorderThreshold', 0)})"
         for i in ingredients[:40]
     ) or "Empty"
 

@@ -109,6 +109,7 @@ export async function GET() {
       name: a.name,
       classification: a.classification ?? "addon",
       sellPrice: a.sellPrice,
+      imageUrl: a.imageUrl,
       linkedDishSlugs: a.linkedDishSlugs,
       linkedDishNames: a.linkedDishSlugs.map(
         (slug) => dishBySlug.get(slug)?.name ?? slugToDisplayName(slug)

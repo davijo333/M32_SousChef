@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
-import { AgentChatDock } from "@/components/AgentChatDock";
+import { SousChefChatDock } from "@/components/SousChefChatDock";
 import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
 import { Nav } from "@/components/Nav";
 import {
@@ -59,6 +59,7 @@ type AddOnRecipe = {
   name: string;
   classification: string;
   sellPrice: number;
+  imageUrl?: string;
   linkedDishSlugs: string[];
   linkedDishNames: string[];
   ingredientLinks: RecipeLink[];
@@ -122,6 +123,7 @@ function addOnToModalItem(addOn: AddOnRecipe, tab: StatusTab): RecipeModalItem {
     name: displayRecipeName(addOn.name, tab),
     classification: addOn.classification,
     sellPrice: addOn.sellPrice,
+    imageUrl: addOn.imageUrl,
     linkedDishNames: addOn.linkedDishNames,
     ingredientLinks: addOn.ingredientLinks,
     recipe: addOn.recipe,
@@ -415,6 +417,7 @@ export default function RecipesPage() {
         )}
         <RecipeTile
           name={displayRecipeName(addOn.name, tab)}
+          imageUrl={addOn.imageUrl}
           inProgress={recipeInProgress(addOn.recipe)}
           selected={selected.has(key)}
           onClick={() => setModalItem(addOnToModalItem(addOn, tab))}
@@ -683,11 +686,7 @@ export default function RecipesPage() {
           actionBusy={modalKey ? statusUpdating === modalKey : false}
         />
       )}
-      <AgentChatDock
-        chatContext="create"
-        defaultAgent="create"
-        showCues
-      />
+      <SousChefChatDock />
     </>
   );
 }

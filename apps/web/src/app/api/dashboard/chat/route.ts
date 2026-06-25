@@ -32,20 +32,63 @@ import { SUGGESTION_NOTE_KINDS, normalizeSuggestionNotes } from "@backend/servic
 import { Conversation } from "@backend/models/Conversation";
 import { BillUpload } from "@backend/models/BillUpload";
 import { Ingredient } from "@backend/models/Ingredient";
+import { Dish } from "@backend/models/Dish";
+import { dishSlugFromName } from "@backend/services/catalog/dish-catalog";
 import { suggestDishPriceMargin } from "@backend/services/agents/agent-menu-actions";
 import { callLangChainAgentChat } from "@backend/services/agents/agent-chat";
 import type { ChatUploadBatchPayload } from "@backend/services/chat/chat-bill-upload-queue";
 import type { RecipeBuildPlanPayload } from "@backend/services/recipes/recipe-build-plan";
 import { isRecipeBuildReadyToFinalize } from "@backend/services/recipes/recipe-build-plan";
 import type { ChatCatalogDraftPayload } from "@backend/services/chat/chat-catalog-draft";
-import { applyCatalogDraftCorrection, inferCatalogDraftFromThread } from "@backend/services/chat/chat-catalog-draft";
+import { applyCatalogDraftCorrection, inferCatalogDraftFromThread, inferPricingSubjectDraftFromThread } from "@backend/services/chat/chat-catalog-draft";
 import { deriveChatChoices } from "@backend/services/chat/chat-choices";
+import {
+  inferRecipeDraftDishName,
+  threadAwaitingKitchenSaveConfirm,
+  threadHasKitchenBuildInThread,
+  threadHasRecipeDraft,
+} from "@backend/services/chat/chat-recipe-draft";
+import { inferRecipeBuildPlanFromThread } from "@backend/services/chat/recipe-build-from-thread";
+import { isAgentAssistantLabel } from "@backend/services/agents/dashboard-chat";
 import {
   detectKitchenBuildConfirm,
   detectPantryAddZeroConfirm,
   detectRecipeBuildIntent,
+  detectRecipeFinalizeConfirm,
+  parseRecommendedSellPrice,
   shouldUseSuggestionConfirmOnly,
 } from "@backend/services/chat/chat-recipe-build-intent";
+import {
+  detectPriceAdjustmentConfirm,
+  detectSellPriceConfirm,
+  inferDishNameFromPriceThread,
+  NON_PRICE_KITCHEN_WRITE,
+  parseCurrentPriceAdjustmentRequest,
+  parsePendingPriceAdjustmentForConfirm,
+  threadAwaitingPriceConfirm,
+} from "@backend/services/chat/chat-price-adjustment";
+import {
+  detectCatalogLookupQuestion,
+  inferCatalogLookup,
+} from "@backend/services/chat/chat-catalog-lookup";
+import {
+  detectAddIngredientIntent,
+  detectAddAddonIntent,
+  extractAddIngredientName,
+  extractAddAddonName,
+} from "@backend/services/chat/chat-catalog-intent";
+import { searchIngredientsByNameQuery } from "@backend/services/catalog/catalog-lookup";
+import {
+  detectReorderThresholdConfirm,
+  detectReorderThresholdIntent,
+  inferIngredientNameFromReorderThread,
+  parseCurrentReorderThresholdRequest,
+  parsePendingReorderForConfirm,
+  replyAsksForConfirm as replyAsksForReorderConfirm,
+  threadAwaitingReorderConfirm,
+} from "@backend/services/chat/chat-reorder-adjustment";
+import { resolveReorderThresholdForAdjustment } from "@backend/services/chat/chat-reorder-adjustment-server";
+import { resolveSellPriceForAdjustment } from "@backend/services/chat/chat-price-adjustment-server";
 import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
 import {
   detectBusinessConfirm,
@@ -494,7 +537,7 @@ When the chef confirms a save, the system routes to **Inventory Agent** to persi
 Dish **name** must be short (2–5 words) without supplier brands (brands go in description only).
 Check query_menu suggested/active and query_inventory search before proposing duplicates.${
       effectiveConfirmSuggestion
-        ? " The chef just confirmed — tell them to Connect to Inventory or the save will route automatically."
+        ? " The chef just confirmed — Sous Chef will consult Inventory to persist; do not ask them to switch agents."
         : ""
     }`;
   }
@@ -519,17 +562,57 @@ Check query_menu suggested/active and query_inventory search before proposing du
   }));
 
   const recoveredCatalogDraft = inferCatalogDraftFromThread(history);
-  const effectiveCatalogDraft = applyCatalogDraftCorrection(
-    catalogDraft ?? recoveredCatalogDraft ?? undefined,
+  const recoveredPricingSubject = inferPricingSubjectDraftFromThread(history);
+  let effectiveCatalogDraft = applyCatalogDraftCorrection(
+    catalogDraft ?? recoveredCatalogDraft ?? recoveredPricingSubject ?? undefined,
     userMessage,
     history
   );
+  const kitchenBuiltInThread = threadHasKitchenBuildInThread(history);
+  const awaitingKitchenSave = threadAwaitingKitchenSaveConfirm(history);
+  const awaitingPriceConfirm = threadAwaitingPriceConfirm(history);
+  const awaitingReorderConfirm = threadAwaitingReorderConfirm(history);
+  const catalogDishForKitchenBuild =
+    effectiveCatalogDraft?.itemType === "dish" &&
+    effectiveCatalogDraft?.source !== "pricing";
   const isKitchenBuildConfirm = detectKitchenBuildConfirm(userMessage, {
-    hasCatalogDish: effectiveCatalogDraft?.itemType === "dish",
+    hasCatalogDish: catalogDishForKitchenBuild,
     hasRecipePlan: Boolean(recipeBuild),
+    hasRecipeDraftInThread: threadHasRecipeDraft(history),
+    hasKitchenBuildInThread: kitchenBuiltInThread,
+    awaitingKitchenSave,
+    awaitingPriceConfirm,
+    awaitingReorderConfirm,
   });
+  const isReorderConfirm = detectReorderThresholdConfirm(userMessage, history);
+  const isSellPriceConfirm = detectSellPriceConfirm(userMessage, history);
+  const isPriceAdjustConfirm = detectPriceAdjustmentConfirm(userMessage, history);
+  const isAnyReorderConfirm =
+    (isReorderConfirm ||
+      (awaitingReorderConfirm && detectRecipeFinalizeConfirm(userMessage))) &&
+    !isKitchenBuildConfirm &&
+    (!awaitingPriceConfirm || awaitingReorderConfirm);
+  const isAnyPriceConfirm =
+    (isSellPriceConfirm ||
+      isPriceAdjustConfirm ||
+      (awaitingPriceConfirm && detectRecipeFinalizeConfirm(userMessage))) &&
+    !isKitchenBuildConfirm &&
+    !awaitingKitchenSave &&
+    !awaitingReorderConfirm;
+  const threadWithUser = [...history, { role: "user" as const, content: userMessage }];
+  const priceAdjustRequest = parseCurrentPriceAdjustmentRequest(userMessage);
+  const pendingPriceAdjustRequest = parsePendingPriceAdjustmentForConfirm(threadWithUser);
+  const reorderAdjustRequest = parseCurrentReorderThresholdRequest(userMessage);
+  const pendingReorderAdjustRequest = parsePendingReorderForConfirm(threadWithUser);
   const resolvedConfirmSuggestion =
-    effectiveConfirmSuggestion || isKitchenBuildConfirm || Boolean(body.confirmSuggestion);
+    effectiveConfirmSuggestion ||
+    (isKitchenBuildConfirm && !isAnyPriceConfirm && !awaitingPriceConfirm && !awaitingReorderConfirm) ||
+    Boolean(body.confirmSuggestion);
+  const resolvedConfirmInventory =
+    confirmInventory ||
+    (context === "head" && isKitchenBuildConfirm && !isAnyPriceConfirm && !isAnyReorderConfirm) ||
+    (context === "head" && isAnyPriceConfirm) ||
+    (context === "head" && isAnyReorderConfirm);
 
   const savedUserMessage = connectAgent
     ? `Connect to ${CHAT_ASSISTANT_NAMES[connectAgent]}`
@@ -545,6 +628,15 @@ Check query_menu suggested/active and query_inventory search before proposing du
     | null = null;
 
   let recipeBuildPlan: RecipeBuildPlanPayload | null = recipeBuild ?? null;
+  if (
+    recipeBuildPlan?.dishName &&
+    isAgentAssistantLabel(recipeBuildPlan.dishName)
+  ) {
+    const corrected = inferRecipeBuildPlanFromThread(history, null);
+    if (corrected?.dishName) {
+      recipeBuildPlan = { ...recipeBuildPlan, dishName: corrected.dishName };
+    }
+  }
   let kitchenBuildComplete = false;
   let builtDishName: string | null = null;
   let finalizeAttempted = false;
@@ -554,7 +646,354 @@ Check query_menu suggested/active and query_inventory search before proposing du
     recipeBuildPlan &&
     isRecipeBuildReadyToFinalize(recipeBuildPlan);
 
+  const threadPlan =
+    context === "head" &&
+    resolvedConfirmSuggestion &&
+    resolvedConfirmInventory &&
+    !recipeBuildPlan
+      ? inferRecipeBuildPlanFromThread(
+          history,
+          catalogDishForKitchenBuild ? (effectiveCatalogDraft ?? null) : null
+        )
+      : null;
+
+  if (context === "head" && isAnyReorderConfirm && !finalizeAttempted) {
+    const adjustment = pendingReorderAdjustRequest;
+    const ingredientName =
+      adjustment?.ingredientName ?? inferIngredientNameFromReorderThread(threadWithUser);
+    let reorderThreshold = adjustment?.reorderThreshold ?? null;
+
+    if (!reorderThreshold && ingredientName) {
+      const parsed = parseCurrentReorderThresholdRequest(userMessage);
+      reorderThreshold = parsed?.reorderThreshold ?? null;
+    }
+
+    if (ingredientName && reorderThreshold != null && reorderThreshold > 0) {
+      finalizeAttempted = true;
+      try {
+        const resolved = await resolveReorderThresholdForAdjustment(restaurantId, ingredientName, {
+          ingredientName,
+          reorderThreshold,
+        });
+        if (!resolved) {
+          reply =
+            `I couldn't find **${ingredientName}** in your pantry ingredients. ` +
+            "Use the exact name from Kitchen control → Pantry.";
+        } else {
+          reply = await executeAgentPendingAction(restaurantId, userId, {
+            kind: "update_reorder_threshold",
+            slug: resolved.slug,
+            reorderThreshold: resolved.reorderThreshold,
+            ingredientName: resolved.name,
+          });
+          activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+        }
+      } catch (err) {
+        reply =
+          err instanceof Error ? err.message : "Could not update the reorder level.";
+      }
+    } else {
+      finalizeAttempted = true;
+      reply =
+        "I couldn't apply a reorder change — repeat the ingredient update request, then say **confirm**.";
+    }
+  }
+
   if (
+    context === "head" &&
+    reorderAdjustRequest &&
+    !detectRecipeFinalizeConfirm(userMessage) &&
+    !kitchenBuildComplete &&
+    !finalizeAttempted
+  ) {
+    const ingredientName =
+      reorderAdjustRequest.ingredientName ??
+      inferIngredientNameFromReorderThread(threadWithUser);
+    if (ingredientName) {
+      const resolved = await resolveReorderThresholdForAdjustment(
+        restaurantId,
+        ingredientName,
+        reorderAdjustRequest
+      );
+      if (resolved) {
+        finalizeAttempted = true;
+        reply =
+          `Update pantry ingredient **${resolved.name}** reorder level to **${resolved.reorderThreshold}** ${resolved.inventoryUnit}?\n\n` +
+          "Say **confirm** to apply.";
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+      } else {
+        finalizeAttempted = true;
+        const suggestions = await searchIngredientsByNameQuery(restaurantId, ingredientName, 3);
+        if (suggestions.length > 1) {
+          reply =
+            `I couldn't find an exact pantry match for **${ingredientName}**. Did you mean: ` +
+            `${suggestions.map((row) => `**${row.name}**`).join(", ")}?`;
+        } else {
+          reply =
+            `**${ingredientName}** isn't in your pantry ingredients. ` +
+            "Reorder level only applies to existing ingredients — check the name in Kitchen control → Pantry.";
+        }
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+      }
+    } else {
+      finalizeAttempted = true;
+      reply =
+        `Which pantry ingredient should I set to **${reorderAdjustRequest.reorderThreshold}**? ` +
+        'Use the full ingredient name (e.g. **Super Crema Espresso Beans**).';
+    }
+  }
+
+  if (
+    context === "head" &&
+    !finalizeAttempted &&
+    detectAddIngredientIntent(userMessage) &&
+    !detectRecipeFinalizeConfirm(userMessage)
+  ) {
+    const ingredientName = extractAddIngredientName(userMessage);
+    if (ingredientName) {
+      finalizeAttempted = true;
+      try {
+        reply = await executeAgentPendingAction(restaurantId, userId, {
+          kind: "create_ingredient",
+          ingredientName,
+        });
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+      } catch (err) {
+        reply =
+          err instanceof Error ? err.message : "Could not add that pantry item.";
+      }
+    }
+  }
+
+  if (
+    context === "head" &&
+    !finalizeAttempted &&
+    detectAddAddonIntent(userMessage) &&
+    !detectRecipeFinalizeConfirm(userMessage)
+  ) {
+    const addonName = extractAddAddonName(userMessage);
+    if (addonName) {
+      finalizeAttempted = true;
+      try {
+        reply = await executeAgentPendingAction(restaurantId, userId, {
+          kind: "create_addon",
+          dishName: addonName,
+        });
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+      } catch (err) {
+        reply =
+          err instanceof Error ? err.message : "Could not add that add-on.";
+      }
+    }
+  }
+
+  if (
+    context === "head" &&
+    priceAdjustRequest &&
+    !detectRecipeFinalizeConfirm(userMessage) &&
+    !kitchenBuildComplete &&
+    !NON_PRICE_KITCHEN_WRITE.test(userMessage)
+  ) {
+    const dishName =
+      priceAdjustRequest?.dishName ??
+      (effectiveCatalogDraft?.itemType === "dish" ? effectiveCatalogDraft.name : null) ??
+      inferDishNameFromPriceThread(threadWithUser);
+    if (dishName) {
+      const resolved = await resolveSellPriceForAdjustment(
+        restaurantId,
+        dishName,
+        priceAdjustRequest
+      );
+      if (resolved) {
+        finalizeAttempted = true;
+        if (priceAdjustRequest.mode === "margin") {
+          reply =
+            `To set **${resolved.name}** margin to **$${priceAdjustRequest.targetMargin.toFixed(2)}**, ` +
+            `sell price would be **$${resolved.sellPrice.toFixed(2)}** ` +
+            `(food cost **$${resolved.foodCost.toFixed(2)}**).\n\nSay **confirm** to apply.`;
+        } else {
+          reply =
+            `Update **${resolved.name}** sell price to **$${resolved.sellPrice.toFixed(2)}**?\n\n` +
+            "Say **confirm** to apply.";
+        }
+        activity = { orchestrator: "head", consultedAgents: ["business"] };
+      } else if (priceAdjustRequest.mode === "margin") {
+        finalizeAttempted = true;
+        reply =
+          `I need a food cost for **${dishName}** before setting margin. ` +
+          "Open Recipes and wait for linking to finish, then try again.";
+      } else {
+        finalizeAttempted = true;
+        reply =
+          `I couldn't find **${dishName}** in your kitchen. ` +
+          "Try the full menu name from Kitchen control, then ask again.";
+      }
+    } else if (priceAdjustRequest.mode === "sell") {
+      finalizeAttempted = true;
+      reply =
+        `Which dish should I update to **$${priceAdjustRequest.sellPrice.toFixed(2)}**? ` +
+        "Use the full name from Kitchen control (e.g. **Watermelon Cooler**).";
+    }
+  }
+
+  if (
+    context === "head" &&
+    !finalizeAttempted &&
+    !isAnyPriceConfirm &&
+    !isAnyReorderConfirm &&
+    !priceAdjustRequest &&
+    detectCatalogLookupQuestion(userMessage)
+  ) {
+    const lookup =
+      inferCatalogLookup(userMessage, threadWithUser) ||
+      (inferDishNameFromPriceThread(threadWithUser)
+        ? { kind: "dish" as const, name: inferDishNameFromPriceThread(threadWithUser)! }
+        : null);
+    if (lookup) {
+      const catalogReply = await replyCatalogLookupFromDb(
+        restaurantId,
+        lookup.kind,
+        lookup.name
+      );
+      if (catalogReply) {
+        finalizeAttempted = true;
+        reply = catalogReply;
+        if (lookup.kind === "dish") {
+          effectiveCatalogDraft = {
+            itemType: "dish",
+            name: lookup.name,
+            confidence: 1,
+            source: "pricing",
+          };
+        }
+        activity = {
+          orchestrator: "head",
+          consultedAgents: lookup.kind === "ingredient" ? ["inventory"] : ["business"],
+        };
+      }
+    }
+  }
+
+  if (context === "head" && isAnyPriceConfirm && !finalizeAttempted) {
+    const adjustment = pendingPriceAdjustRequest;
+    const priceRec = parseRecommendedSellPrice(history);
+    const dishName =
+      adjustment?.dishName ??
+      (effectiveCatalogDraft?.itemType === "dish" ? effectiveCatalogDraft.name : null) ??
+      priceRec?.dishName ??
+      inferDishNameFromPriceThread(threadWithUser, { pendingConfirm: true }) ??
+      builtDishName;
+    let sellPrice =
+      (adjustment?.mode === "sell" ? adjustment.sellPrice : null) ??
+      priceRec?.sellPrice ??
+      null;
+
+    if (!sellPrice && dishName) {
+      const parsedAdjustment = adjustment;
+      if (parsedAdjustment) {
+        const resolved = await resolveSellPriceForAdjustment(
+          restaurantId,
+          dishName,
+          parsedAdjustment
+        );
+        if (resolved) sellPrice = resolved.sellPrice;
+      }
+    }
+
+    if (dishName && sellPrice && sellPrice > 0) {
+      finalizeAttempted = true;
+      try {
+        const parsedAdjustment = adjustment;
+        const resolved =
+          dishName && parsedAdjustment
+            ? await resolveSellPriceForAdjustment(restaurantId, dishName, parsedAdjustment)
+            : dishName
+              ? await resolveSellPriceForAdjustment(restaurantId, dishName, {
+                  mode: "sell",
+                  sellPrice,
+                })
+              : null;
+        const slug = resolved?.slug ?? dishSlugFromName(dishName);
+        const finalPrice = resolved?.sellPrice ?? sellPrice;
+        const actionMessage = await executeAgentPendingAction(restaurantId, userId, {
+          kind: "update_dish_price",
+          slug,
+          sellPrice: finalPrice,
+        });
+        reply = actionMessage;
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+      } catch (err) {
+        reply =
+          err instanceof Error ? err.message : "Could not update the sell price.";
+      }
+    } else {
+      finalizeAttempted = true;
+      const dishLabel = dishName ?? "that dish";
+      reply =
+        `I couldn't apply a price change for **${dishLabel}**. ` +
+        "Use the exact kitchen name (e.g. **Banana Smoothie Drink**) or open Kitchen control to edit the price.";
+    }
+  }
+
+  if (
+    context === "head" &&
+    !isAnyPriceConfirm &&
+    !awaitingPriceConfirm &&
+    !isAnyReorderConfirm &&
+    !awaitingReorderConfirm &&
+    resolvedConfirmSuggestion &&
+    resolvedConfirmInventory &&
+    threadPlan &&
+    isRecipeBuildReadyToFinalize(threadPlan) &&
+    !kitchenBuildComplete &&
+    !finalizeAttempted
+  ) {
+    const existingDish = await Dish.findOne({
+      restaurantId,
+      slug: dishSlugFromName(threadPlan.dishName),
+    })
+      .select("name slug")
+      .lean();
+    if (existingDish) {
+      finalizeAttempted = true;
+      kitchenBuildComplete = true;
+      builtDishName = existingDish.name;
+      reply =
+        `**${existingDish.name}** is already in your kitchen. ` +
+        "Say **yes, set the price** if you want to apply a recommended sell price.";
+    } else {
+      finalizeAttempted = true;
+      try {
+        const actionMessage = await executeAgentPendingAction(restaurantId, userId, {
+          kind: "finalize_recipe_build",
+          dishName: threadPlan.dishName,
+          description: threadPlan.description,
+          classification: threadPlan.classification,
+          sellPrice: threadPlan.sellPrice ?? undefined,
+          recipeBuildPlan: threadPlan,
+        });
+        reply = actionMessage;
+        builtDishName = threadPlan.dishName;
+        recipeBuildPlan = null;
+        kitchenBuildComplete = true;
+        activity = { orchestrator: "head", consultedAgents: ["inventory"] };
+        const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
+        if (marginNote) {
+          reply += `\n\nWould you like to set pricing? I consulted the **Business Agent**:\n\n**Business Agent**\n${marginNote}`;
+          activity = { orchestrator: "head", consultedAgents: ["inventory", "business"] };
+        }
+      } catch (err) {
+        reply =
+          err instanceof Error
+            ? err.message
+            : "Could not complete the kitchen build.";
+      }
+    }
+  }
+
+  if (
+    !isAnyPriceConfirm &&
+    !awaitingPriceConfirm &&
     resolvedConfirmSuggestion &&
     recipeBuildPlan &&
     !isRecipeBuildReadyToFinalize(recipeBuildPlan)
@@ -564,7 +1003,11 @@ Check query_menu suggested/active and query_inventory search before proposing du
       "Recipe build plan is incomplete — need a dish name and at least one ingredient.";
   }
 
-  if (shouldFinalizeOnRoute) {
+  if (
+    !isAnyPriceConfirm &&
+    !awaitingPriceConfirm &&
+    shouldFinalizeOnRoute
+  ) {
     finalizeAttempted = true;
     try {
       const actionMessage = await executeAgentPendingAction(restaurantId, userId, {
@@ -593,7 +1036,33 @@ Check query_menu suggested/active and query_inventory search before proposing du
     }
   }
 
-  if (USE_LANGCHAIN_AGENTS && !kitchenBuildComplete && !finalizeAttempted) {
+  if (
+    context === "head" &&
+    isKitchenBuildConfirm &&
+    awaitingKitchenSave &&
+    !kitchenBuildComplete &&
+    !finalizeAttempted &&
+    !threadPlan &&
+    !awaitingPriceConfirm
+  ) {
+    finalizeAttempted = true;
+    reply =
+      "I couldn't parse the recipe from the draft yet — make sure the message includes an " +
+      "**Ingredients** list with quantities, then say **confirm** again.";
+  }
+
+  if (
+    USE_LANGCHAIN_AGENTS &&
+    !kitchenBuildComplete &&
+    !finalizeAttempted &&
+    !awaitingPriceConfirm &&
+    !isAnyPriceConfirm &&
+    !priceAdjustRequest &&
+    !awaitingReorderConfirm &&
+    !isAnyReorderConfirm &&
+    !reorderAdjustRequest &&
+    !detectReorderThresholdIntent(userMessage)
+  ) {
     const agentResult = await callLangChainAgentChat({
       restaurantId,
       userId,
@@ -612,7 +1081,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
       catalogDraft: effectiveCatalogDraft,
       recipeBuild: recipeBuild ?? undefined,
       confirmSuggestion: resolvedConfirmSuggestion,
-      confirmInventory: confirmInventory || confirmUpload,
+      confirmInventory: resolvedConfirmInventory || confirmUpload,
       confirmBusiness: confirmBusiness || confirmUpload,
     });
 
@@ -672,12 +1141,14 @@ Check query_menu suggested/active and query_inventory search before proposing du
             builtDishName = agentResult.pendingAction.dishName ?? builtDishName;
             recipeBuildPlan = null;
             kitchenBuildComplete = true;
+            reply = actionMessage;
+          } else {
+            reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
           }
-          reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
           if (kitchenBuildComplete && builtDishName) {
             const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
             if (marginNote) {
-              reply += `\n\nI consulted the **Business Agent** for a margin pass.\n\n**Business Agent**\n${marginNote}`;
+              reply += `\n\nWould you like to set pricing? I consulted the **Business Agent**:\n\n**Business Agent**\n${marginNote}`;
               activity = {
                 orchestrator: "head",
                 consultedAgents: ["create", "business"],
@@ -746,8 +1217,23 @@ Check query_menu suggested/active and query_inventory search before proposing du
     }
   }
 
-  if (agentContext === "head" && !kitchenBuildComplete && !finalizeAttempted && !/\?/.test(reply)) {
-    reply = `${reply}\n\nWhat would you like to do next?`;
+  if (
+    agentContext === "head" &&
+    !kitchenBuildComplete &&
+    !finalizeAttempted &&
+    !replyAsksForReorderConfirm(reply) &&
+    !/\bUpdate \*\*[^*]+\*\* sell price to\b/i.test(reply)
+  ) {
+    const awaitingKitchenSave =
+      threadAwaitingKitchenSaveConfirm(history) ||
+      (threadHasRecipeDraft(history) && !threadHasKitchenBuildInThread(history));
+    if (
+      !awaitingKitchenSave &&
+      !threadAwaitingPriceConfirm(history) &&
+      !threadAwaitingReorderConfirm(history)
+    ) {
+      reply = `${reply}\n\nWhat would you like to do next?`;
+    }
   }
 
   if (!reply) {
@@ -764,11 +1250,17 @@ Check query_menu suggested/active and query_inventory search before proposing du
           : `Tell me what kind of special you'd like. For stock or sales, use the ${inventory} or ${business}.`;
   }
 
-  if (agentResultHandoff) {
+  if (connectAgent && agentResultHandoff) {
     const specialistName = CHAT_ASSISTANT_NAMES[agentResultHandoff];
-    if (connectAgent && !/you're now connected with/i.test(reply)) {
+    if (!/you're now connected with/i.test(reply)) {
       reply = `You're now connected with the **${specialistName}**.\n\n${reply}`;
     }
+  }
+
+  // Supervisor consults specialists behind the scenes — stay on Sous Chef in the UI.
+  if (context === "head" && activity?.orchestrator === "head" && !connectAgent) {
+    agentResultHandoff = null;
+    agentContext = "head";
   }
 
   conversation.messages.push(
@@ -790,6 +1282,8 @@ Check query_menu suggested/active and query_inventory search before proposing du
     catalogDraft: effectiveCatalogDraft ?? null,
     recipeBuildPlan,
     kitchenBuildComplete,
+    messages: [...history, { role: "assistant", content: reply }],
+    consultedAgents: activity?.consultedAgents,
   });
 
   return NextResponse.json({

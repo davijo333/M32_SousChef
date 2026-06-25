@@ -181,7 +181,7 @@ def format_top_used_ingredients(
 def _dish_margin_pct(restaurant_id: str, dish: dict[str, Any], dish_recipe: dict[str, dict]) -> float | None:
     slug = str(dish.get("slug", ""))
     recipe = dish_recipe.get(slug)
-    sell = float(dish.get("sellPrice") or (recipe.get("sellPrice") if recipe else 0) or 0)
+    sell = float(dish.get("sellPrice") or 0)
     cost = float(recipe.get("foodCost", 0) if recipe else 0)
     if sell <= 0 or cost <= 0:
         return None

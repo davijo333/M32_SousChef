@@ -16,6 +16,7 @@ from tools.core.menu_actions import (
     resolve_dish_slug,
     resolve_ingredient_slug,
     resolve_ingredient_slugs,
+    ingredient_tokens_for_pending,
 )
 from tools.core.models import (
     CLASSIFICATIONS,
@@ -31,6 +32,7 @@ from tools.core.recipe_build import (
     parse_selections_from_message,
     plan_recipe_build,
 )
+from tools.core.catalog_draft_helpers import is_valid_recipe_dish_name
 from tools.core.catalog_lookup import (
     check_create_addon,
     check_create_dish,
@@ -161,8 +163,8 @@ def _orchestrate(restaurant_id: str, finance_period: str, cues_text: str, ctx: C
                 "create": "Creative",
             }
             return (
-                f"Recommend handoff to **{labels[target]}** — {reason or question}. "
-                f"The chef can tap Connect to {labels[target]} in chat."
+                f"Sous Chef will consult **{labels[target]}** — {reason or question}. "
+                "No agent switch needed; the chef stays in Sous Chef chat."
             )
         if act == "navigate_to":
             key = (page or question or agent).strip().lower().replace("-", "_").replace(" ", "_")
@@ -180,8 +182,8 @@ def _orchestrate(restaurant_id: str, finance_period: str, cues_text: str, ctx: C
                 NavigationAction(path="/dashboard", label=label, agent=agent_key)  # type: ignore[arg-type]
             )
             return (
-                f"Connect the chef to **{label}** for {reason or question or 'this task'}. "
-                "They can use the Connect button in chat."
+                f"Sous Chef will consult **{label}** for {reason or question or 'this task'}. "
+                "The chef stays in Sous Chef chat — use consult mode, not a manual agent switch."
             )
         return (
             "Unknown action. Use: consult_inventory, consult_business, consult_creative, "
@@ -203,7 +205,8 @@ def _query_inventory(restaurant_id: str, user_id: str, recent_bill_ids: list[str
     ) -> str:
         """Query pantry stock, expiry, reorder, search, and purchase bill queue.
         Actions: pantry_summary, low_stock, expiring, search, ingredient_detail,
-        purchase_queue, purchase_bill_summary.
+        dish_detail, addon_detail, catalog_search, purchase_queue, purchase_bill_summary.
+        All qty and reorder figures come from the ingredients collection (DB).
         """
         return read_inventory(
             restaurant_id,
@@ -355,19 +358,14 @@ def _apply_inventory(restaurant_id: str, user_id: str, ctx: CoreToolContext):
             return preview + "\n\nConfirmed — deleting ingredient."
 
         if act == "update_reorder_threshold":
-            if not slug or reorder_threshold is None:
-                return "Provide slug and reorder_threshold."
-            ing = find_one(
-                "ingredients",
-                restaurant_id,
-                {"slug": slug.strip().lower()},
-                {"name": 1, "slug": 1, "reorderThreshold": 1},
-            )
+            ing = resolve_ingredient_slug(restaurant_id, slug=slug, name=name)
             if not ing:
-                return f"Ingredient '{slug}' not found."
+                return "Ingredient not found — provide slug or name."
+            if reorder_threshold is None:
+                return "Provide reorder_threshold."
             preview = (
-                f"Update **{ing['name']}** ({ing.get('slug')}) reorder threshold: "
-                f"{ing.get('reorderThreshold', 0)} → {reorder_threshold}."
+                f"Update pantry ingredient **{ing['name']}** reorder level to **{reorder_threshold:g}** "
+                f"{ing.get('inventoryUnit', 'each')}."
             )
             if not ctx.confirm_inventory:
                 return preview + "\n\nAsk the chef to confirm before applying."
@@ -376,7 +374,7 @@ def _apply_inventory(restaurant_id: str, user_id: str, ctx: CoreToolContext):
                     kind="update_reorder_threshold",
                     slug=ing.get("slug", slug),
                     reorderThreshold=float(reorder_threshold),
-                    ingredientName=str(ing.get("name", slug)),
+                    ingredientName=str(ing.get("name", name)),
                 )
             )
             return preview + "\n\nConfirmed — applying reorder threshold."
@@ -515,9 +513,11 @@ def _query_business(restaurant_id: str, user_id: str, finance_period: str, recen
         dish_name: str = "",
     ) -> str:
         """Query sales, margins, promotions, and sales bill queue (read-only).
-        Actions: finance_summary, top_selling, slow_sellers, margins, sales_vs_purchases,
-        sales_queue, sales_bill_summary, purchase_prerequisite, top_used_ingredients,
-        promotion_opportunities, suggest_price_change, suggest_reorder_threshold.
+        Actions: finance_summary, top_selling, slow_sellers, margins, dish_pricing,
+        addon_pricing, sales_vs_purchases, sales_queue, sales_bill_summary,
+        purchase_prerequisite, top_used_ingredients, promotion_opportunities,
+        suggest_price_change, suggest_reorder_threshold.
+        Sell prices come from dishes/addons collections; margins use recipe food cost.
         """
         return read_business(
             restaurant_id,
@@ -543,7 +543,8 @@ def _query_menu(restaurant_id: str, cues_text: str):
         limit: int = 12,
     ) -> str:
         """Query cues, dishes, suggestions, and promotion targets for ideation.
-        Actions: cues, search_dishes, suggested, active, addons, promotion_targets.
+        Actions: cues, search_dishes, suggested, active, addons, dish_detail,
+        addon_detail, promotion_targets. Sell prices from dishes/addons DB rows.
         """
         return read_menu(restaurant_id, action, cues_text=cues_text, query=query, limit=limit)
 
@@ -584,9 +585,16 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
         draft = _catalog_draft_defaults(ctx)
 
         if act in ("plan_recipe_build", "plan_recipe", "recipe_plan"):
-            dish_name = (name.strip() or draft.get("name", "")).strip()
+            dish_name = (name.strip() or "").strip()
+            if not dish_name or not is_valid_recipe_dish_name(dish_name):
+                draft_name = str(draft.get("name") or "").strip()
+                if (
+                    str(draft.get("source") or "").strip().lower() != "pricing"
+                    and is_valid_recipe_dish_name(draft_name)
+                ):
+                    dish_name = draft_name
             if not dish_name:
-                return "Provide dish name for plan_recipe_build."
+                return "Provide dish name for plan_recipe_build (menu dish name, not agent label)."
             rows = recipe_ingredients or []
             if not rows:
                 return (
@@ -696,9 +704,9 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                 dish_class = "other"
             dish_desc = description.strip() or draft.get("description", "")
             img = image_url.strip() or draft.get("image_url", "")
-            link_slugs, missing = resolve_ingredient_slugs(restaurant_id, ingredient_slugs or [])
-            if missing:
-                return f"Unknown pantry items: {', '.join(missing)}. Create them in Inventory first or check slugs."
+            link_tokens, missing_ing = ingredient_tokens_for_pending(
+                restaurant_id, ingredient_slugs or []
+            )
 
             lookup = check_create_dish(restaurant_id, dish_name)
             if lookup.get("exact"):
@@ -711,8 +719,10 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             preview = (
                 f"Create dish **{dish_name}** ({dish_class})"
                 + (f" at ${sell_price:.2f}" if sell_price else "")
-                + (f" with {len(link_slugs)} linked ingredient(s)." if link_slugs else ".")
+                + (f" with {len(link_tokens)} linked ingredient(s)." if link_tokens else ".")
             )
+            if missing_ing:
+                preview += f" Will add {len(missing_ing)} new pantry item(s) at qty 0."
             if dish_desc:
                 preview += f" Description: {dish_desc[:120]}."
             if img:
@@ -726,7 +736,7 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                     description=dish_desc,
                     classification=dish_class,
                     sellPrice=float(sell_price) if sell_price else 0,
-                    ingredientSlugs=link_slugs,
+                    ingredientSlugs=link_tokens,
                     imageUrl=img or None,
                 )
             )
@@ -759,9 +769,7 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             mode = link_mode.strip().lower().replace("-", "_") or "add"
             if mode not in ("add", "remove", "set"):
                 return "link_mode must be add, remove, or set."
-            resolved, missing = resolve_ingredient_slugs(restaurant_id, tokens)
-            if missing:
-                return f"Unknown pantry items: {', '.join(missing)}. Check slugs or create them in Inventory first."
+            resolved, missing = ingredient_tokens_for_pending(restaurant_id, tokens)
             dish_slug = str(dish.get("slug", slug))
             qty = float(qty_per_serving) if qty_per_serving is not None else 1.0
             link_unit = unit.strip() or "each"
@@ -774,6 +782,8 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                 preview = f"Remove {len(resolved)} ingredient link(s) from **{dish['name']}**."
             else:
                 preview = f"Set **{dish['name']}** ingredient links to {len(resolved)} item(s)."
+            if missing:
+                preview += f" Will add {len(missing)} new pantry item(s) at qty 0."
             if not _catalog_confirmed(ctx):
                 return preview + "\n\nAsk the chef to confirm before updating links."
             ctx.push_pending(
@@ -859,9 +869,9 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             addon_class = classification.strip() or draft.get("classification", "") or "addon"
             addon_desc = description.strip() or draft.get("description", "")
             img = image_url.strip() or draft.get("image_url", "")
-            link_slugs, missing = resolve_ingredient_slugs(restaurant_id, ingredient_slugs or [])
-            if missing:
-                return f"Unknown pantry items: {', '.join(missing)}. Create them first or check slugs."
+            link_tokens, missing_ing = ingredient_tokens_for_pending(
+                restaurant_id, ingredient_slugs or []
+            )
             dish_links = [token.strip() for token in (linked_dish_slugs or []) if token.strip()]
 
             lookup = check_create_addon(restaurant_id, addon_name)
@@ -875,8 +885,10 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             preview = (
                 f"Create add-on **{addon_name}** ({addon_class})"
                 + (f" at ${sell_price:.2f}" if sell_price else "")
-                + (f" with {len(link_slugs)} linked ingredient(s)." if link_slugs else ".")
+                + (f" with {len(link_tokens)} linked ingredient(s)." if link_tokens else ".")
             )
+            if missing_ing:
+                preview += f" Will add {len(missing_ing)} new pantry item(s) at qty 0."
             if dish_links:
                 preview += f" Linked to {len(dish_links)} dish(es)."
             if addon_desc:
@@ -892,7 +904,7 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                     description=addon_desc,
                     classification=addon_class,
                     sellPrice=float(sell_price) if sell_price else 0,
-                    ingredientSlugs=link_slugs,
+                    ingredientSlugs=link_tokens,
                     linkedDishSlugs=dish_links,
                     imageUrl=img or None,
                 )
@@ -974,9 +986,7 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             mode = link_mode.strip().lower().replace("-", "_") or "add"
             if mode not in ("add", "remove", "set"):
                 return "link_mode must be add, remove, or set."
-            resolved, missing = resolve_ingredient_slugs(restaurant_id, tokens)
-            if missing:
-                return f"Unknown pantry items: {', '.join(missing)}. Check slugs or create them in pantry first."
+            resolved, missing = ingredient_tokens_for_pending(restaurant_id, tokens)
             addon_slug = str(addon.get("slug", slug))
             qty = float(qty_per_serving) if qty_per_serving is not None else 1.0
             link_unit = unit.strip() or "each"
@@ -989,6 +999,8 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                 preview = f"Remove {len(resolved)} ingredient link(s) from add-on **{addon['name']}**."
             else:
                 preview = f"Set add-on **{addon['name']}** ingredient links to {len(resolved)} item(s)."
+            if missing:
+                preview += f" Will add {len(missing)} new pantry item(s) at qty 0."
             if not _catalog_confirmed(ctx):
                 return preview + "\n\nAsk the chef to confirm before updating links."
             ctx.push_pending(

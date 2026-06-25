@@ -89,10 +89,13 @@ def format_ingredient_summary(ing: dict[str, Any]) -> str:
     label_bit = f", label **{label}**" if label else ""
     brand = ing.get("brandName")
     brand_bit = f", brand {brand}" if brand else ""
+    qty = float(ing.get("currentQty", 0) or 0)
+    threshold = float(ing.get("reorderThreshold", 0) or 0)
+    unit = str(ing.get("inventoryUnit") or "each")
     return (
         f"**{ing.get('name', '')}** (`{ing.get('slug', '')}`) — "
-        f"{ing.get('currentQty', 0)} {ing.get('inventoryUnit', 'each')} on hand, "
-        f"reorder {ing.get('reorderThreshold', 0)}, category {ing.get('category', '')}"
+        f"on hand **{qty:g} {unit}**, reorder level **{threshold:g}**, "
+        f"category {ing.get('category', '')}"
         f"{brand_bit}{label_bit}"
     )
 
@@ -100,7 +103,7 @@ def format_ingredient_summary(ing: dict[str, Any]) -> str:
 def format_dish_summary(dish: dict[str, Any]) -> str:
     classification = dish.get("classification") or dish.get("category") or "other"
     sell = float(dish.get("sellPrice") or 0)
-    price_bit = f", ${sell:.2f}" if sell > 0 else ""
+    price_bit = f", sell **${sell:.2f}**" if sell > 0 else ""
     return (
         f"**{dish.get('name', '')}** (`{dish.get('slug', '')}`) — "
         f"{classification}{price_bit}"
@@ -110,7 +113,7 @@ def format_dish_summary(dish: dict[str, Any]) -> str:
 def format_addon_summary(addon: dict[str, Any]) -> str:
     classification = addon.get("classification") or "addon"
     sell = float(addon.get("sellPrice") or 0)
-    price_bit = f", ${sell:.2f}" if sell > 0 else ""
+    price_bit = f", sell **${sell:.2f}**" if sell > 0 else ""
     return (
         f"**{addon.get('name', '')}** (`{addon.get('slug', '')}`) — "
         f"add-on, {classification}{price_bit}"

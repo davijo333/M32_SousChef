@@ -4,10 +4,12 @@ from tools.core.recipe_build import (
     apply_recipe_selections,
     auto_default_selections,
     basic_pantry_name,
+    extract_dish_name_from_history,
     extract_recipe_draft_from_history,
     infer_qty_unit,
     ingredient_search_query,
     plan_recipe_build,
+    thread_has_recipe_draft,
 )
 
 
@@ -56,6 +58,51 @@ def test_infer_qty_unit_for_smoothie_ingredients():
     assert infer_qty_unit("Orange Juice", "juice") == (4.0, "oz")
     assert infer_qty_unit("Ice", "beverage") == (1.0, "cup")
     assert infer_qty_unit("Whipped cream", "juice") == (2.0, "tbsp")
+
+
+def test_extract_dish_name_ignores_creator_agent_header():
+    history = [
+        {"role": "user", "content": "lets add a dish mango smoothie"},
+        {
+            "role": "assistant",
+            "content": (
+                "I consulted the **Creator Agent** and used their tools for this step.\n\n"
+                "**Creator Agent**\n"
+                "### Mango Smoothie\n\n"
+                "Description: A refreshing blend.\n\n"
+                "Ingredients:\n"
+                "- Ripe Mango — 3 each\n"
+                "- Yogurt — 1 cup\n\n"
+                "Prep Steps:\n"
+                "1. Peel mangoes.\n"
+                "2. Blend.\n\n"
+                "Please confirm the kitchen build for the Mango Smoothie."
+            ),
+        },
+    ]
+    assert extract_dish_name_from_history(history) == "Mango Smoothie"
+
+
+def test_is_agent_assistant_label():
+    from tools.core.catalog_draft_helpers import is_agent_assistant_label, is_valid_recipe_dish_name
+
+    assert is_agent_assistant_label("Creator Agent") is True
+    assert is_valid_recipe_dish_name("Creator Agent") is False
+    assert is_valid_recipe_dish_name("Mango Smoothie") is True
+
+
+def test_thread_has_recipe_draft_from_creative_format():
+    history = [
+        {
+            "role": "assistant",
+            "content": (
+                "### Menu Name: Creamy Banana Smoothie\n"
+                "Ingredients:\n- Banana — 2 each\n- Milk — 1 cup\n"
+                "Prep Steps:\n1. Peel bananas.\n2. Blend.\n"
+            ),
+        }
+    ]
+    assert thread_has_recipe_draft(history) is True
 
 
 def test_extract_recipe_draft_from_history():

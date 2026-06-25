@@ -53,6 +53,7 @@ export type RecipeModalItem =
       name: string;
       classification: string;
       sellPrice: number;
+      imageUrl?: string;
       linkedDishNames: string[];
       ingredientLinks: RecipeLink[];
       recipe?: RecipeMeta;

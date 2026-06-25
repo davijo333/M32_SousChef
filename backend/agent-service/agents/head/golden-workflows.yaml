@@ -359,42 +359,19 @@ workflows:
 
   - id: add_addon_from_chat
     name: Add menu add-on
-    status: partial
+    status: implemented
     trigger:
       - chef asks to add / create an add-on or modifier
       - chef attaches add-on photo (catalog_draft)
+    notes: Inventory only — no Creative consult. Search duplicates, create_addon, auto images.
     steps:
-      - id: draft_concept
-        delegate: creative
-        gate: optional
-        action: Draft add-on name, classification, ingredients, and which dishes it fits — skip if chef gave full spec.
-      - id: intake
-        actor: head
-        action: Parse add-on name; accept catalog_draft if present.
-      - id: image_context
-        actor: head
-        gate: optional
-        action: Vision draft for name, description, classification hint (cheese, protein, veggie, coffee, addon).
       - id: duplicate_check
         delegate: inventory
         tool: query_menu addons + search
       - id: confirm_identity
         actor: head
-        gate: confirm_addon
-        action: Confirm name, classification, sell price, description.
-      - id: ingredient_links
-        actor: head
-        action: If recipe needs pantry items, list general ingredient names; search pantry slugs.
-        delegate: inventory
-        tool: query_inventory search
-        notes: Create missing ingredients via add_ingredient_from_chat first, or qty-0 during link confirm.
-      - id: dish_links
-        actor: head
-        gate: optional
-        action: Confirm which menu dishes this add-on applies to (linked_dish_slugs).
-      - id: confirm_create
-        actor: head
         gate: confirm_inventory
+        action: Confirm name, classification, sell price when chef provided them.
       - id: persist
         delegate: inventory
         tool: apply_menu create_addon
@@ -402,14 +379,10 @@ workflows:
         delegate: inventory
         tool: apply_menu link_addon_ingredients
         gate: optional
-        skip_when: ingredients linked in create_addon payload
-      - id: addon_images
-        delegate: inventory
-        tool: apply_menu create_addon side-effect regenerateAddOnImages
-        implementation: required
-        action: Auto-generate primary + secondary add-on photos after create.
+        skip_when: no ingredient links requested
       - id: completion_summary
         actor: head
+        action: Confirm add-on slug and Kitchen control link.
 
   - id: upload_purchase_orders
     name: Upload purchase orders (supplier bills)

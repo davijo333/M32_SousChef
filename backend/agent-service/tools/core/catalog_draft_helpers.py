@@ -5,6 +5,36 @@ from __future__ import annotations
 import re
 from typing import Any
 
+AGENT_ASSISTANT_LABELS = frozenset(
+    {
+        "sous chef",
+        "inventory agent",
+        "business agent",
+        "creator agent",
+    }
+)
+
+RECIPE_SECTION_HEADERS = re.compile(
+    r"^(?:suggested add-?ons?|prep steps?|ingredients?|visual brief|description|recipe|instructions?)$",
+    re.I,
+)
+
+
+def is_agent_assistant_label(name: str) -> bool:
+    normalized = re.sub(r"\*+", "", (name or "").strip()).lower()
+    return bool(normalized) and normalized in AGENT_ASSISTANT_LABELS
+
+
+def is_valid_recipe_dish_name(name: str) -> bool:
+    cleaned = (name or "").strip()
+    if not cleaned or len(cleaned.split()) > 8:
+        return False
+    if is_agent_assistant_label(cleaned):
+        return False
+    if RECIPE_SECTION_HEADERS.match(cleaned):
+        return False
+    return True
+
 CORRECTION_PATTERNS = (
     r"(?:make it|change(?:\s+the)?\s+dish(?:\s+name)?\s+to|rename(?:\s+it)?\s+to|switch to|change to|call it|actually(?:\s+it'?s)?)\s+(?:a|an|the)?\s*([a-z][a-z0-9\s\-]{2,60})",
     r"(?:want to add|i want to add|add|create)\s+(?:a|an|the)?\s*([a-z][a-z0-9\s\-]{2,50}?)(?:\s+as\s+(?:a|an)\s+new\s+dish\b)",

@@ -8,7 +8,6 @@ import { pruneOldBillUploads } from "@backend/services/bills/bill-retention";
 import { extractNewItemsFromBill } from "@backend/services/catalog/extract-new-items";
 import { connectDB } from "@backend/services/infra/mongodb";
 import { BillUpload } from "@backend/models/BillUpload";
-import { Ingredient } from "@backend/models/Ingredient";
 
 export type AgentPendingAction = {
   kind:
@@ -80,6 +79,7 @@ const INVENTORY_CATALOG_KINDS = new Set<AgentPendingAction["kind"]>([
   "create_ingredient",
   "update_ingredient",
   "delete_ingredient",
+  "update_reorder_threshold",
 ]);
 
 export async function executeAgentPendingAction(
@@ -101,21 +101,6 @@ export async function executeAgentPendingAction(
   }
 
   await connectDB();
-
-  if (action.kind === "update_reorder_threshold") {
-    const slug = action.slug?.trim();
-    const threshold = action.reorderThreshold;
-    if (!slug || threshold == null || Number.isNaN(threshold)) {
-      throw new Error("Invalid reorder threshold action.");
-    }
-    const ing = await Ingredient.findOne({ restaurantId, slug });
-    if (!ing) {
-      throw new Error(`Ingredient '${slug}' not found.`);
-    }
-    ing.reorderThreshold = threshold;
-    await ing.save();
-    return `Updated **${ing.name}** reorder threshold to ${threshold}.`;
-  }
 
   const billType =
     action.kind === "process_sales_bills"

@@ -18,6 +18,17 @@ export const CHAT_ASSISTANT_NAMES: Record<DashboardChatContext, string> = {
   create: "Creator Agent",
 };
 
+const AGENT_ASSISTANT_LABELS = new Set(
+  Object.values(CHAT_ASSISTANT_NAMES).map((name) => name.toLowerCase())
+);
+
+/** True when text is a specialist/orchestrator label — not a menu dish name. */
+export function isAgentAssistantLabel(name: string): boolean {
+  const normalized = name.trim().replace(/\*+/g, "").toLowerCase();
+  if (!normalized) return false;
+  return AGENT_ASSISTANT_LABELS.has(normalized);
+}
+
 /** All pages share one conversation pool (max 5) per user. */
 export const SHARED_CHAT_CONTEXT: DashboardChatContext = "head";
 
@@ -126,7 +137,7 @@ ${DELEGATION_HINTS[context]}`;
 }
 
 export const CHAT_PLACEHOLDER: Record<DashboardChatContext, string> = {
-  head: "Ask what's most important today…",
+  head: "Ask your Sous Chef…",
   inventory: "Ask about stock, expiry, or reorder…",
   business: "Ask about sales, margins, promotions, or reorder advice…",
   create: "Describe a dish, special, or say “add it” to save…",

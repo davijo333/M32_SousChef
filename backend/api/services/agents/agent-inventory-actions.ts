@@ -130,6 +130,21 @@ export async function executeInventoryPendingAction(
     return `Updated **${ing.name}** (${ing.slug}).`;
   }
 
+  if (action.kind === "update_reorder_threshold") {
+    const slug = action.slug?.trim();
+    const threshold = action.reorderThreshold;
+    if (!slug || threshold == null || Number.isNaN(threshold)) {
+      throw new Error("Invalid reorder threshold action.");
+    }
+    const ing = await Ingredient.findOne({ restaurantId, slug });
+    if (!ing) {
+      throw new Error(`Ingredient '${slug}' not found in pantry.`);
+    }
+    ing.reorderThreshold = threshold;
+    await ing.save();
+    return `Updated **${ing.name}** reorder level to ${threshold} ${ing.inventoryUnit}.`;
+  }
+
   if (action.kind === "delete_ingredient") {
     const slug = action.slug?.trim();
     if (!slug) throw new Error("Ingredient slug required.");

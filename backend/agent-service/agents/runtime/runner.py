@@ -17,15 +17,19 @@ from tools.core.bills import (
 )
 from tools.core.recipe_build import (
     auto_default_selections,
+    extract_dish_name_from_history,
     extract_recipe_draft_from_history,
     infer_qty_unit,
     plan_recipe_build,
+    thread_has_recipe_draft,
+    thread_has_kitchen_build_in_thread,
 )
 from agents.head.orchestration import detect_pantry_add_zero_confirm
 from tools.core.catalog_draft_helpers import (
     apply_catalog_draft_correction,
     extract_dish_name_correction_from_thread,
     infer_catalog_draft_from_history,
+    is_valid_recipe_dish_name,
 )
 from tools.core.writes import CoreToolContext, PendingAction
 
@@ -168,6 +172,7 @@ def _run_direct_specialist(
         confirm_suggestion=confirm_suggestion,
         catalog_draft=catalog_draft,
         recipe_build=core_ctx.recipe_build,
+        history=history,
     )
     if (
         agent_context == "inventory"
@@ -218,7 +223,7 @@ def _run_direct_specialist(
         if callout and callout not in reply:
             reply = f"{callout}\n\n{reply}" if reply else callout
 
-    if handoff and handoff != "head":
+    if connect_agent and handoff and handoff != "head":
         specialist = ASSISTANT_NAMES[handoff]
         if not re.search(r"you're now connected with", reply, re.I):
             reply = f"You're now connected with the **{specialist}**.\n\n{reply}"
@@ -253,9 +258,18 @@ def _try_kitchen_build_direct_finalize(
     catalog_draft: dict | None,
     recipe_build: dict | None,
     history: list[ChatMessage],
+    message: str = "",
 ) -> dict[str, Any] | None:
     """Skip LLM when chef confirmed and we already have a ready recipe build plan."""
-    if not confirm_suggestion:
+    effective_confirm = (
+        confirm_suggestion
+        or detect_pantry_add_zero_confirm(message)
+        or bool(
+            re.search(r"\b(yes|confirm|go ahead|proceed|save(?:\s+it)?)\b", message, re.I)
+            and thread_has_recipe_draft(history)
+        )
+    )
+    if not effective_confirm:
         return None
     plan = recipe_build or _prebuild_recipe_plan(restaurant_id, history, catalog_draft)
     if not plan:
@@ -297,6 +311,10 @@ def _prebuild_recipe_plan(
         return None
     catalog = catalog_draft or {}
     dish_name = str(catalog.get("name") or "").strip()
+    if str(catalog.get("source") or "").strip().lower() == "pricing":
+        dish_name = ""
+    if not dish_name or not is_valid_recipe_dish_name(dish_name):
+        dish_name = extract_dish_name_from_history(history)
     if not dish_name:
         return None
     try:
@@ -354,12 +372,19 @@ def _kitchen_build_confirm(
     confirm_suggestion: bool,
     catalog_draft: dict | None,
     recipe_build: dict | None,
+    history: list[ChatMessage] | None = None,
 ) -> bool:
     pantry_add_zero = detect_pantry_add_zero_confirm(message)
-    effective_confirm = confirm_suggestion or pantry_add_zero
+    effective_confirm = confirm_suggestion or pantry_add_zero or bool(
+        re.search(r"\b(save(?:\s+it)?|proceed|yes proceed)\b", (message or "").strip(), re.I)
+    )
     if not effective_confirm:
         return False
+    if history and thread_has_kitchen_build_in_thread(history):
+        return False
     if recipe_build:
+        return True
+    if history and thread_has_recipe_draft(history):
         return True
     if not catalog_draft:
         return False
@@ -368,11 +393,11 @@ def _kitchen_build_confirm(
     text = message.strip().lower()
     if pantry_add_zero:
         return True
-    if not re.search(r"\b(yes|confirm|go ahead|do it|build it|create|add)\b", text):
+    if not re.search(r"\b(yes|confirm|go ahead|do it|build it|create|add|save|proceed)\b", text):
         return False
     return bool(
         re.search(r"\b(dish|ingredient|recipe|menu)\b", text)
-        or re.search(r"\b(add|create|build)\b.+\b(dish|recipe)\b", text)
+        or re.search(r"\b(add|create|build|save|proceed)\b", text)
     )
 
 
@@ -381,14 +406,19 @@ def _kitchen_build_confirm_note(
     confirm_suggestion: bool,
     catalog_draft: dict | None,
     recipe_build: dict | None,
+    history: list[ChatMessage] | None = None,
 ) -> str:
     if not confirm_suggestion or recipe_build:
         return ""
+    dish_name = ""
     if catalog_draft and str(catalog_draft.get("itemType") or "").strip().lower() == "dish":
-        name = str(catalog_draft.get("name") or "dish").strip()
+        dish_name = str(catalog_draft.get("name") or "dish").strip()
+    elif history:
+        dish_name = extract_dish_name_from_history(history)
+    if dish_name and (catalog_draft or (history and thread_has_recipe_draft(history))):
         return (
-            f"\n\nThe chef CONFIRMED a full kitchen build for **{name}** (dish + pantry ingredients + recipe). "
-            "Call apply_menu **plan_recipe_build** with dish name, classification/description from the catalog draft, "
+            f"\n\nThe chef CONFIRMED a full kitchen build for **{dish_name}** (dish + pantry ingredients + recipe). "
+            "Call apply_menu **plan_recipe_build** with dish name, classification/description from the thread, "
             "recipe_ingredients (each with name, qty, unit — propose sensible amounts; never ask the chef), "
             "and recipe_instructions from your recipe steps. Then call **finalize_recipe_build** in this turn. "
             "Do not ask for another confirmation or for quantities."
@@ -414,6 +444,7 @@ def _coerce_catalog_writes_to_inventory(
         confirm_suggestion=sug,
         catalog_draft=catalog_draft,
         recipe_build=recipe_build,
+        history=None,
     ):
         return "inventory", True, sug, False
     if agent_context == "create" and sug and re.search(
@@ -483,6 +514,7 @@ def run_agent_chat(
             confirm_suggestion=confirm_suggestion,
             catalog_draft=catalog_draft,
             recipe_build=recipe_build,
+            history=history,
         ):
             direct = _try_kitchen_build_direct_finalize(
                 restaurant_id,
@@ -490,6 +522,7 @@ def run_agent_chat(
                 catalog_draft=catalog_draft,
                 recipe_build=recipe_build,
                 history=history,
+                message=message,
             )
             if direct:
                 return direct

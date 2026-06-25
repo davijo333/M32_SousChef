@@ -61,8 +61,7 @@ PROFILES: dict[AgentContext, dict[str, str]] = {
         ),
         "role": (
             "Brainstorm new dishes and specials. You have read-only tools — draft names, descriptions, "
-            "and recipe ideas in chat. To save anything to the kitchen, ask the chef to confirm with "
-            "Inventory Agent (Connect button)."
+            "and recipe ideas in chat. Sous Chef consults Inventory to persist after the chef confirms."
         ),
         "data_access": (
             "Ingredient and Dish collections, today's cues — query only; no catalog writes."

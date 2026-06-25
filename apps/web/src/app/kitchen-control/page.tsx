@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KitchenAddOnModal } from "@/components/KitchenAddOnModal";
-import { KitchenCard } from "@/components/KitchenCard";
+import { KitchenCard, KITCHEN_CARD_TWO_ROW_SCROLL_CLASS } from "@/components/KitchenCard";
 import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
 import { KitchenDishModal } from "@/components/KitchenDishModal";
 import { KitchenIngredientModal, type IngredientDetail } from "@/components/KitchenIngredientModal";
 import { PantryFiltersBar } from "@/components/PantryFiltersBar";
 import { MenuFiltersBar } from "@/components/MenuFiltersBar";
 import { Nav } from "@/components/Nav";
-import { AgentChatDock } from "@/components/AgentChatDock";
+import { SousChefChatDock } from "@/components/SousChefChatDock";
 import { NewItemsEnrichingPanel } from "@/components/NewItemsEnrichingPanel";
 import { NewItemsReview } from "@/components/NewItemsReview";
 import { ingredientMissingPhotos } from "@backend/services/catalog/ingredient-image-status";
@@ -911,7 +911,7 @@ export default function KitchenControlPage() {
                 <p className="mt-3 text-sm text-chef-text-muted">{dishBulkMessage}</p>
               )}
 
-              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+              <div className={`mt-4 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                 <KitchenClassifiedGrid
                   groups={dishGroups}
                   emptyMessage="No dishes yet. Add one manually or process sales orders."
@@ -976,7 +976,7 @@ export default function KitchenControlPage() {
               {addOnBulkMessage && (
                 <p className="mt-3 text-sm text-chef-text-muted">{addOnBulkMessage}</p>
               )}
-              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+              <div className={`mt-4 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                 <KitchenClassifiedGrid
                   groups={addOnGroups}
                   emptyMessage="No add-ons yet. Process sales orders to capture add-ons."
@@ -1071,7 +1071,7 @@ export default function KitchenControlPage() {
 
               {bulkMessage && <p className="mt-3 text-sm text-chef-text-muted">{bulkMessage}</p>}
 
-              <div className="mt-4 max-h-[calc(100vh-18rem)] overflow-y-auto pb-2">
+              <div className={`mt-4 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                 {kitchen.ingredients.length === 0 ? (
                   <p className="text-sm text-chef-text-muted">
                     No pantry items yet. Add an ingredient or process a purchase order.
@@ -1132,7 +1132,7 @@ export default function KitchenControlPage() {
                   onClearFilters={clearCompareDishFilters}
                 />
 
-                <div className="mt-3 flex max-h-[calc(100vh-20rem)] flex-wrap gap-3 overflow-y-auto pb-2">
+                <div className={`mt-3 flex flex-wrap gap-3 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                   {dishItems.length === 0 ? (
                     <p className="text-sm text-chef-text-muted">
                       No dishes yet. Add one manually or process sales orders.
@@ -1189,7 +1189,7 @@ export default function KitchenControlPage() {
                   onClearFilters={clearCompareAddOnFilters}
                 />
 
-                <div className="mt-3 flex max-h-[calc(100vh-20rem)] flex-wrap gap-3 overflow-y-auto pb-2">
+                <div className={`mt-3 flex flex-wrap gap-3 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                   {addOnItems.length === 0 ? (
                     <p className="text-sm text-chef-text-muted">
                       No add-ons yet. Process sales orders to capture add-ons.
@@ -1257,7 +1257,7 @@ export default function KitchenControlPage() {
                       : "No pantry items to show."}
                   </p>
                 ) : (
-                  <div className="mt-3 flex max-h-[calc(100vh-16rem)] flex-wrap gap-3 overflow-y-auto pb-2">
+                  <div className={`mt-3 flex flex-wrap gap-3 ${KITCHEN_CARD_TWO_ROW_SCROLL_CLASS}`}>
                     {comparePantryIngredients.map((item) => (
                       <KitchenCard
                         key={`${item.slug}:${item.imageUrl ?? ""}:${item.selectedImageIndex ?? 0}`}
@@ -1505,10 +1505,7 @@ export default function KitchenControlPage() {
           }}
         />
       )}
-      <AgentChatDock
-        chatContext="business"
-        defaultAgent="business"
-      />
+      <SousChefChatDock />
     </>
   );
 }
