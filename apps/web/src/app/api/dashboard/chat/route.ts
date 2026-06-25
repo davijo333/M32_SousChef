@@ -276,7 +276,14 @@ async function pendingUploadHandoffTarget(
   return null;
 }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return openaiClient;
+}
 
 async function pruneOldChatSessions(userId: string) {
   const excess = await Conversation.find({ userId })
@@ -1169,7 +1176,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
       ? `The chef clicked Connect in chat to speak with you. Review the conversation above and take over — briefly acknowledge the thread, then help with what they need.`
       : message;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },

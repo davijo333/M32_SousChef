@@ -15,6 +15,8 @@ COPY apps/web ./apps/web
 COPY backend/api ./backend/api
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV MONGODB_URI=mongodb://build-placeholder:27017/sous_chef
+ENV OPENAI_API_KEY=sk-build-placeholder
+ENV NEXTAUTH_SECRET=build-placeholder-secret
 WORKDIR /app/apps/web
 RUN npm run build
 
