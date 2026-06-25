@@ -12,7 +12,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY apps/web ./apps/web
 COPY backend/api ./backend/api
-WORKDIR /app/apps/web
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

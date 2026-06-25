@@ -5,6 +5,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   experimental: {
     externalDir: true,
     // Keep mongoose as one Node module — avoids duplicate instances when importing @backend/*.

@@ -9,6 +9,8 @@ const geistSans = localFont({
   weight: "100 900",
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Sous Chef",
   description: "Your AI sous chef for menu & inventory",
