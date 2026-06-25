@@ -68,7 +68,7 @@ export function Nav() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-chef-border bg-chef-surface/95 shadow-[0_1px_2px_rgba(42,38,34,0.04)] backdrop-blur-sm">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:py-3.5">
+      <div className="sc-page-shell flex items-center justify-between gap-3 py-3 sm:gap-4 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link
             href="/dashboard"

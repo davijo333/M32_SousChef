@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -527,52 +526,28 @@ export default function DashboardPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav sc-main-with-chat-dock mx-auto max-w-6xl px-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="sc-page-title">Hello {chefName} !!</h1>
-          </div>
-          <Tooltip content="Load the Panera Cafe demo menu, pantry, and order history">
-            <button
-              type="button"
-              onClick={() => void loadDemo()}
-              disabled={seeding}
-              className="relative z-10 shrink-0 cursor-pointer rounded-xl bg-chef-sage px-5 py-3 text-base font-semibold text-white transition hover:bg-chef-sage-dark disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {seeding ? "Loading test data…" : "Load test data"}
-            </button>
-          </Tooltip>
-        </div>
-
-        {seedError && <p className="mt-3 text-sm text-red-600">{seedError}</p>}
-        {seedMessage && !seedError && (
-          <p className="mt-3 text-sm text-chef-sage">{seedMessage}</p>
-        )}
-
-        {showDemoLoad && (
-          <div className="mt-6 rounded-xl border border-chef-amber/40 bg-chef-amber-light/50 p-6">
-            <h2 className="font-medium text-chef-text">Get started</h2>
-            <p className="mt-1 text-chef-text-muted">
-              Load the Panera Cafe demo menu, pantry, and order history with{" "}
+      <main className="sc-main-with-nav sc-main-with-floating-agent sc-page-shell">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-semibold tracking-tight text-chef-text sm:text-xl">
+            Hi {chefName}!!
+          </h1>
+          {showDemoLoad && (
+            <Tooltip content="Load the Panera Cafe demo menu, pantry, and order history">
               <button
                 type="button"
                 onClick={() => void loadDemo()}
                 disabled={seeding}
-                className="font-medium text-chef-sage underline hover:text-chef-sage-dark disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-chef-sage px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-chef-sage-dark disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Load test data
+                {seeding ? "Loading…" : "Load test data"}
               </button>
-              , or upload purchase orders to build from bills.
-            </p>
-            <div className="mt-4">
-              <Link
-                href="/upload-orders"
-                className="inline-block rounded-lg border border-chef-border px-4 py-2 text-sm text-chef-text hover:bg-chef-muted"
-              >
-                Upload purchase orders
-              </Link>
-            </div>
-          </div>
+            </Tooltip>
+          )}
+        </div>
+
+        {seedError && <p className="mt-2 text-sm text-red-600">{seedError}</p>}
+        {seedMessage && !seedError && (
+          <p className="mt-2 text-sm text-chef-sage">{seedMessage}</p>
         )}
 
         <div
@@ -610,7 +585,7 @@ export default function DashboardPage() {
                 <SectionInfo title="Dishes">
                   <p>
                     Counts from your menu catalog. <strong>Active</strong> dishes are on the live
-                    menu; <strong>New suggestions</strong> are Creative Agent ideas awaiting review.
+                    menu; <strong>New suggestions</strong> are Creative ideas awaiting review.
                   </p>
                 </SectionInfo>
               </div>
@@ -628,7 +603,7 @@ export default function DashboardPage() {
                 <StatCard
                   label="New suggestions"
                   value={data.dishes.suggested}
-                  labelHint="Creative Agent ideas in Recipes → Suggested"
+                  labelHint="Creative ideas in Recipes → Suggested"
                 />
               </div>
             </section>

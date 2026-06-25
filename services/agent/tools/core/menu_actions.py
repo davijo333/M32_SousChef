@@ -70,13 +70,45 @@ def suggest_price_change_text(restaurant_id: str, slug: str = "", name: str = ""
     )
 
 
-def resolve_ingredient_slug(restaurant_id: str, slug: str) -> dict | None:
-    key = slug.strip().lower()
+def resolve_ingredient_slug(restaurant_id: str, slug: str = "", name: str = "") -> dict | None:
+    key = (slug or name).strip().lower()
     if not key:
         return None
-    return find_one(
+    if slug.strip():
+        row = find_one(
+            "ingredients",
+            restaurant_id,
+            {"slug": slug.strip().lower()},
+            {"name": 1, "slug": 1, "inventoryUnit": 1},
+        )
+        if row:
+            return row
+    ingredients = find_many(
         "ingredients",
         restaurant_id,
-        {"slug": key},
         {"name": 1, "slug": 1, "inventoryUnit": 1},
     )
+    matches = [
+        ing
+        for ing in ingredients
+        if key in str(ing.get("name", "")).lower() or key == str(ing.get("slug", "")).lower()
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def resolve_ingredient_slugs(restaurant_id: str, slugs_or_names: list[str]) -> tuple[list[str], list[str]]:
+    """Resolve pantry slugs; return (resolved_slugs, missing_tokens)."""
+    resolved: list[str] = []
+    missing: list[str] = []
+    for token in slugs_or_names:
+        key = token.strip()
+        if not key:
+            continue
+        ing = resolve_ingredient_slug(restaurant_id, slug=key, name=key)
+        if ing:
+            resolved.append(str(ing.get("slug", key)).lower())
+        else:
+            missing.append(key)
+    return resolved, missing

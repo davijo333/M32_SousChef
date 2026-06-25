@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
+import { AgentChatDock } from "@/components/AgentChatDock";
 import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
 import { Nav } from "@/components/Nav";
 import {
@@ -425,7 +426,7 @@ export default function RecipesPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-8">
+      <main className="sc-main-with-nav sc-main-with-floating-agent sc-page-shell pb-8">
         <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Recipes</h1>
         <p className="mt-2 text-base text-chef-text-muted">View and Manage Recipes</p>
 
@@ -654,6 +655,11 @@ export default function RecipesPage() {
           actionBusy={modalKey ? statusUpdating === modalKey : false}
         />
       )}
+      <AgentChatDock
+        chatContext="create"
+        defaultAgent="create"
+        showCues
+      />
     </>
   );
 }

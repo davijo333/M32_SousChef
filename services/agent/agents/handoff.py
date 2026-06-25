@@ -9,15 +9,15 @@ SpecialistHandoffTarget = Literal["inventory", "business", "create"]
 
 HANDOFF_PATTERNS: dict[str, list[re.Pattern[str]]] = {
     "inventory": [
-        re.compile(r"\bInventory Agent\b", re.I),
+        re.compile(r"\bInventory(?: Agent)?\b", re.I),
         re.compile(r"\binventory\s+agent\b", re.I),
     ],
     "business": [
-        re.compile(r"\bBusiness Agent\b", re.I),
+        re.compile(r"\bBusiness(?: Agent)?\b", re.I),
         re.compile(r"\bbusiness\s+agent\b", re.I),
     ],
     "create": [
-        re.compile(r"\bCreative Agent\b", re.I),
+        re.compile(r"\bCreative(?: Agent)?\b", re.I),
         re.compile(r"\b(creative|create)\s+agent\b", re.I),
     ],
 }

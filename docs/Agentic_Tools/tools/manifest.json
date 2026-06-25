@@ -45,7 +45,7 @@
     "manual": "Kitchen control modals; Upload orders → Process purchase bills",
     "wraps": "agent-pending-actions.ts; PATCH /api/catalog/ingredients/[slug]; POST /api/bills/confirm supplier",
     "used_by": ["Inventory"],
-    "internal_actions": ["update_reorder_threshold", "process_purchase_bills", "create_ingredient", "update_ingredient"]
+    "internal_actions": ["update_reorder_threshold", "process_purchase_bills", "create_ingredient", "update_ingredient", "delete_ingredient"]
   },
   {
     "id": "upload_bills",
@@ -105,6 +105,6 @@
     "manual": "Kitchen control; Recipes → Suggested; Generate images buttons",
     "wraps": "create-suggestion.ts; catalog PATCH/POST; suggest-images worker",
     "used_by": ["Creative"],
-    "internal_actions": ["add_suggested_dish", "draft_special_only", "generate_dish_image", "generate_ingredient_image", "create_dish", "update_dish", "enrich_dish_description"]
+    "internal_actions": ["add_suggested_dish", "draft_special_only", "generate_dish_image", "generate_ingredient_image", "create_dish", "update_dish", "delete_dish", "link_dish_ingredients", "enrich_dish_description"]
   }
 ]

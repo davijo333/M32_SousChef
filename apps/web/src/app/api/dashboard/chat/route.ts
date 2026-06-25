@@ -34,6 +34,13 @@ import { BillUpload } from "@/models/BillUpload";
 import { Ingredient } from "@/models/Ingredient";
 import { callLangChainAgentChat } from "@/lib/agent-chat";
 import type { ChatUploadBatchPayload } from "@/lib/chat-bill-upload-queue";
+import type { RecipeBuildPlanPayload } from "@/lib/agent-recipe-build";
+import type { ChatCatalogDraftPayload } from "@/lib/chat-catalog-draft";
+import {
+  detectRecipeBuildIntent,
+  detectRecipeFinalizeConfirm,
+  shouldUseSuggestionConfirmOnly,
+} from "@/lib/chat-recipe-build-intent";
 import { detectUploadConfirm } from "@/lib/chat-upload-intent";
 import {
   detectBusinessConfirm,
@@ -110,6 +117,67 @@ function parseUploadBatch(body: Record<string, unknown>): ChatUploadBatchPayload
           }))
           .filter((row) => row.filename)
       : undefined,
+  };
+}
+
+function parseCatalogDraft(body: Record<string, unknown>): ChatCatalogDraftPayload | undefined {
+  const raw = body.catalogDraft;
+  if (!raw || typeof raw !== "object") return undefined;
+  const draft = raw as Record<string, unknown>;
+  const name = String(draft.name ?? "").trim();
+  if (!name) return undefined;
+  return {
+    itemType: draft.itemType === "dish" ? "dish" : "ingredient",
+    name,
+    brandName: draft.brandName ? String(draft.brandName) : undefined,
+    category: draft.category ? String(draft.category) : undefined,
+    classification: draft.classification ? String(draft.classification) : undefined,
+    description: draft.description ? String(draft.description) : undefined,
+    confidence: Number(draft.confidence ?? 0.7),
+    imageUrl: draft.imageUrl ? String(draft.imageUrl) : undefined,
+    source: draft.source ? String(draft.source) : undefined,
+    filename: draft.filename ? String(draft.filename) : undefined,
+  };
+}
+
+function parseRecipeBuild(body: Record<string, unknown>): RecipeBuildPlanPayload | undefined {
+  const raw = body.recipeBuild;
+  if (!raw || typeof raw !== "object") return undefined;
+  const plan = raw as Record<string, unknown>;
+  const dishName = String(plan.dishName ?? "").trim();
+  if (!dishName) return undefined;
+  const ingredients = Array.isArray(plan.ingredients)
+    ? plan.ingredients
+        .map((row) => {
+          if (!row || typeof row !== "object") return null;
+          const ing = row as Record<string, unknown>;
+          const name = String(ing.name ?? "").trim();
+          if (!name) return null;
+          return {
+            key: String(ing.key ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-")),
+            name,
+            qtyPerServing: Number(ing.qtyPerServing ?? 1),
+            unit: String(ing.unit ?? "each"),
+            pantrySlug: ing.pantrySlug ? String(ing.pantrySlug) : undefined,
+            pantryName: ing.pantryName ? String(ing.pantryName) : undefined,
+            committedSlug: ing.committedSlug ? String(ing.committedSlug) : undefined,
+            options: Array.isArray(ing.options) ? ing.options : undefined,
+            selectedOption:
+              ing.selectedOption && typeof ing.selectedOption === "object"
+                ? (ing.selectedOption as RecipeBuildPlanPayload["ingredients"][0]["selectedOption"])
+                : undefined,
+          };
+        })
+        .filter(Boolean)
+    : [];
+  if (!ingredients.length) return undefined;
+  return {
+    dishName,
+    description: plan.description ? String(plan.description) : undefined,
+    classification: plan.classification ? String(plan.classification) : undefined,
+    sellPrice: plan.sellPrice != null ? Number(plan.sellPrice) : null,
+    ingredients: ingredients as RecipeBuildPlanPayload["ingredients"],
+    status: plan.status === "ready_to_finalize" ? "ready_to_finalize" : "selecting",
   };
 }
 
@@ -266,9 +334,16 @@ export async function POST(req: Request) {
     ? body.recentBillIds.map(String).filter(Boolean)
     : [];
   const uploadBatch = parseUploadBatch(body as Record<string, unknown>);
+  const catalogDraft = parseCatalogDraft(body as Record<string, unknown>);
+  const recipeBuild = parseRecipeBuild(body as Record<string, unknown>);
+  const recipeBuildIntent = detectRecipeBuildIntent(userMessage);
   const confirmSuggestion =
-    Boolean(body.confirmSuggestion) ||
-    detectMenuConfirm(userMessage, agentContextParam ?? contextParam);
+    (Boolean(body.confirmSuggestion) ||
+      detectMenuConfirm(userMessage, agentContextParam ?? contextParam)) &&
+    (shouldUseSuggestionConfirmOnly(userMessage) || !recipeBuildIntent);
+  const confirmRecipeBuild =
+    recipeBuildIntent && detectRecipeFinalizeConfirm(userMessage);
+  const effectiveConfirmSuggestion = confirmSuggestion || Boolean(confirmRecipeBuild);
   const confirmInventory =
     Boolean(body.confirmInventory) ||
     detectInventoryConfirm(userMessage, agentContextParam ?? contextParam);
@@ -288,7 +363,7 @@ export async function POST(req: Request) {
       ? connectAgentParam
       : null;
 
-  if (!message && !connectAgent && !uploadBatch) {
+  if (!message && !connectAgent && !uploadBatch && !catalogDraft) {
     return NextResponse.json({ error: "Message required" }, { status: 400 });
   }
 
@@ -375,12 +450,17 @@ export async function POST(req: Request) {
     cues = buildCreateCues(weather, new Date(), pantryExpiringNames);
     const cuesText = formatCuesForPrompt(cues);
     dataContext = await buildCreativeChatContext(restaurantId, cuesText);
-    createExtras = `When the chef clearly wants to save an idea, call apply_menu action add_suggested_dish with a notes array (at least one entry).
-Note kinds: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
-Examples: "Uses bacon, spinach expiring this week" (expiring_ingredients), "Fall seasonal pumpkin special" (seasonal), "Features high-margin avocado & eggs" (high_margin).
-Dish **name** must be short (2–5 words) with no supplier brands or pack sizes — brands belong in **description** only.
-Only call apply_menu when the chef confirms (e.g. "add it", "save that")${
-      confirmSuggestion ? " — the chef just confirmed saving." : "."
+    createExtras = `When the chef wants a **full kitchen build** (dish + pantry ingredients + images), use apply_menu:
+1. plan_recipe_build with dish name and recipe_ingredients [{name, qty, unit}]
+2. update_recipe_selections when they pick store products (e.g. mango: 1)
+3. finalize_recipe_build after they confirm — NOT add_suggested_dish.
+
+Use add_suggested_dish ONLY for brainstorm ideas to save in Recipes → Suggested (no pantry adds).
+
+Note kinds for suggestions only: expiring_ingredients, seasonal, high_margin, low_stock, cue, other.
+Dish **name** must be short (2–5 words) without supplier brands.
+Only call apply_menu when the chef confirms${
+      effectiveConfirmSuggestion ? " — the chef just confirmed." : "."
     }
 Never invent pantry items — only reference slugs from the pantry list when specifying ingredientSlugs.`;
   }
@@ -414,6 +494,8 @@ Never invent pantry items — only reference slugs from the pantry list when spe
   let navigationAction: { path: string; label: string; agent?: SpecialistHandoffTarget } | null =
     null;
 
+  let recipeBuildPlan: RecipeBuildPlanPayload | null = recipeBuild ?? null;
+
   if (USE_LANGCHAIN_AGENTS) {
     const agentResult = await callLangChainAgentChat({
       restaurantId,
@@ -430,7 +512,9 @@ Never invent pantry items — only reference slugs from the pantry list when spe
       recentBillIds:
         uploadBatch?.slices.flatMap((slice) => slice.readyBillIds) ?? recentBillIds,
       uploadBatch,
-      confirmSuggestion,
+      catalogDraft,
+      recipeBuild: recipeBuild ?? undefined,
+      confirmSuggestion: effectiveConfirmSuggestion,
       confirmInventory: confirmInventory || confirmUpload,
       confirmBusiness: confirmBusiness || confirmUpload,
     });
@@ -444,7 +528,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
       if (agentResult.navigationAction) {
         navigationAction = agentResult.navigationAction;
       }
-      if (agentResult.suggestionAction) {
+      if (agentResult.suggestionAction && !recipeBuildIntent && !recipeBuildPlan) {
         try {
           createdSuggestion = await createSuggestedDish(restaurantId, {
             ...agentResult.suggestionAction,
@@ -458,6 +542,9 @@ Never invent pantry items — only reference slugs from the pantry list when spe
             (reply ? `${reply}\n\n` : "") +
             (err instanceof Error ? err.message : "Could not save suggestion.");
         }
+      }
+      if (agentResult.recipeBuildPlan) {
+        recipeBuildPlan = agentResult.recipeBuildPlan;
       }
       if (confirmUpload) {
         try {
@@ -481,6 +568,9 @@ Never invent pantry items — only reference slugs from the pantry list when spe
             userId,
             agentResult.pendingAction
           );
+          if (agentResult.pendingAction?.kind === "finalize_recipe_build") {
+            recipeBuildPlan = null;
+          }
           reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
         } catch (err) {
           reply =
@@ -506,9 +596,10 @@ Never invent pantry items — only reference slugs from the pantry list when spe
       ...(agentContext === "create"
         ? {
             tools: [ADD_SUGGESTION_TOOL],
-            tool_choice: confirmSuggestion
-              ? { type: "function" as const, function: { name: "add_suggested_dish" } }
-              : "auto",
+            tool_choice:
+              effectiveConfirmSuggestion && !recipeBuildIntent
+                ? { type: "function" as const, function: { name: "add_suggested_dish" } }
+                : "auto",
           }
         : {}),
     });
@@ -516,7 +607,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     const choice = completion.choices[0];
     reply = choice.message.content ?? "";
 
-    if (agentContext === "create") {
+    if (agentContext === "create" && !recipeBuildIntent && !recipeBuildPlan) {
       const toolCall = choice.message.tool_calls?.[0];
       if (toolCall?.type === "function" && toolCall.function.name === "add_suggested_dish") {
         try {
@@ -593,6 +684,7 @@ Never invent pantry items — only reference slugs from the pantry list when spe
     })),
     cues,
     createdSuggestion,
+    recipeBuildPlan,
   });
 }
 

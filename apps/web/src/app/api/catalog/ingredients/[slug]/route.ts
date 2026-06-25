@@ -2,7 +2,10 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { applySelectedImage } from "@/lib/ingredient-enrichment";
+import { refreshIngredientLabels } from "@/lib/ingredient-labels";
 import { connectDB } from "@/lib/mongodb";
+import { AddOn } from "@/models/AddOn";
+import { Dish } from "@/models/Dish";
 import { Ingredient } from "@/models/Ingredient";
 
 type RouteContext = { params: Promise<{ slug: string }> };
@@ -104,4 +107,51 @@ export async function PATCH(req: Request, context: RouteContext) {
   await ing.save();
 
   return NextResponse.json({ ok: true, ingredient: ingredientPayload(ing) });
+}
+
+export async function DELETE(_req: Request, context: RouteContext) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const restaurantId = (session.user as { restaurantId?: string }).restaurantId;
+  if (!restaurantId) {
+    return NextResponse.json({ error: "No restaurant" }, { status: 400 });
+  }
+
+  const { slug } = await context.params;
+  await connectDB();
+
+  const ing = await Ingredient.findOne({ restaurantId, slug });
+  if (!ing) {
+    return NextResponse.json({ error: "Ingredient not found" }, { status: 404 });
+  }
+
+  const dishes = await Dish.find({
+    restaurantId,
+    "ingredientLinks.ingredientSlug": slug,
+  });
+  for (const dish of dishes) {
+    dish.ingredientLinks = (dish.ingredientLinks ?? []).filter(
+      (link) => link.ingredientSlug !== slug
+    );
+    await dish.save();
+  }
+
+  const addOns = await AddOn.find({
+    restaurantId,
+    "ingredientLinks.ingredientSlug": slug,
+  });
+  for (const addOn of addOns) {
+    addOn.ingredientLinks = (addOn.ingredientLinks ?? []).filter(
+      (link) => link.ingredientSlug !== slug
+    );
+    await addOn.save();
+  }
+
+  await Ingredient.deleteOne({ restaurantId, slug });
+  await refreshIngredientLabels(restaurantId);
+
+  return NextResponse.json({ ok: true, slug });
 }

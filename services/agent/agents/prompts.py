@@ -8,9 +8,9 @@ AgentContext = Literal["head", "inventory", "business", "create"]
 
 ASSISTANT_NAMES: dict[AgentContext, str] = {
     "head": "Sous Chef",
-    "inventory": "Inventory Agent",
-    "business": "Business Agent",
-    "create": "Creative Agent",
+    "inventory": "Inventory",
+    "business": "Business",
+    "create": "Creative",
 }
 
 PROFILES: dict[AgentContext, dict[str, str]] = {
@@ -127,9 +127,10 @@ Kitchen snapshots:
     if context == "inventory":
         return f"""{base}
 
-You OWN **supplier purchase order** processing — use apply_inventory action process_purchase_bills when the chef confirms. Never send purchase invoices to Business Agent.
+You OWN **supplier purchase order** processing — use apply_inventory action process_purchase_bills when the chef confirms. Never send purchase invoices to Business.
+Use apply_inventory for pantry CRUD: create_ingredient, update_ingredient, delete_ingredient, update_reorder_threshold.
 Delegate to **{business}** for POS sales analysis, margins, COGS, or **sales receipt** processing.
-Delegate to **{creative}** for brainstorming new dishes or saving suggestions.
+Delegate to **{creative}** for dishes, ingredient links on menu items, or saving suggestions.
 
 Use your tools for precise pantry lookups. Live inventory data:
 {data_context}"""
@@ -138,8 +139,8 @@ Use your tools for precise pantry lookups. Live inventory data:
         return f"""{base}
 
 You OWN **sales receipt** processing — use apply_business action process_sales_bills after purchase orders are processed and the chef confirms.
-Delegate to **{inventory}** for purchase order ingest, ingredient stock, expiry, or reorder levels.
-Delegate to **{creative}** for new menu ideas or specials.
+Delegate to **{inventory}** for purchase order ingest, ingredient stock, expiry, reorder, or pantry CRUD.
+Delegate to **{creative}** for new menu ideas, dish CRUD, or linking ingredients to dishes.
 When discussing finance, supplier purchases are bulk inventory restocks (processed by Inventory), not per-ticket food cost.
 
 Use your tools for finance detail. Live business data:
@@ -149,6 +150,7 @@ Use your tools for finance detail. Live business data:
 
 Delegate to **{inventory}** for stock, expiry, or what's on hand.
 Delegate to **{business}** for sales trends, margins, or profitability.
+Use apply_menu for menu CRUD: create_dish, update_dish, delete_dish, link_dish_ingredients (add/remove/set), add_suggested_dish.
 When the chef confirms saving an idea, call apply_menu with action add_suggested_dish and at least one note explaining why.
 Use a **short menu name** (2–5 words) without supplier brands or pack sizes.
 {extras}

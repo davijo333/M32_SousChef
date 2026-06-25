@@ -1,4 +1,6 @@
 import { applyPipelineEnrichment } from "@/lib/apply-pipeline-enrichment";
+import { executeFinalizeRecipeBuild } from "@/lib/agent-recipe-build";
+import { executeInventoryPendingAction } from "@/lib/agent-inventory-actions";
 import { executeMenuPendingAction } from "@/lib/agent-menu-actions";
 import type { ChatUploadBatchPayload } from "@/lib/chat-bill-upload-queue";
 import { ingestBill } from "@/lib/bill-ingest";
@@ -13,12 +15,18 @@ export type AgentPendingAction = {
     | "process_purchase_bills"
     | "process_sales_bills"
     | "update_reorder_threshold"
+    | "create_ingredient"
+    | "update_ingredient"
+    | "delete_ingredient"
     | "generate_dish_image"
     | "generate_ingredient_image"
     | "create_dish"
     | "update_dish"
+    | "delete_dish"
+    | "link_dish_ingredients"
     | "enrich_dish_description"
-    | "update_dish_price";
+    | "update_dish_price"
+    | "finalize_recipe_build";
   billIds?: string[];
   billType?: "supplier" | "customer";
   slug?: string;
@@ -30,6 +38,16 @@ export type AgentPendingAction = {
   sellPrice?: number;
   imageMode?: "pair" | "secondary";
   ingredientSlugs?: string[];
+  category?: string;
+  inventoryUnit?: string;
+  currentQty?: number;
+  brandName?: string;
+  linkMode?: "add" | "remove" | "set";
+  qtyPerServing?: number;
+  unit?: string;
+  imageUrl?: string;
+  label?: "new" | "used" | "unused" | "missing";
+  recipeBuildPlan?: import("@/lib/agent-recipe-build").RecipeBuildPlanPayload;
 };
 
 export type AgentNavigationAction = {
@@ -43,8 +61,16 @@ const MENU_ACTION_KINDS = new Set<AgentPendingAction["kind"]>([
   "generate_ingredient_image",
   "create_dish",
   "update_dish",
+  "delete_dish",
+  "link_dish_ingredients",
   "enrich_dish_description",
   "update_dish_price",
+]);
+
+const INVENTORY_CATALOG_KINDS = new Set<AgentPendingAction["kind"]>([
+  "create_ingredient",
+  "update_ingredient",
+  "delete_ingredient",
 ]);
 
 export async function executeAgentPendingAction(
@@ -52,8 +78,17 @@ export async function executeAgentPendingAction(
   userId: string,
   action: AgentPendingAction
 ): Promise<string> {
+  if (action.kind === "finalize_recipe_build") {
+    if (!action.recipeBuildPlan) throw new Error("Recipe build plan missing.");
+    return executeFinalizeRecipeBuild(restaurantId, action.recipeBuildPlan);
+  }
+
   if (MENU_ACTION_KINDS.has(action.kind)) {
     return executeMenuPendingAction(restaurantId, action);
+  }
+
+  if (INVENTORY_CATALOG_KINDS.has(action.kind)) {
+    return executeInventoryPendingAction(restaurantId, action);
   }
 
   await connectDB();
@@ -211,7 +246,7 @@ export async function executeConfirmedUploadBatch(
 
 export function detectInventoryConfirm(message: string, agentContext: string): boolean {
   if (agentContext !== "inventory") return false;
-  return /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it|approved?|sure)\b/i.test(
+  return /\b(yes|confirm|go ahead|process(?:\s+it|\s+them|\s+bills?)?|do it|approved?|sure|create it|update it|delete it|remove it)\b/i.test(
     message
   );
 }
@@ -225,7 +260,7 @@ export function detectBusinessConfirm(message: string, agentContext: string): bo
 
 export function detectMenuConfirm(message: string, agentContext: string): boolean {
   if (agentContext !== "create") return false;
-  return /\b(yes|confirm|go ahead|create it|update it|save (it|that)|add it|do it|approved?|sure)\b/i.test(
+  return /\b(yes|confirm|go ahead|create it|update it|save (it|that)|add it|link it|delete it|remove it|do it|approved?|sure)\b/i.test(
     message
   );
 }

@@ -32,6 +32,8 @@ The LLM sees **one** tool; the backend routes to:
 - `generate_ingredient_image`
 - `create_dish`
 - `update_dish`
+- `delete_dish`
+- `link_dish_ingredients`
 - `enrich_dish_description`
 
 ## Build status

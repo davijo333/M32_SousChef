@@ -14,12 +14,18 @@ class PendingAction(BaseModel):
         "process_purchase_bills",
         "process_sales_bills",
         "update_reorder_threshold",
+        "create_ingredient",
+        "update_ingredient",
+        "delete_ingredient",
         "generate_dish_image",
         "generate_ingredient_image",
         "create_dish",
         "update_dish",
+        "delete_dish",
+        "link_dish_ingredients",
         "enrich_dish_description",
         "update_dish_price",
+        "finalize_recipe_build",
     ]
     billIds: list[str] = Field(default_factory=list)
     billType: Literal["supplier", "customer"] | None = None
@@ -32,6 +38,16 @@ class PendingAction(BaseModel):
     sellPrice: float | None = None
     imageMode: Literal["pair", "secondary"] | None = None
     ingredientSlugs: list[str] = Field(default_factory=list)
+    category: str | None = None
+    inventoryUnit: str | None = None
+    currentQty: float | None = None
+    brandName: str | None = None
+    linkMode: Literal["add", "remove", "set"] | None = None
+    qtyPerServing: float | None = None
+    unit: str | None = None
+    imageUrl: str | None = None
+    label: Literal["new", "used", "unused", "missing"] | None = None
+    recipeBuildPlan: dict[str, Any] | None = None
 
 
 class NavigationAction(BaseModel):
@@ -48,12 +64,16 @@ class CoreToolContext:
         *,
         user_id: str = "",
         upload_batch: dict[str, Any] | None = None,
+        catalog_draft: dict[str, Any] | None = None,
+        recipe_build: dict[str, Any] | None = None,
         confirm_inventory: bool = False,
         confirm_business: bool = False,
         confirm_suggestion: bool = False,
     ) -> None:
         self.user_id = user_id
         self.upload_batch = upload_batch or {}
+        self.catalog_draft = catalog_draft or {}
+        self.recipe_build = recipe_build
         self.confirm_inventory = confirm_inventory
         self.confirm_business = confirm_business
         self.confirm_suggestion = confirm_suggestion

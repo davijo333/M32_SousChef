@@ -12,8 +12,8 @@ NAV_TARGETS: dict[str, tuple[str, str]] = {
 }
 
 AGENT_CHAT_TARGETS: dict[str, tuple[str, str]] = {
-    "inventory": ("inventory", "Inventory Agent"),
-    "business": ("business", "Business Agent"),
-    "create": ("create", "Creative Agent"),
-    "creative": ("create", "Creative Agent"),
+    "inventory": ("inventory", "Inventory"),
+    "business": ("business", "Business"),
+    "create": ("create", "Creative"),
+    "creative": ("create", "Creative"),
 }

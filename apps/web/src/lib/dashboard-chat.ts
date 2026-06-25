@@ -13,9 +13,9 @@ export function isDashboardChatContext(value: string): value is DashboardChatCon
 
 export const CHAT_ASSISTANT_NAMES: Record<DashboardChatContext, string> = {
   head: "Sous Chef",
-  inventory: "Inventory Agent",
-  business: "Business Agent",
-  create: "Creative Agent",
+  inventory: "Inventory",
+  business: "Business",
+  create: "Creative",
 };
 
 /** @deprecated Use CHAT_ASSISTANT_NAMES */
@@ -47,7 +47,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     ],
   },
   inventory: {
-    name: "Inventory Agent",
+    name: "Inventory",
     tagline: "Pantry stock, expiry & reorder",
     persona:
       "You are a meticulous pantry manager — precise about quantities, expiry dates, and reorder thresholds. You speak in clear, actionable terms for line cooks and chefs.",
@@ -62,7 +62,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     ],
   },
   business: {
-    name: "Business Agent",
+    name: "Business",
     tagline: "Sales, margins & purchases",
     persona:
       "You are a sharp restaurant analyst — focused on POS performance, food cost, and profitability. You explain finance plainly and never confuse bulk supplier purchases with per-ticket COGS.",
@@ -77,7 +77,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
     ],
   },
   create: {
-    name: "Creative Agent",
+    name: "Creative",
     tagline: "Menu ideas & specials",
     persona:
       "You are an inventive chef de cuisine — you brainstorm specials from seasonal cues and what's in the pantry. You write short menu names and richer POS descriptions.",
@@ -95,13 +95,13 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
 
 const DELEGATION_HINTS: Record<DashboardChatContext, string> = {
   head:
-    "For stock or expiry, open **Inventory Agent**. For sales and margins, **Business Agent**. For specials and new dishes, **Creative Agent**.",
+    "For stock or expiry, open **Inventory**. For sales and margins, **Business**. For specials and new dishes, **Creative**.",
   inventory:
-    "You process purchase orders here. For POS sales or margins, I'll send you to the **Business Agent**. For new dish ideas, see the **Creative Agent**.",
+    "You process purchase orders here. For POS sales or margins, I'll send you to **Business**. For new dish ideas, see **Creative**.",
   business:
-    "For stock or expiry, I'll send you to the **Inventory Agent**. For specials and new menu ideas, see the **Creative Agent**.",
+    "For stock or expiry, I'll send you to **Inventory**. For specials and new menu ideas, see **Creative**.",
   create:
-    "For stock levels or expiry, I'll send you to the **Inventory Agent**. For sales and margins, see the **Business Agent**.",
+    "For stock levels or expiry, I'll send you to **Inventory**. For sales and margins, see **Business**.",
 };
 
 export function buildAssistantGreeting(

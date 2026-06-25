@@ -63,7 +63,7 @@ export function CreativeCuesPanel() {
         </div>
       ) : (
         <p className="mt-3 text-sm text-chef-text-muted">
-          No cues available right now — ask the Creative Agent for ideas.
+          No cues available right now — ask Creative for ideas.
         </p>
       )}
     </section>

@@ -1,3 +1,5 @@
+import type { RecipeBuildPlanPayload } from "@/lib/agent-recipe-build";
+import type { ChatCatalogDraftPayload } from "@/lib/chat-catalog-draft";
 import type { ChatUploadBatchPayload } from "@/lib/chat-bill-upload-queue";
 import type { DashboardChatContext } from "@/lib/dashboard-chat";
 import type { SpecialistHandoffTarget } from "@/lib/chat-handoff";
@@ -25,6 +27,8 @@ export type AgentChatRequest = {
   cuesText?: string;
   recentBillIds?: string[];
   uploadBatch?: ChatUploadBatchPayload;
+  catalogDraft?: ChatCatalogDraftPayload;
+  recipeBuild?: RecipeBuildPlanPayload;
   confirmSuggestion?: boolean;
   confirmInventory?: boolean;
   confirmBusiness?: boolean;
@@ -43,6 +47,7 @@ export type AgentChatResponse = {
   } | null;
   pendingAction: AgentPendingAction | null;
   navigationAction: AgentNavigationAction | null;
+  recipeBuildPlan: RecipeBuildPlanPayload | null;
 };
 
 export async function callLangChainAgentChat(
@@ -68,6 +73,8 @@ export async function callLangChainAgentChat(
           payload.uploadBatch?.slices.flatMap((slice) => slice.readyBillIds) ??
           [],
         upload_batch: payload.uploadBatch ?? null,
+        catalog_draft: payload.catalogDraft ?? null,
+        recipe_build: payload.recipeBuild ?? null,
         confirm_suggestion: Boolean(payload.confirmSuggestion),
         confirm_inventory: Boolean(payload.confirmInventory),
         confirm_business: Boolean(payload.confirmBusiness),
@@ -93,6 +100,7 @@ export async function callLangChainAgentChat(
       } | null;
       pending_action?: AgentPendingAction | null;
       navigation_action?: AgentNavigationAction | null;
+      recipe_build?: RecipeBuildPlanPayload | null;
     };
 
     return {
@@ -110,6 +118,7 @@ export async function callLangChainAgentChat(
         : null,
       pendingAction: data.pending_action ?? null,
       navigationAction: data.navigation_action ?? null,
+      recipeBuildPlan: data.recipe_build ?? null,
     };
   } catch (err) {
     console.error("LangChain agent chat error:", err);

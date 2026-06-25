@@ -6,17 +6,64 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from config import settings
+
 from tools.core.bills import format_chat_upload_batch, summarize_upload_handoff
 from tools.core.reads import read_business, read_inventory, read_kitchen, read_menu
 from tools.core.writes import CoreToolContext, NavigationAction, PendingAction
-from tools.core.menu_actions import resolve_dish_slug, resolve_ingredient_slug, suggest_price_change_text
+from tools.core.menu_actions import (
+    resolve_dish_slug,
+    resolve_ingredient_slug,
+    resolve_ingredient_slugs,
+    suggest_price_change_text,
+)
 from tools.core.models import (
     CLASSIFICATIONS,
     SUGGESTION_NOTE_KINDS,
     SuggestedDishDraft,
     SuggestionNote,
 )
+from tools.core.recipe_build import (
+    apply_recipe_selections,
+    auto_default_selections,
+    dish_create_collision_message,
+    format_recipe_build_plan,
+    parse_selections_from_message,
+    plan_recipe_build,
+)
+from tools.core.catalog_lookup import (
+    check_create_dish,
+    check_create_ingredient,
+    check_update_dish,
+    check_update_ingredient,
+    format_create_collision,
+    format_dish_summary,
+    format_ingredient_summary,
+    format_update_miss,
+)
 from tools.core.navigation import AGENT_CHAT_TARGETS, NAV_TARGETS
+
+
+def _recipe_client():
+    from openai import OpenAI
+
+    key = settings.OPENAI_API_KEY
+    return OpenAI(api_key=key) if key else None
+
+
+def _catalog_draft_defaults(ctx: CoreToolContext) -> dict[str, Any]:
+    draft = ctx.catalog_draft or {}
+    if not draft:
+        return {}
+    return {
+        "name": str(draft.get("name") or "").strip(),
+        "brand_name": str(draft.get("brandName") or "").strip(),
+        "category": str(draft.get("category") or "").strip(),
+        "classification": str(draft.get("classification") or "").strip(),
+        "description": str(draft.get("description") or "").strip(),
+        "image_url": str(draft.get("imageUrl") or "").strip(),
+        "item_type": str(draft.get("itemType") or "").strip(),
+    }
 
 
 def make_core_tools_for_agent(
@@ -99,9 +146,9 @@ def _orchestrate(restaurant_id: str, finance_period: str, cues_text: str, ctx: C
             if target not in ("inventory", "business", "create"):
                 return "Invalid agent — use inventory, business, or create."
             labels = {
-                "inventory": "Inventory Agent",
-                "business": "Business Agent",
-                "create": "Creative Agent",
+                "inventory": "Inventory",
+                "business": "Business",
+                "create": "Creative",
             }
             return (
                 f"Recommend handoff to **{labels[target]}** — {reason or question}. "
@@ -168,20 +215,136 @@ def _apply_inventory(restaurant_id: str, user_id: str, ctx: CoreToolContext):
     def apply_inventory(
         action: str,
         slug: str = "",
+        name: str = "",
         reorder_threshold: float | None = None,
         bill_ids: list[str] | None = None,
+        category: str = "misc",
+        inventory_unit: str = "each",
+        current_qty: float | None = None,
+        brand_name: str = "",
+        image_url: str = "",
     ) -> str:
-        """Mutate pantry — reorder thresholds or process purchase bills (requires confirmation).
-        Actions: update_reorder_threshold, process_purchase_bills.
-        process_purchase_bills uses the chat upload batch or pending supplier queue — no bill IDs needed.
+        """Mutate pantry — ingredients, reorder thresholds, or purchase bills (requires confirmation).
+        Actions: create_ingredient, update_ingredient, delete_ingredient,
+        update_reorder_threshold, process_purchase_bills.
+        Always call query_inventory action search before create/update when unsure.
+        Chat photo/link drafts pre-fill name and image — qty stays 0 with label new on create.
         """
         act = action.strip().lower().replace("-", "_")
+        from db.mongo import find_one
+
+        draft = _catalog_draft_defaults(ctx)
+
+        if act == "create_ingredient":
+            ing_name = (name.strip() or draft.get("name", "")).strip()
+            if not ing_name:
+                return "Provide name for create_ingredient, or attach a product photo / image link."
+            unit = inventory_unit.strip() or "each"
+            qty = 0.0
+            threshold = float(reorder_threshold) if reorder_threshold is not None else 1.0
+            cat = category.strip() or draft.get("category", "") or "misc"
+            brand = brand_name.strip() or draft.get("brand_name", "")
+            img = image_url.strip() or draft.get("image_url", "")
+
+            lookup = check_create_ingredient(restaurant_id, ing_name, brand_name=brand)
+            if lookup.get("exact"):
+                collision = format_create_collision("ingredient", ing_name, lookup)
+                return collision or f"Ingredient **{ing_name}** already exists."
+            collision = format_create_collision("ingredient", ing_name, lookup)
+            if collision and not ctx.confirm_inventory:
+                return collision
+
+            preview = (
+                f"Create pantry item **{ing_name}** ({cat}, {unit})"
+                f" with qty **0** (label **new**), reorder at {threshold}."
+            )
+            if brand:
+                preview += f" Brand: {brand}."
+            if img:
+                preview += " Includes attached/catalog image."
+            if not ctx.confirm_inventory:
+                return preview + "\n\nAsk the chef to confirm before creating."
+            ctx.push_pending(
+                PendingAction(
+                    kind="create_ingredient",
+                    ingredientName=ing_name,
+                    category=cat,
+                    inventoryUnit=unit,
+                    currentQty=qty,
+                    reorderThreshold=threshold,
+                    brandName=brand or None,
+                    imageUrl=img or None,
+                    label="new",
+                )
+            )
+            return preview + "\n\nConfirmed — creating ingredient."
+
+        if act == "update_ingredient":
+            lookup = check_update_ingredient(restaurant_id, slug=slug, name=name)
+            ing = lookup.get("found")
+            if not ing:
+                miss = format_update_miss("ingredient", slug or name, lookup)
+                return miss or "Ingredient not found — provide slug or name."
+            ing_slug = str(ing.get("slug", slug))
+            if not ctx.confirm_inventory:
+                current = format_ingredient_summary(ing)
+                return (
+                    f"Current pantry item:\n{current}\n\n"
+                    "Tell me what to change (qty, reorder, category, brand, name), then confirm."
+                )
+            changes: list[str] = []
+            if name.strip() and name.strip().lower() != str(ing.get("name", "")).lower():
+                changes.append(f"name → {name.strip()}")
+            if category.strip():
+                changes.append(f"category → {category.strip()}")
+            if inventory_unit.strip():
+                changes.append(f"unit → {inventory_unit.strip()}")
+            if current_qty is not None:
+                changes.append(f"qty → {current_qty}")
+            if reorder_threshold is not None:
+                changes.append(f"reorder → {reorder_threshold}")
+            if brand_name.strip():
+                changes.append(f"brand → {brand_name.strip()}")
+            if not changes:
+                return "Provide fields to update (name, category, inventory_unit, current_qty, reorder_threshold, brand_name)."
+            preview = f"Update **{ing['name']}** ({ing_slug}): {', '.join(changes)}."
+            ctx.push_pending(
+                PendingAction(
+                    kind="update_ingredient",
+                    slug=ing_slug,
+                    ingredientName=name.strip() or None,
+                    category=category.strip() or None,
+                    inventoryUnit=inventory_unit.strip() or None,
+                    currentQty=float(current_qty) if current_qty is not None else None,
+                    reorderThreshold=float(reorder_threshold) if reorder_threshold is not None else None,
+                    brandName=brand_name.strip() or None,
+                )
+            )
+            return preview + "\n\nConfirmed — updating ingredient."
+
+        if act == "delete_ingredient":
+            ing = resolve_ingredient_slug(restaurant_id, slug=slug, name=name)
+            if not ing:
+                return "Ingredient not found — provide slug or name."
+            ing_slug = str(ing.get("slug", slug))
+            preview = (
+                f"Remove **{ing['name']}** ({ing_slug}) from pantry "
+                "and unlink it from any dishes or add-ons."
+            )
+            if not ctx.confirm_inventory:
+                return preview + "\n\nAsk the chef to confirm before deleting."
+            ctx.push_pending(
+                PendingAction(
+                    kind="delete_ingredient",
+                    slug=ing_slug,
+                    ingredientName=str(ing.get("name", name)),
+                )
+            )
+            return preview + "\n\nConfirmed — deleting ingredient."
+
         if act == "update_reorder_threshold":
             if not slug or reorder_threshold is None:
                 return "Provide slug and reorder_threshold."
-            ing = None
-            from db.mongo import find_one
-
             ing = find_one(
                 "ingredients",
                 restaurant_id,
@@ -241,7 +404,10 @@ def _apply_inventory(restaurant_id: str, user_id: str, ctx: CoreToolContext):
             )
             return preview + "\n\nConfirmed — processing purchase orders."
 
-        return "Unknown action. Use: update_reorder_threshold, process_purchase_bills."
+        return (
+            "Unknown action. Use: create_ingredient, update_ingredient, delete_ingredient, "
+            "update_reorder_threshold, process_purchase_bills."
+        )
 
     return apply_inventory
 
@@ -400,12 +566,86 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
         image_mode: str = "pair",
         ingredient_slugs: list[str] | None = None,
         notes: list[dict[str, Any]] | None = None,
+        link_mode: str = "add",
+        qty_per_serving: float | None = None,
+        unit: str = "each",
+        image_url: str = "",
+        recipe_ingredients: list[dict[str, Any]] | None = None,
+        recipe_selections: str = "",
     ) -> str:
-        """Menu writes: suggestions, dishes, descriptions, and catalog images.
-        Actions: add_suggested_dish, draft_special_only, create_dish, update_dish,
-        enrich_dish_description, generate_dish_image, generate_ingredient_image.
+        """Menu writes: dishes, ingredient links, suggestions, descriptions, and catalog images.
+        Actions: plan_recipe_build, update_recipe_selections, finalize_recipe_build,
+        add_suggested_dish, draft_special_only, create_dish, update_dish, delete_dish,
+        link_dish_ingredients, enrich_dish_description, generate_dish_image, generate_ingredient_image.
+        For full kitchen builds (dish + pantry ingredients + images) use plan_recipe_build,
+        NOT add_suggested_dish. add_suggested_dish is ideas-only (Recipes → Suggested).
         """
         act = action.strip().lower().replace("-", "_")
+        draft = _catalog_draft_defaults(ctx)
+
+        if act in ("plan_recipe_build", "plan_recipe", "recipe_plan"):
+            dish_name = (name.strip() or draft.get("name", "")).strip()
+            if not dish_name:
+                return "Provide dish name for plan_recipe_build."
+            rows = recipe_ingredients or []
+            if not rows:
+                return (
+                    "Provide recipe_ingredients — list of {name, qty, unit} for each pantry item "
+                    "in the recipe."
+                )
+            try:
+                plan = plan_recipe_build(
+                    restaurant_id,
+                    _recipe_client(),
+                    dish_name=dish_name,
+                    description=description.strip() or draft.get("description", ""),
+                    classification=classification.strip() or draft.get("classification", "other"),
+                    sell_price=sell_price,
+                    ingredients=rows,
+                )
+            except ValueError as exc:
+                return str(exc)
+            ctx.recipe_build = plan
+            return format_recipe_build_plan(plan)
+
+        if act in ("update_recipe_selections", "select_recipe_ingredients", "recipe_select"):
+            if not ctx.recipe_build:
+                return "No recipe plan in progress — call plan_recipe_build first."
+            picks = parse_selections_from_message(recipe_selections, ctx.recipe_build)
+            if not picks and recipe_selections.strip():
+                picks = parse_selections_from_message(recipe_selections, ctx.recipe_build)
+            if not picks:
+                return "Provide recipe_selections like `mango: 1, yogurt: 2` for each missing ingredient."
+            ctx.recipe_build = apply_recipe_selections(ctx.recipe_build, picks)
+            return format_recipe_build_plan(ctx.recipe_build)
+
+        if act in ("finalize_recipe_build", "commit_recipe_build", "build_recipe"):
+            if not ctx.recipe_build:
+                return "No recipe plan — call plan_recipe_build with dish name and ingredients first."
+            plan = auto_default_selections(ctx.recipe_build)
+            ctx.recipe_build = plan
+            collision = dish_create_collision_message(restaurant_id, str(plan.get("dishName", "")))
+            if collision:
+                return collision
+            if plan.get("status") != "ready_to_finalize":
+                return format_recipe_build_plan(plan)
+            preview = (
+                f"Build **{plan['dishName']}** in Kitchen control: add missing pantry items "
+                "(qty 0, label new), link ingredients, generate packaging + dish images."
+            )
+            if not ctx.confirm_suggestion:
+                return preview + "\n\nAsk the chef to confirm before building."
+            ctx.push_pending(
+                PendingAction(
+                    kind="finalize_recipe_build",
+                    dishName=str(plan.get("dishName", "")),
+                    description=str(plan.get("description") or ""),
+                    classification=str(plan.get("classification") or "other"),
+                    sellPrice=float(plan["sellPrice"]) if plan.get("sellPrice") is not None else None,
+                    recipeBuildPlan=plan,
+                )
+            )
+            return preview + "\n\nConfirmed — building recipe in kitchen."
 
         if act == "draft_special_only":
             if classification not in CLASSIFICATIONS:
@@ -435,9 +675,9 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             return f"Generating {mode} images for **{dish['name']}**…"
 
         if act == "generate_ingredient_image":
-            ing = resolve_ingredient_slug(restaurant_id, slug)
+            ing = resolve_ingredient_slug(restaurant_id, slug=slug, name=name)
             if not ing:
-                return f"Ingredient '{slug}' not found."
+                return f"Ingredient '{slug or name}' not found."
             ctx.push_pending(
                 PendingAction(
                     kind="generate_ingredient_image",
@@ -448,50 +688,147 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             return f"Generating packaging images for **{ing['name']}**…"
 
         if act == "create_dish":
-            if not name.strip():
-                return "Provide name for create_dish."
-            if classification not in CLASSIFICATIONS:
-                classification = "other"
+            dish_name = (name.strip() or draft.get("name", "")).strip()
+            if not dish_name:
+                return "Provide name for create_dish, or attach a menu photo / image link."
+            dish_class = classification.strip() or draft.get("classification", "") or "other"
+            if dish_class not in CLASSIFICATIONS:
+                dish_class = "other"
+            dish_desc = description.strip() or draft.get("description", "")
+            img = image_url.strip() or draft.get("image_url", "")
+            link_slugs, missing = resolve_ingredient_slugs(restaurant_id, ingredient_slugs or [])
+            if missing:
+                return f"Unknown pantry items: {', '.join(missing)}. Create them in Inventory first or check slugs."
+
+            lookup = check_create_dish(restaurant_id, dish_name)
+            if lookup.get("exact"):
+                collision = format_create_collision("dish", dish_name, lookup)
+                return collision or f"Dish **{dish_name}** already exists."
+            collision = format_create_collision("dish", dish_name, lookup)
+            if collision and not ctx.confirm_suggestion:
+                return collision
+
             preview = (
-                f"Create dish **{name.strip()}** ({classification})"
+                f"Create dish **{dish_name}** ({dish_class})"
                 + (f" at ${sell_price:.2f}" if sell_price else "")
-                + "."
+                + (f" with {len(link_slugs)} linked ingredient(s)." if link_slugs else ".")
             )
+            if dish_desc:
+                preview += f" Description: {dish_desc[:120]}."
+            if img:
+                preview += " Includes attached/catalog image."
             if not ctx.confirm_suggestion:
                 return preview + "\n\nAsk the chef to confirm before creating."
             ctx.push_pending(
                 PendingAction(
                     kind="create_dish",
-                    dishName=name.strip(),
-                    description=description.strip(),
-                    classification=classification,
+                    dishName=dish_name,
+                    description=dish_desc,
+                    classification=dish_class,
                     sellPrice=float(sell_price) if sell_price else 0,
-                    ingredientSlugs=ingredient_slugs or [],
+                    ingredientSlugs=link_slugs,
+                    imageUrl=img or None,
                 )
             )
             return preview + "\n\nConfirmed — creating dish."
 
-        if act == "update_dish":
+        if act == "delete_dish":
             dish = resolve_dish_slug(restaurant_id, slug=slug, name=name)
             if not dish:
                 return "Dish not found — provide slug or name."
+            dish_slug = str(dish.get("slug", slug))
+            preview = f"Delete dish **{dish['name']}** ({dish_slug}) from the menu."
+            if not ctx.confirm_suggestion:
+                return preview + "\n\nAsk the chef to confirm before deleting."
+            ctx.push_pending(
+                PendingAction(
+                    kind="delete_dish",
+                    slug=dish_slug,
+                    dishName=str(dish.get("name", name)),
+                )
+            )
+            return preview + "\n\nConfirmed — deleting dish."
+
+        if act == "link_dish_ingredients":
+            dish = resolve_dish_slug(restaurant_id, slug=slug, name=name)
+            if not dish:
+                return "Dish not found — provide slug or name."
+            tokens = ingredient_slugs or []
+            if not tokens:
+                return "Provide ingredient_slugs to link, unlink, or set on the dish."
+            mode = link_mode.strip().lower().replace("-", "_") or "add"
+            if mode not in ("add", "remove", "set"):
+                return "link_mode must be add, remove, or set."
+            resolved, missing = resolve_ingredient_slugs(restaurant_id, tokens)
+            if missing:
+                return f"Unknown pantry items: {', '.join(missing)}. Check slugs or create them in Inventory first."
+            dish_slug = str(dish.get("slug", slug))
+            qty = float(qty_per_serving) if qty_per_serving is not None else 1.0
+            link_unit = unit.strip() or "each"
+            if mode == "add":
+                preview = (
+                    f"Link {len(resolved)} ingredient(s) to **{dish['name']}** "
+                    f"({qty} {link_unit} each)."
+                )
+            elif mode == "remove":
+                preview = f"Remove {len(resolved)} ingredient link(s) from **{dish['name']}**."
+            else:
+                preview = f"Set **{dish['name']}** ingredient links to {len(resolved)} item(s)."
+            if not ctx.confirm_suggestion:
+                return preview + "\n\nAsk the chef to confirm before updating links."
+            ctx.push_pending(
+                PendingAction(
+                    kind="link_dish_ingredients",
+                    slug=dish_slug,
+                    dishName=str(dish.get("name", name)),
+                    ingredientSlugs=resolved,
+                    linkMode=mode,  # type: ignore[arg-type]
+                    qtyPerServing=qty,
+                    unit=link_unit,
+                )
+            )
+            return preview + "\n\nConfirmed — updating dish ingredient links."
+
+        if act == "update_dish":
+            lookup = check_update_dish(restaurant_id, slug=slug, name=name)
+            dish = lookup.get("found")
+            if not dish:
+                miss = format_update_miss("dish", slug or name, lookup)
+                return miss or "Dish not found — provide slug or name."
+            if not ctx.confirm_suggestion:
+                current = format_dish_summary(dish)
+                return (
+                    f"Current menu item:\n{current}\n\n"
+                    "Tell me what to change (name, price, classification, description), then confirm."
+                )
             changes = []
+            new_name = name.strip()
+            dish_slug = str(dish.get("slug", slug))
+            if new_name and new_name.lower() != str(dish.get("name", "")).lower() and slug.strip():
+                changes.append(f"name → {new_name}")
+            dish_class = classification.strip() or draft.get("classification", "")
+            if dish_class and dish_class in CLASSIFICATIONS:
+                changes.append(f"classification → {dish_class}")
             if sell_price is not None:
                 changes.append(f"sell price → ${sell_price:.2f}")
-            if description.strip():
+            dish_desc = description.strip() or draft.get("description", "")
+            if dish_desc:
                 changes.append("description")
+            img = image_url.strip() or draft.get("image_url", "")
+            if img:
+                changes.append("catalog image")
             if not changes:
-                return "Provide sell_price and/or description to update."
+                return "Provide name, classification, sell_price, description, and/or image_url to update."
             preview = f"Update **{dish['name']}**: {', '.join(changes)}."
-            if not ctx.confirm_suggestion:
-                return preview + "\n\nAsk the chef to confirm before updating."
             ctx.push_pending(
                 PendingAction(
                     kind="update_dish",
-                    slug=str(dish.get("slug", slug)),
-                    dishName=str(dish.get("name", name)),
-                    description=description.strip() or None,
+                    slug=dish_slug,
+                    dishName=new_name if new_name and slug.strip() else None,
+                    description=dish_desc or None,
+                    classification=dish_class if dish_class in CLASSIFICATIONS else None,
                     sellPrice=float(sell_price) if sell_price is not None else None,
+                    imageUrl=img or None,
                 )
             )
             return preview + "\n\nConfirmed — updating dish."
@@ -517,8 +854,20 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
 
         if act != "add_suggested_dish":
             return (
-                "Unknown action. Use: add_suggested_dish, draft_special_only, create_dish, "
-                "update_dish, enrich_dish_description, generate_dish_image, generate_ingredient_image."
+                "Unknown action. Use: plan_recipe_build, update_recipe_selections, "
+                "finalize_recipe_build, add_suggested_dish, draft_special_only, create_dish, "
+                "update_dish, delete_dish, link_dish_ingredients, enrich_dish_description, "
+                "generate_dish_image, generate_ingredient_image."
+            )
+
+        if description.strip() and any(
+            word in description.lower()
+            for word in ("ingredient", "recipe", "pantry", "link")
+        ):
+            return (
+                "This sounds like a full kitchen build — use **plan_recipe_build** with "
+                "recipe_ingredients, then finalize_recipe_build. add_suggested_dish is for "
+                "ideas only (Recipes → Suggested), not pantry + menu catalog."
             )
 
         if classification not in CLASSIFICATIONS:

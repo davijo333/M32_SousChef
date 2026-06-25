@@ -30,6 +30,7 @@ The LLM sees **one** tool; the backend routes to:
 - `process_purchase_bills`
 - `create_ingredient`
 - `update_ingredient`
+- `delete_ingredient`
 
 ## Build status
 

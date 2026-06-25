@@ -44,12 +44,58 @@ def _upload_handoff_note(upload_batch: dict | None, *, confirmed: bool) -> str:
     return f"\n\n{callout}\n\n{routing}"
 
 
+def _catalog_draft_note(catalog_draft: dict | None) -> str:
+    if not catalog_draft or not str(catalog_draft.get("name") or "").strip():
+        return ""
+    item_type = str(catalog_draft.get("itemType") or "ingredient")
+    name = str(catalog_draft.get("name") or "").strip()
+    brand = str(catalog_draft.get("brandName") or "").strip()
+    category = str(catalog_draft.get("category") or "").strip()
+    classification = str(catalog_draft.get("classification") or "").strip()
+    description = str(catalog_draft.get("description") or "").strip()
+    source = str(catalog_draft.get("source") or "photo")
+    lines = [
+        f"The chef shared a catalog **{item_type}** ({source}). Vision identified **{name}**.",
+    ]
+    if brand:
+        lines.append(f"Brand: {brand}.")
+    if category:
+        lines.append(f"Category: {category}.")
+    if classification and item_type == "dish":
+        lines.append(f"Classification: {classification}.")
+    if description:
+        lines.append(f"Description: {description[:160]}.")
+    lines.append(
+        "Before create/update: search for duplicates/similar items and show matches when in doubt. "
+        "New pantry items from chat start at qty **0** with label **new**. "
+        "Use apply_inventory create_ingredient or apply_menu create_dish after chef confirms."
+    )
+    return "\n\n" + " ".join(lines)
+
+
+def _recipe_build_note(recipe_build: dict | None, *, confirm_suggestion: bool) -> str:
+    if not recipe_build:
+        return ""
+    dish = str(recipe_build.get("dishName") or "dish")
+    status = str(recipe_build.get("status") or "selecting")
+    lines = [
+        f"\n\nActive recipe build for **{dish}** (status: {status}).",
+        "Use apply_menu: update_recipe_selections when the chef picks store products;",
+        "finalize_recipe_build when they confirm the full kitchen build.",
+    ]
+    if confirm_suggestion:
+        lines.append("The chef just confirmed — call finalize_recipe_build now.")
+    return " ".join(lines)
+
+
 def _run_direct_specialist(
     *,
     agent_context: AgentContext,
     restaurant_id: str,
     user_id: str,
     upload_batch: dict | None,
+    catalog_draft: dict | None,
+    recipe_build: dict | None,
     recent_bill_ids: list[str],
     chef_name: str,
     restaurant_name: str,
@@ -67,10 +113,18 @@ def _run_direct_specialist(
     core_ctx = CoreToolContext(
         user_id=user_id,
         upload_batch=upload_batch,
+        catalog_draft=catalog_draft,
+        recipe_build=recipe_build,
         confirm_inventory=confirm_inventory,
         confirm_business=confirm_business,
         confirm_suggestion=confirm_suggestion,
     )
+    if core_ctx.recipe_build and message.strip():
+        from tools.core.recipe_build import apply_recipe_selections, parse_selections_from_message
+
+        picks = parse_selections_from_message(message, core_ctx.recipe_build)
+        if picks:
+            core_ctx.recipe_build = apply_recipe_selections(core_ctx.recipe_build, picks)
 
     handoff_note = ""
     if handoff:
@@ -79,6 +133,8 @@ def _run_direct_specialist(
             "Read the full conversation history and take over seamlessly."
         )
     handoff_note += _upload_handoff_note(upload_batch, confirmed=confirmed)
+    handoff_note += _catalog_draft_note(catalog_draft)
+    handoff_note += _recipe_build_note(core_ctx.recipe_build, confirm_suggestion=confirm_suggestion)
     if (
         agent_context == "inventory"
         and confirmed
@@ -88,9 +144,9 @@ def _run_direct_specialist(
         slices = normalize_upload_batch_slices(upload_batch)
         if any(str(row.get("billType")) == "supplier" for row in slices):
             handoff_note += (
-                "\n\nThe chef confirmed **purchase order** processing and you are the Inventory Agent. "
+                "\n\nThe chef confirmed **purchase order** processing and you are Inventory. "
                 "Process with apply_inventory action process_purchase_bills. "
-                "Do NOT tell them to connect to Business Agent — you own supplier invoices."
+                "Do NOT tell them to connect to Business — you own supplier invoices."
             )
 
     llm_user_message = message
@@ -152,6 +208,8 @@ def run_agent_chat(
     cues_text: str = "",
     connect_agent: AgentContext | None = None,
     upload_batch: dict | None = None,
+    catalog_draft: dict | None = None,
+    recipe_build: dict | None = None,
     confirm_suggestion: bool = False,
     confirm_inventory: bool = False,
     confirm_business: bool = False,
@@ -213,6 +271,8 @@ def run_agent_chat(
         restaurant_id=restaurant_id,
         user_id=user_id,
         upload_batch=upload_batch,
+        catalog_draft=catalog_draft,
+        recipe_build=recipe_build,
         recent_bill_ids=bills,
         chef_name=chef_name,
         restaurant_name=restaurant_name,

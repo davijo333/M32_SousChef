@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+
+from config import settings
 from langgraph.prebuilt import create_react_agent
 
 from agents.prompts import AgentContext, build_system_prompt
@@ -23,7 +24,7 @@ ChatMessage = dict[str, str]
 
 
 def _model() -> ChatOpenAI:
-    return ChatOpenAI(model="gpt-4o-mini", temperature=0.3, api_key=os.getenv("OPENAI_API_KEY"))
+    return ChatOpenAI(model="gpt-4o-mini", temperature=0.3, api_key=settings.OPENAI_API_KEY)
 
 
 def _data_context(
@@ -44,10 +45,11 @@ def _data_context(
 def _create_extras(agent_context: AgentContext) -> str:
     if agent_context == "inventory":
         return (
-            "You OWN supplier purchase order processing — never redirect POs to Business Agent.\n"
+            "You OWN supplier purchase order processing — never redirect POs to Business.\n"
             "Use query_inventory for reads (pantry_summary, low_stock, expiring, search, purchase_queue).\n"
-            "Use upload_bills action batch_status when the chef attached purchase orders.\n"
-            "Use apply_inventory action process_purchase_bills after the chef confirms — no bill IDs needed."
+            "Use apply_inventory: create_ingredient, update_ingredient, delete_ingredient, "
+            "update_reorder_threshold, process_purchase_bills (confirm before writes). "
+            "Search with query_inventory before create/update; show duplicates/similar items."
         )
     if agent_context == "business":
         return (
@@ -61,8 +63,12 @@ def _create_extras(agent_context: AgentContext) -> str:
             "navigate_to (upload_orders, kitchen_control, recipes), open_chat_agent."
         )
     return (
-        "Use query_menu for cues and dish search. apply_menu: add_suggested_dish, create_dish, "
-        "update_dish, enrich_dish_description, generate_dish_image, generate_ingredient_image."
+        "Use query_menu for cues and dish search.\n"
+        "Full kitchen build (dish + pantry ingredients + images): plan_recipe_build → "
+        "update_recipe_selections → finalize_recipe_build. NOT add_suggested_dish.\n"
+        "add_suggested_dish is ideas-only (Recipes → Suggested).\n"
+        "Other apply_menu: create_dish, update_dish, delete_dish, link_dish_ingredients, "
+        "enrich_dish_description, generate_dish_image, generate_ingredient_image."
     )
 
 
@@ -167,7 +173,7 @@ def run_react_agent(
 
 def result_from_core_ctx(core_ctx: CoreToolContext) -> dict[str, Any]:
     out: dict[str, Any] = {}
-    if core_ctx.suggestion_sink:
+    if core_ctx.suggestion_sink and not core_ctx.recipe_build:
         draft = core_ctx.suggestion_sink[-1]
         out["suggestion_action"] = {
             "name": draft.name,
@@ -182,4 +188,6 @@ def result_from_core_ctx(core_ctx: CoreToolContext) -> dict[str, Any]:
     navigation = core_ctx.latest_navigation()
     if navigation:
         out["navigation_action"] = navigation
+    if core_ctx.recipe_build:
+        out["recipe_build"] = core_ctx.recipe_build
     return out

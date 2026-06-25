@@ -11,6 +11,7 @@ import { KitchenIngredientModal, type IngredientDetail } from "@/components/Kitc
 import { PantryFiltersBar } from "@/components/PantryFiltersBar";
 import { MenuFiltersBar } from "@/components/MenuFiltersBar";
 import { Nav } from "@/components/Nav";
+import { AgentChatDock } from "@/components/AgentChatDock";
 import { NewItemsEnrichingPanel } from "@/components/NewItemsEnrichingPanel";
 import { NewItemsReview } from "@/components/NewItemsReview";
 import { ingredientMissingPhotos } from "@/lib/ingredient-image-status";
@@ -728,12 +729,6 @@ export default function KitchenControlPage() {
     kitchen.menuItems.length === 0 &&
     review.newIngredients.length === 0 &&
     review.newDishes.length === 0;
-  const hasLeftContent =
-    !empty ||
-    review.preparingReview ||
-    review.pendingCount > 0 ||
-    review.newIngredients.length > 0 ||
-    review.newDishes.length > 0;
 
   function menuSalesForItem(item: MenuItemRow) {
     return {
@@ -797,36 +792,21 @@ export default function KitchenControlPage() {
       />
     ) : null;
 
-  const uploadHint = (
-    <p className="text-sm text-chef-text-muted">
-      {kitchen.menuItems.length === 0 ? (
-        <>
-          Add menu items from{" "}
-          <Link href="/upload-orders" className="text-chef-sage underline">
-            sales orders
-          </Link>
-          . Need stock? Upload{" "}
-          <Link href="/upload-orders" className="text-chef-sage underline">
-            purchase orders
-          </Link>{" "}
-          first.
-        </>
-      ) : (
-        <>
-          Need more stock?{" "}
-          <Link href="/upload-orders" className="text-chef-sage underline">
-            Upload purchase orders
-          </Link>{" "}
-          and click Process.
-        </>
-      )}
-    </p>
-  );
+  const uploadHint =
+    kitchen.menuItems.length > 0 ? (
+      <p className="text-sm text-chef-text-muted">
+        Need more stock?{" "}
+        <Link href="/upload-orders" className="text-chef-sage underline">
+          Upload purchase orders
+        </Link>{" "}
+        and click Process.
+      </p>
+    ) : null;
 
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-7xl px-4 pb-8">
+      <main className="sc-main-with-nav sc-main-with-floating-agent sc-page-shell pb-8">
         <div>
           <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Kitchen control</h1>
           <p className="mt-2 text-base text-chef-text-muted">
@@ -1030,13 +1010,7 @@ export default function KitchenControlPage() {
 
             {enrichingPanel}
             {newItemsReviewSection}
-            {!hasLeftContent && (
-              <p className="text-sm text-chef-text-muted">
-                Process sales orders to populate your menu, or purchase orders to review new pantry
-                items.
-              </p>
-            )}
-            <div className="mt-2">{uploadHint}</div>
+            {uploadHint && <div className="mt-2">{uploadHint}</div>}
           </div>
         )}
 
@@ -1124,7 +1098,7 @@ export default function KitchenControlPage() {
                 )}
               </div>
             </section>
-            <div className="mt-6">{uploadHint}</div>
+            {uploadHint && <div className="mt-6">{uploadHint}</div>}
           </div>
         )}
 
@@ -1258,14 +1232,7 @@ export default function KitchenControlPage() {
               {enrichingPanel}
               {newItemsReviewSection}
 
-              {!hasLeftContent && (
-                <p className="text-sm text-chef-text-muted">
-                  Process sales orders to populate your menu, or purchase orders to review new
-                  pantry items.
-                </p>
-              )}
-
-              <p>{uploadHint}</p>
+              {uploadHint}
             </div>
 
             <aside className="mt-8 min-w-0 lg:mt-0 lg:sticky lg:top-6">
@@ -1525,6 +1492,10 @@ export default function KitchenControlPage() {
           }}
         />
       )}
+      <AgentChatDock
+        chatContext="business"
+        defaultAgent="business"
+      />
     </>
   );
 }

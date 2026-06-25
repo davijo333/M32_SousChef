@@ -32,6 +32,8 @@ class ChatRequest(BaseModel):
     cues_text: str = ""
     recent_bill_ids: list[str] = Field(default_factory=list)
     upload_batch: dict | None = None
+    catalog_draft: dict | None = None
+    recipe_build: dict | None = None
     confirm_suggestion: bool = False
     confirm_inventory: bool = False
     confirm_business: bool = False
@@ -50,12 +52,18 @@ class PendingAction(BaseModel):
         "process_purchase_bills",
         "process_sales_bills",
         "update_reorder_threshold",
+        "create_ingredient",
+        "update_ingredient",
+        "delete_ingredient",
         "generate_dish_image",
         "generate_ingredient_image",
         "create_dish",
         "update_dish",
+        "delete_dish",
+        "link_dish_ingredients",
         "enrich_dish_description",
         "update_dish_price",
+        "finalize_recipe_build",
     ]
     billIds: list[str] = Field(default_factory=list)
     billType: Literal["supplier", "customer"] | None = None
@@ -68,6 +76,14 @@ class PendingAction(BaseModel):
     sellPrice: float | None = None
     imageMode: Literal["pair", "secondary"] | None = None
     ingredientSlugs: list[str] = Field(default_factory=list)
+    category: str | None = None
+    inventoryUnit: str | None = None
+    currentQty: float | None = None
+    brandName: str | None = None
+    linkMode: Literal["add", "remove", "set"] | None = None
+    qtyPerServing: float | None = None
+    label: Literal["new", "used", "unused", "missing"] | None = None
+    recipeBuildPlan: dict | None = None
 
 
 class NavigationAction(BaseModel):
@@ -83,6 +99,7 @@ class ChatResponse(BaseModel):
     suggestion_action: SuggestionAction | None = None
     pending_action: PendingAction | None = None
     navigation_action: NavigationAction | None = None
+    recipe_build: dict | None = None
 
 
 def _normalize_context(value: str | None, fallback: str = "head") -> AgentContext:
@@ -108,6 +125,8 @@ def handle_chat(req: ChatRequest) -> ChatResponse:
         user_id=req.user_id,
         recent_bill_ids=req.recent_bill_ids,
         upload_batch=req.upload_batch,
+        catalog_draft=req.catalog_draft,
+        recipe_build=req.recipe_build,
         chef_name=req.chef_name,
         restaurant_name=req.restaurant_name,
         message=req.message.strip(),
@@ -145,4 +164,5 @@ def handle_chat(req: ChatRequest) -> ChatResponse:
         suggestion_action=suggestion,
         pending_action=pending,
         navigation_action=navigation,
+        recipe_build=result.get("recipe_build"),
     )

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+
+from config import settings
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
@@ -40,7 +41,7 @@ class IntentDecision(BaseModel):
 
 
 def _model() -> ChatOpenAI:
-    return ChatOpenAI(model="gpt-4o-mini", temperature=0.1, api_key=os.getenv("OPENAI_API_KEY"))
+    return ChatOpenAI(model="gpt-4o-mini", temperature=0.1, api_key=settings.OPENAI_API_KEY)
 
 
 def _classifier_prompt(user_question: str) -> str:

@@ -116,15 +116,23 @@ body {
     @apply pt-[calc(5.5rem+2rem)] sm:pt-[calc(5rem+2rem)];
   }
 
-  /** Room to scroll past content above the fixed Sous Chef chat dock. */
-  .sc-main-with-chat-dock {
-    padding-bottom: calc(13.5rem + env(safe-area-inset-bottom, 0px));
+  /** Main content width — matches dashboard three-tab row (max-w-6xl + px-4). */
+  .sc-page-shell {
+    @apply mx-auto w-full max-w-6xl px-4;
   }
 
-  @media (min-width: 640px) {
-    .sc-main-with-chat-dock {
-      padding-bottom: calc(15rem + env(safe-area-inset-bottom, 0px));
-    }
+  /** Keep scroll targets above the floating chat dock. */
+  html.sc-agent-chat-floating {
+    scroll-padding-bottom: calc(
+      var(--sc-chat-dock-offset, 5.5rem) + env(safe-area-inset-bottom, 0px)
+    );
+  }
+
+  /** Room below main content for the floating agent icon / open chat dock. */
+  .sc-main-with-floating-agent {
+    padding-bottom: calc(
+      var(--sc-chat-dock-offset, 5.5rem) + env(safe-area-inset-bottom, 0px)
+    );
   }
 }
 

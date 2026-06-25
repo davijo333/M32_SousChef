@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Loader2, Receipt, ShoppingCart } from "lucide-react";
 import { Nav } from "@/components/Nav";
+import { AgentChatDock } from "@/components/AgentChatDock";
 import { useOrderWork } from "@/components/OrderWorkProvider";
 import { BillUploadZone, type SavedBill } from "@/components/BillUploadZone";
 import { PurchaseOrderTable } from "@/components/PurchaseOrderTable";
@@ -149,7 +150,7 @@ export default function UploadOrdersPage() {
   return (
     <>
       <Nav />
-      <main className="sc-main-with-nav mx-auto max-w-6xl px-4 pb-8">
+      <main className="sc-main-with-nav sc-main-with-floating-agent sc-page-shell pb-8">
         <h1 className="text-2xl font-semibold text-chef-text sm:text-3xl">Upload orders</h1>
         <p className="mt-2 text-base text-chef-text-muted">
           Upload and process purchase orders and sales receipts.
@@ -285,6 +286,11 @@ export default function UploadOrdersPage() {
           <SalesOrderTable refreshKey={soTableKey} />
         </div>
       </main>
+      <AgentChatDock
+        chatContext="inventory"
+        defaultAgent="inventory"
+        showAttachments
+      />
     </>
   );
 }

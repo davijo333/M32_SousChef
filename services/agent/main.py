@@ -4,10 +4,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from bill_classifier import classify_bill_document
+from config import settings
 from bill_pipeline import ParsePipelineResult, run_customer_pipeline, run_supplier_pipeline
+from catalog_identify import CatalogIdentification, identify_catalog_from_bytes, identify_catalog_from_url
 from catalog_prepare import prepare_catalog_batch
 from image_suggestions import IMAGE_COUNT, ImageSuggestion, suggest_images
 from recipe_linker import link_recipe
@@ -15,14 +16,6 @@ from recipe_models import IngredientCatalogItem, LinkRecipeResult, MenuItemInput
 from chat.service import ChatRequest, ChatResponse, handle_chat
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
-
-    OPENAI_API_KEY: str = ""
-    MONGODB_URI: str = "mongodb://localhost:27017/sous_chef"
-
-
-settings = Settings()
 app = FastAPI(title="Sous Chef Agent", version="0.5.0")
 
 app.add_middleware(
@@ -98,6 +91,18 @@ class ClassifyBillResponse(BaseModel):
     billType: str
     confidence: float
     reason: str = ""
+
+
+class IdentifyCatalogResponse(BaseModel):
+    itemType: str
+    name: str
+    brandName: str = ""
+    category: str = "misc"
+    classification: str = "other"
+    description: str = ""
+    confidence: float = 0.7
+    imageUrl: str = ""
+    source: str = ""
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -204,6 +209,41 @@ async def classify_bill(
         confidence=result.confidence,
         reason=result.reason,
     )
+
+
+@app.post("/identify-catalog-item", response_model=IdentifyCatalogResponse)
+async def identify_catalog_item(
+    file: UploadFile | None = File(None),
+    image_url: str = Form(""),
+    item_type_hint: str = Form(""),
+):
+    """Identify a pantry ingredient or menu dish from a photo or direct image URL."""
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+    hint = item_type_hint.strip().lower()
+    try:
+        if file is not None:
+            data = await file.read()
+            if not data:
+                raise HTTPException(status_code=400, detail="Empty file")
+            content_type = file.content_type or "application/octet-stream"
+            result = identify_catalog_from_bytes(
+                client,
+                data,
+                content_type,
+                item_type_hint=hint,
+                filename=file.filename or "catalog.jpg",
+            )
+        elif image_url.strip():
+            result = identify_catalog_from_url(client, image_url.strip(), item_type_hint=hint)
+        else:
+            raise HTTPException(status_code=400, detail="Provide file or image_url")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return IdentifyCatalogResponse(**result.model_dump())
 
 
 @app.post("/parse-bill-pipeline", response_model=ParsePipelineResponse)

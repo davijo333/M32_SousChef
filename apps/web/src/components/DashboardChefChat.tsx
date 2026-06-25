@@ -21,12 +21,15 @@ import {
 } from "@/lib/dashboard-chat";
 import {
   connectAgentButtonLabel,
+  connectBackButtonLabel,
   detectSuggestedAgentHandoff,
   handoffToDashboardSection,
+  isSpecialistHandoffTarget,
   type SpecialistHandoffTarget,
 } from "@/lib/chat-handoff";
 import { renderChatMarkdown } from "@/lib/chat-markdown";
 import { AgentBrandMark } from "@/components/BrandMark";
+import { AgentSwitcher } from "@/components/AgentSwitcher";
 import { useOrderWorkOptional } from "@/components/OrderWorkProvider";
 import type { AgentBrandAgent } from "@/lib/agent-icons";
 import {
@@ -36,7 +39,18 @@ import {
   type ChatBillUploadEntry,
   type ChatUploadBatchPayload,
 } from "@/lib/chat-bill-upload-queue";
+import {
+  buildCatalogDraftFromChat,
+  type ChatCatalogDraftPayload,
+} from "@/lib/chat-catalog-draft";
+import { shouldParseAttachmentsAsBills } from "@/lib/chat-catalog-intent";
+import {
+  detectRecipeBuildIntent,
+  detectRecipeFinalizeConfirm,
+  shouldUseSuggestionConfirmOnly,
+} from "@/lib/chat-recipe-build-intent";
 import { detectUploadConfirm } from "@/lib/chat-upload-intent";
+import type { RecipeBuildPlanPayload } from "@/lib/agent-recipe-build";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { DashboardFinancePeriod } from "@/lib/dashboard-stats";
 
@@ -57,13 +71,121 @@ type DashboardChefChatProps = {
   showCues?: boolean;
   /** Section title already shows avatar + name — omit duplicate in chat chrome. */
   hideHeaderIdentity?: boolean;
-  /** `dock` = fixed bottom-center bar with glass card styling. */
-  variant?: "inline" | "dock";
+  /** `dock` = fixed bottom bar; `floating` = opened from page FAB, closes back to icon. */
+  variant?: "inline" | "dock" | "floating";
+  showAttachments?: boolean;
+  onRequestClose?: () => void;
+  /** Page home agent — used for “connect back” when switching away on specialist pages. */
+  homeAgent?: DashboardChatContext;
   dashboardSection?: "inventory" | "business" | "create";
   agentContext?: DashboardChatContext;
   onAgentContextChange?: (context: DashboardChatContext) => void;
   onAgentHandoff?: (section: "inventory" | "business" | "create") => void;
 };
+
+function RecipeBuildPicker({
+  plan,
+  disabled,
+  onPick,
+  onFinalize,
+}: {
+  plan: RecipeBuildPlanPayload;
+  disabled: boolean;
+  onPick: (ingredientKey: string, optionIndex: number) => void;
+  onFinalize: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-chef-sage/40 bg-chef-sage/5 p-3 space-y-3">
+      <p className="text-xs font-medium text-chef-text-muted">
+        Recipe build — {plan.dishName}
+      </p>
+      {plan.ingredients.map((row) => {
+        if (row.committedSlug || row.pantrySlug) {
+          return (
+            <p key={row.key} className="text-xs text-chef-text-muted">
+              {row.name}: already in pantry
+            </p>
+          );
+        }
+        if (row.selectedOption) {
+          return (
+            <p key={row.key} className="text-xs text-chef-text">
+              {row.name}: {row.selectedOption.label}
+              {row.selectedOption.store ? ` (${row.selectedOption.store})` : ""}
+            </p>
+          );
+        }
+        const options = row.options ?? [];
+        if (!options.length) {
+          return (
+            <p key={row.key} className="text-xs text-chef-text-muted">
+              {row.name}: no store options — describe a brand in chat
+            </p>
+          );
+        }
+        return (
+          <div key={row.key} className="space-y-1.5">
+            <p className="text-xs font-medium text-chef-text">{row.name}</p>
+            <div className="flex flex-wrap gap-2">
+              {options.map((opt, index) => (
+                <button
+                  key={`${row.key}-${index}`}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => onPick(row.key, index + 1)}
+                  className="flex max-w-[10rem] flex-col items-start gap-1 rounded-lg border border-chef-border bg-white p-1.5 text-left text-xs hover:border-chef-sage disabled:opacity-50"
+                >
+                  {opt.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={opt.imageUrl}
+                      alt={opt.label}
+                      className="h-14 w-full rounded object-cover"
+                    />
+                  ) : null}
+                  <span className="line-clamp-2 font-medium text-chef-text">{opt.label}</span>
+                  {opt.store ? (
+                    <span className="text-chef-text-muted">{opt.store}</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onFinalize}
+        className="sc-btn-primary w-full py-2 text-sm disabled:opacity-50"
+      >
+        Add to Kitchen (ingredients + dish + images)
+      </button>
+    </div>
+  );
+}
+
+function MinimizeChatButton({
+  onClick,
+  disabled = false,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip content="Minimize">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="sc-btn-secondary px-2.5 py-1.5 text-sm"
+        aria-label="Minimize"
+      >
+        <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+      </button>
+    </Tooltip>
+  );
+}
 
 function sessionTabShellClass(active: boolean, equalWidth = false): string {
   return `flex w-full items-center rounded-md transition ${
@@ -90,7 +212,8 @@ function SessionTabsRow({
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
-  if (sessions.length === 0 && !draftNewChat) return null;
+  const tabCount = sessions.length + (draftNewChat ? 1 : 0);
+  if (tabCount < 2) return null;
 
   return (
     <div className={`flex gap-1.5 ${equalWidth ? "w-full" : "flex-wrap"}`}>
@@ -181,6 +304,9 @@ export function DashboardChefChat({
   showCues = false,
   hideHeaderIdentity = false,
   variant = "inline",
+  showAttachments: showAttachmentsProp,
+  onRequestClose,
+  homeAgent: homeAgentProp,
   agentContext: controlledAgentContext,
   onAgentContextChange,
   onAgentHandoff,
@@ -199,6 +325,7 @@ export function DashboardChefChat({
   }
 
   const profile = CHAT_ASSISTANT_PROFILES[agentContext];
+  const homeAgent = homeAgentProp ?? context;
 
   const [cues, setCues] = useState<CreateCue[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -210,6 +337,7 @@ export function DashboardChefChat({
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState<string | null>(null);
+  const [recipeBuildPlan, setRecipeBuildPlan] = useState<RecipeBuildPlanPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -287,7 +415,7 @@ export function DashboardChefChat({
           messages: ChatMessage[];
         };
         const shouldExpand =
-          expandOnLoad ?? (variant === "dock" ? false : true);
+          expandOnLoad ?? (variant === "dock" || variant === "floating" ? false : true);
         applyConversationPayload(data, shouldExpand);
       } catch {
         setMessages([]);
@@ -316,6 +444,18 @@ export function DashboardChefChat({
     }
   }, [messages, sending, expanded]);
 
+  function handleMinimize() {
+    if (variant === "floating" && onRequestClose) {
+      onRequestClose();
+      return;
+    }
+    if (expanded) {
+      setExpanded(false);
+      return;
+    }
+    onRequestClose?.();
+  }
+
   function openChat() {
     setExpanded(true);
     window.setTimeout(() => inputRef.current?.focus(), 0);
@@ -328,6 +468,7 @@ export function DashboardChefChat({
     setExpanded(true);
     setError("");
     setLastCreated(null);
+    setRecipeBuildPlan(null);
     setAttachments([]);
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
@@ -339,6 +480,7 @@ export function DashboardChefChat({
     }
     setError("");
     setLastCreated(null);
+    setRecipeBuildPlan(null);
     void loadConversation(id, false);
   }
 
@@ -431,46 +573,31 @@ export function DashboardChefChat({
     }
   }
 
-  function applyHandoff(target: SpecialistHandoffTarget) {
+  function applyHandoff(target: DashboardChatContext) {
     setAgentContext(target);
-    onAgentHandoff?.(handoffToDashboardSection(target));
+    if (isSpecialistHandoffTarget(target)) {
+      onAgentHandoff?.(handoffToDashboardSection(target));
+    }
     if (target === "create") void loadCues();
   }
 
-  async function handleChatResponse(
-    data: {
-      error?: string;
-      reply?: string;
-      conversationId?: string;
-      conversations?: ChatSession[];
-      cues?: CreateCue[];
-      createdSuggestion?: { name: string };
-      handoff?: SpecialistHandoffTarget;
-      agentContext?: DashboardChatContext;
-    }
-  ) {
-    if (data.conversationId) setConversationId(data.conversationId);
-    if (data.conversations) setSessions(data.conversations);
-    setDraftNewChat(false);
-    if (data.cues?.length) setCues(data.cues);
-    if (data.createdSuggestion?.name) setLastCreated(data.createdSuggestion.name);
-
-    if (data.handoff) {
-      applyHandoff(data.handoff);
-    } else if (data.agentContext && data.agentContext !== context) {
-      setAgentContext(data.agentContext);
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: data.reply ?? "Done." },
-    ]);
+  function specialistConnectNeeded(target: DashboardChatContext): boolean {
+    if (target === "head") return false;
+    if (context === "head") return true;
+    return target !== context;
   }
 
-  async function connectToAgent(target: SpecialistHandoffTarget) {
-    if (sending) return;
+  async function switchToAgent(target: DashboardChatContext) {
+    if (target === agentContext || sending) return;
 
     setExpanded(true);
+
+    if (!specialistConnectNeeded(target)) {
+      setAgentContext(target);
+      if (target === "create") void loadCues();
+      return;
+    }
+
     setSending(true);
     setError("");
 
@@ -487,6 +614,7 @@ export function DashboardChefChat({
           conversationId: draftNewChat ? undefined : conversationId,
           newChat: draftNewChat,
           context,
+          agentContext: agentContext !== context ? agentContext : undefined,
           financeView,
         }),
       });
@@ -516,6 +644,41 @@ export function DashboardChefChat({
     }
   }
 
+  async function handleChatResponse(
+    data: {
+      error?: string;
+      reply?: string;
+      conversationId?: string;
+      conversations?: ChatSession[];
+      cues?: CreateCue[];
+      createdSuggestion?: { name: string };
+      handoff?: SpecialistHandoffTarget;
+      agentContext?: DashboardChatContext;
+      recipeBuildPlan?: RecipeBuildPlanPayload | null;
+    }
+  ) {
+    if (data.conversationId) setConversationId(data.conversationId);
+    if (data.conversations) setSessions(data.conversations);
+    setDraftNewChat(false);
+    if (data.cues?.length) setCues(data.cues);
+    if (data.createdSuggestion?.name) setLastCreated(data.createdSuggestion.name);
+
+    if (data.recipeBuildPlan !== undefined) {
+      setRecipeBuildPlan(data.recipeBuildPlan);
+    }
+
+    if (data.handoff) {
+      applyHandoff(data.handoff);
+    } else if (data.agentContext) {
+      setAgentContext(data.agentContext);
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: data.reply ?? "Done." },
+    ]);
+  }
+
   async function sendMessage(text: string, confirmSuggestion = false) {
     const trimmed = text.trim();
     const filesToSend = [...attachments];
@@ -526,10 +689,20 @@ export function DashboardChefChat({
       return;
     }
 
+    const menuConfirmPattern =
+      /\b(yes|confirm|go ahead|create it|update it|save (it|that)|add it|link it|delete it|remove it|do it|approved?|sure)\b/i.test(
+        trimmed
+      );
+    const recipeIntent = detectRecipeBuildIntent(trimmed);
     const confirmSuggestionFlag =
       confirmSuggestion ||
+      (agentContext === "create" && recipeBuildPlan && menuConfirmPattern) ||
       (agentContext === "create" &&
-        /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(trimmed));
+        !recipeBuildPlan &&
+        menuConfirmPattern &&
+        (shouldUseSuggestionConfirmOnly(trimmed) ||
+          /\b(add it|save (it|that|this)|put it in suggestions?)\b/i.test(trimmed))) ||
+      (agentContext === "create" && recipeIntent && detectRecipeFinalizeConfirm(trimmed));
     const confirmUpload = detectUploadConfirm(trimmed);
     const confirmInventory =
       (agentContext === "inventory" &&
@@ -546,8 +719,10 @@ export function DashboardChefChat({
 
     let uploadNote = "";
     let uploadBatch: ChatUploadBatchPayload | undefined;
+    let catalogNote = "";
+    let catalogDraft: ChatCatalogDraftPayload | undefined;
     try {
-      if (filesToSend.length > 0) {
+      if (filesToSend.length > 0 && shouldParseAttachmentsAsBills(trimmed, filesToSend)) {
         uploadBatch = await parseAttachmentBatch(filesToSend, trimmed);
         if (uploadBatch.ready === 0) {
           throw new Error(
@@ -558,6 +733,20 @@ export function DashboardChefChat({
         }
         uploadNote = formatUploadBatchNote(uploadBatch);
         setAttachments([]);
+      } else if (filesToSend.length > 0) {
+        const catalogResult = await buildCatalogDraftFromChat(trimmed, filesToSend, agentContext);
+        if (!catalogResult.draft) {
+          throw new Error("Could not identify a menu or pantry item from that photo.");
+        }
+        catalogDraft = catalogResult.draft;
+        catalogNote = catalogResult.note;
+        setAttachments([]);
+      } else {
+        const catalogResult = await buildCatalogDraftFromChat(trimmed, [], agentContext);
+        if (catalogResult.draft) {
+          catalogDraft = catalogResult.draft;
+          catalogNote = catalogResult.note;
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload files.");
@@ -565,7 +754,7 @@ export function DashboardChefChat({
       return;
     }
 
-    const outbound = [trimmed, uploadNote].filter(Boolean).join("\n\n");
+    const outbound = [trimmed, uploadNote, catalogNote].filter(Boolean).join("\n\n");
     setMessages((prev) => [...prev, { role: "user", content: outbound }]);
     setInput("");
 
@@ -585,6 +774,8 @@ export function DashboardChefChat({
           confirmInventory,
           confirmBusiness,
           uploadBatch,
+          catalogDraft,
+          recipeBuild: recipeBuildPlan ?? undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -596,6 +787,7 @@ export function DashboardChefChat({
         createdSuggestion?: { name: string };
         handoff?: "inventory" | "business" | "create";
         agentContext?: DashboardChatContext;
+        recipeBuildPlan?: RecipeBuildPlanPayload | null;
       };
 
       if (!res.ok) {
@@ -624,18 +816,20 @@ export function DashboardChefChat({
   }
 
   const activeSessionId = draftNewChat ? null : conversationId;
+  const showSessionTabs = sessions.length + (draftNewChat ? 1 : 0) >= 2;
   const showGreeting = expanded && !hasUserMessages(messages);
   const showSampleQueries = showGreeting;
   const showCreativeCues = showCues;
-  const isDock = variant === "dock";
-  const delegatedToSpecialist = agentContext !== context;
-  const showAttachments = context === "head";
+  const isFloating = variant === "floating";
+  const isDock = variant === "dock" || isFloating;
+  const switchedFromHome = agentContext !== homeAgent;
+  const showAttachments =
+    showAttachmentsProp ?? (context === "head" || agentContext === "inventory");
 
   const canSend = Boolean(input.trim()) || attachments.length > 0;
 
-  function returnToSousChef() {
-    setAgentContext(context);
-    setLastCreated(null);
+  function returnToHomeAgent() {
+    void switchToAgent(homeAgent);
   }
 
   const attachmentChips =
@@ -770,19 +964,30 @@ export function DashboardChefChat({
                 <p className="text-sm font-medium text-chef-text-muted">
                   Saved chats ({sessions.length}/{MAX_CHAT_SESSIONS})
                 </p>
-                <Tooltip content={`Start a new chat (up to ${MAX_CHAT_SESSIONS} saved)`}>
-                  <button
-                    type="button"
-                    onClick={startNewChat}
-                    className="sc-btn-secondary px-3 py-1.5 text-sm"
-                  >
-                    <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
-                    New chat
-                  </button>
-                </Tooltip>
+                <div className="flex gap-1.5">
+                  <Tooltip content={`Start a new chat (up to ${MAX_CHAT_SESSIONS} saved)`}>
+                    <button
+                      type="button"
+                      onClick={startNewChat}
+                      className="sc-btn-secondary px-3 py-1.5 text-sm"
+                    >
+                      <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden />
+                      New chat
+                    </button>
+                  </Tooltip>
+                  <MinimizeChatButton onClick={handleMinimize} disabled={sending} />
+                </div>
               </div>
             )}
             {isDock && (
+              <AgentSwitcher
+                active={agentContext}
+                onSelect={(agent) => void switchToAgent(agent)}
+                disabled={sending}
+                size="compact"
+              />
+            )}
+            {isDock && showSessionTabs && (
               <SessionTabsRow
                 sessions={sessions}
                 activeSessionId={activeSessionId}
@@ -825,30 +1030,37 @@ export function DashboardChefChat({
         ) : (
           <>
             <div className="border-b border-chef-border bg-chef-muted/40 px-3 py-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-chef-text">
-                  {!hideHeaderIdentity && (
-                    <>
-                      <AgentBrandMark agent={chatContextAgent(context)} size={32} />
-                      {profile.name}
-                      <span className="font-normal text-chef-text-muted">·</span>
-                    </>
-                  )}
-                  <span className="font-normal text-chef-text-muted">{profile.tagline}</span>
-                  <span className="mx-1.5 font-normal text-chef-text-muted">·</span>
-                  <span className="font-normal text-chef-text-muted">
-                    Up to {MAX_CHAT_SESSIONS} saved chats
-                  </span>
-                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-col gap-2">
+                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-chef-text">
+                    {!hideHeaderIdentity && (
+                      <>
+                        <AgentBrandMark agent={chatContextAgent(context)} size={32} />
+                        {profile.name}
+                        <span className="font-normal text-chef-text-muted">·</span>
+                      </>
+                    )}
+                    <span className="font-normal text-chef-text-muted">{profile.tagline}</span>
+                    <span className="mx-1.5 font-normal text-chef-text-muted">·</span>
+                    <span className="font-normal text-chef-text-muted">
+                      Up to {MAX_CHAT_SESSIONS} saved chats
+                    </span>
+                  </p>
+                  <AgentSwitcher
+                    active={agentContext}
+                    onSelect={(agent) => void switchToAgent(agent)}
+                    disabled={sending}
+                  />
+                </div>
                 <div className="flex gap-1.5">
-                  {delegatedToSpecialist && (
-                    <Tooltip content="Return to Sous Chef routing">
+                  {switchedFromHome && (
+                    <Tooltip content={connectBackButtonLabel(homeAgent)}>
                       <button
                         type="button"
-                        onClick={returnToSousChef}
+                        onClick={returnToHomeAgent}
                         className="sc-btn-secondary px-3 py-1.5 text-sm"
                       >
-                        Connect back to Sous Chef
+                        {connectBackButtonLabel(homeAgent)}
                       </button>
                     </Tooltip>
                   )}
@@ -862,19 +1074,10 @@ export function DashboardChefChat({
                       New chat
                     </button>
                   </Tooltip>
-                  <Tooltip content="Collapse chat">
-                    <button
-                      type="button"
-                      onClick={() => setExpanded(false)}
-                      className="sc-btn-secondary px-2.5 py-1 text-xs"
-                    >
-                      <Minimize2 className="h-3.5 w-3.5" aria-hidden />
-                      Minimize
-                    </button>
-                  </Tooltip>
+                  <MinimizeChatButton onClick={handleMinimize} disabled={sending} />
                 </div>
               </div>
-              {(sessions.length > 0 || draftNewChat) && (
+              {showSessionTabs && (
                 <div className="mt-2">
                   <SessionTabsRow
                     sessions={sessions}
@@ -930,7 +1133,7 @@ export function DashboardChefChat({
                     {showConnectButton && (
                       <button
                         type="button"
-                        onClick={() => void connectToAgent(suggestedAgent)}
+                        onClick={() => void switchToAgent(suggestedAgent)}
                         disabled={sending}
                         className="mt-2 rounded-full border border-chef-sage bg-white px-3 py-1.5 text-xs font-medium text-chef-sage hover:bg-chef-sage-light/30 disabled:opacity-50"
                       >
@@ -940,6 +1143,19 @@ export function DashboardChefChat({
                   </div>
                 );
               })}
+
+              {recipeBuildPlan && agentContext === "create" && (
+                <RecipeBuildPicker
+                  plan={recipeBuildPlan}
+                  disabled={sending}
+                  onPick={(ingredientKey, optionIndex) => {
+                    const row = recipeBuildPlan.ingredients.find((ing) => ing.key === ingredientKey);
+                    const name = row?.name ?? ingredientKey;
+                    void sendMessage(`${name}: ${optionIndex}`);
+                  }}
+                  onFinalize={() => void sendMessage("go ahead")}
+                />
+              )}
 
               {showSampleQueries && (
                 <div className="space-y-2 pt-1">

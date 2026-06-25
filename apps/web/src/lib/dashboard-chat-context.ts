@@ -243,9 +243,10 @@ ${dataContext}`;
   if (context === "inventory") {
     return `${base}
 
-You OWN **supplier purchase order** processing — use apply_inventory action process_purchase_bills when the chef confirms. Never send purchase invoices to Business Agent.
+You OWN **supplier purchase order** processing — use apply_inventory action process_purchase_bills when the chef confirms. Never send purchase invoices to Business.
+Use apply_inventory for pantry CRUD: create_ingredient, update_ingredient, delete_ingredient, update_reorder_threshold.
 Delegate to **${business}** for POS sales analysis, margins, COGS, or **sales receipt** processing.
-Delegate to **${creative}** for brainstorming new dishes or saving suggestions.
+Delegate to **${creative}** for dishes, ingredient links on menu items, or saving suggestions.
 
 Live inventory data:
 ${dataContext}`;
@@ -255,8 +256,8 @@ ${dataContext}`;
     return `${base}
 
 You OWN **sales receipt** processing — use apply_business action process_sales_bills after purchase orders are processed and the chef confirms.
-Delegate to **${inventory}** for purchase order ingest, ingredient stock, expiry, or reorder levels.
-Delegate to **${creative}** for new menu ideas or specials.
+Delegate to **${inventory}** for purchase order ingest, ingredient stock, expiry, reorder, or pantry CRUD.
+Delegate to **${creative}** for new menu ideas, dish CRUD, or linking ingredients to dishes.
 
 Live business data:
 ${dataContext}`;
@@ -266,6 +267,7 @@ ${dataContext}`;
 
 Delegate to **${inventory}** for stock, expiry, or what's on hand.
 Delegate to **${business}** for sales trends, margins, or profitability.
+Use apply_menu for menu CRUD: create_dish, update_dish, delete_dish, link_dish_ingredients (add/remove/set), add_suggested_dish.
 When the chef confirms saving an idea, call apply_menu(action="add_suggested_dish") with at least one note explaining why (expiring ingredients used, seasonal tie-in, high-margin pantry items, today's cue, etc.).
 Use a **short menu name** (2–5 words) without pantry supplier brands or pack sizes — e.g. "Pike Place Latte", not "Starbucks Pike Place Coffee 16oz — Land O Lakes Whole Milk". Put brands and ingredient detail in **description** and **notes**.
 ${extras ?? ""}

@@ -9,6 +9,8 @@ export type SpecialistHandoffTarget = Exclude<DashboardChatContext, "head">;
 
 const SPECIALIST_TARGETS: SpecialistHandoffTarget[] = ["create", "inventory", "business"];
 
+export type SuggestedAgentHandoff = DashboardChatContext;
+
 export function isSpecialistHandoffTarget(value: string): value is SpecialistHandoffTarget {
   return SPECIALIST_TARGETS.includes(value as SpecialistHandoffTarget);
 }
@@ -36,9 +38,9 @@ function agentMentionedInAssistant(
   content: string,
   target: SpecialistHandoffTarget
 ): boolean {
-  if (target === "create") return /\bCreative Agent\b/i.test(content);
-  if (target === "inventory") return /\bInventory Agent\b/i.test(content);
-  return /\bBusiness Agent\b/i.test(content);
+  if (target === "create") return /\bCreative(?: Agent)?\b/i.test(content);
+  if (target === "inventory") return /\bInventory(?: Agent)?\b/i.test(content);
+  return /\bBusiness(?: Agent)?\b/i.test(content);
 }
 
 export function detectAgentHandoffFromMessage(message: string): SpecialistHandoffTarget | null {
@@ -114,36 +116,43 @@ export function handoffToDashboardSection(
   return target;
 }
 
-const SUGGESTED_HANDOFF_PATTERNS: Record<SpecialistHandoffTarget, RegExp[]> = {
+const SUGGESTED_HANDOFF_PATTERNS: Record<SuggestedAgentHandoff, RegExp[]> = {
+  head: [
+    /\bSous Chef\b/i,
+    /\bhead chef\b/i,
+    /\bsupervisor\b/i,
+    /\b(connect|switch|route)\b[^.]{0,40}\b(sous chef|head)\b/i,
+  ],
   create: [
-    /\bCreative Agent\b/i,
+    /\bCreative(?: Agent)?\b/i,
     /\b(creative|create)\s+agent\b/i,
     /\bCreate\s+section\b/i,
     /\bDashboard\b[^.]{0,80}\bCreate\b/i,
   ],
   inventory: [
-    /\bInventory Agent\b/i,
+    /\bInventory(?: Agent)?\b/i,
     /\binventory\s+agent\b/i,
     /\bInventory\s+section\b/i,
     /\bDashboard\b[^.]{0,80}\bInventory\b/i,
   ],
   business: [
-    /\bBusiness Agent\b/i,
+    /\bBusiness(?: Agent)?\b/i,
     /\bbusiness\s+agent\b/i,
     /\bBusiness\s+section\b/i,
     /\bDashboard\b[^.]{0,80}\bBusiness\b/i,
   ],
 };
 
-/** When an assistant message routes the chef to a specialist, offer a Connect button. */
-export function detectSuggestedAgentHandoff(content: string): SpecialistHandoffTarget | null {
+/** When an assistant message routes the chef to an agent, offer a Connect button. */
+export function detectSuggestedAgentHandoff(content: string): SuggestedAgentHandoff | null {
   const trimmed = content.trim();
   if (!trimmed || /you're now connected with/i.test(trimmed)) return null;
 
-  let best: SpecialistHandoffTarget | null = null;
+  let best: SuggestedAgentHandoff | null = null;
   let bestScore = 0;
 
-  for (const target of SPECIALIST_TARGETS) {
+  const targets: SuggestedAgentHandoff[] = ["head", ...SPECIALIST_TARGETS];
+  for (const target of targets) {
     const score = SUGGESTED_HANDOFF_PATTERNS[target].filter((pattern) =>
       pattern.test(trimmed)
     ).length;
@@ -156,8 +165,12 @@ export function detectSuggestedAgentHandoff(content: string): SpecialistHandoffT
   return best;
 }
 
-export function connectAgentButtonLabel(target: SpecialistHandoffTarget): string {
+export function connectAgentButtonLabel(target: DashboardChatContext): string {
   return `Connect to ${CHAT_ASSISTANT_NAMES[target]}`;
+}
+
+export function connectBackButtonLabel(homeAgent: DashboardChatContext): string {
+  return `Connect back to ${CHAT_ASSISTANT_NAMES[homeAgent]}`;
 }
 
 export function dashboardChatContextToBrandAgent(context: DashboardChatContext): AgentTabId {

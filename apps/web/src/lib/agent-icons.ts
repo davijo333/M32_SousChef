@@ -31,16 +31,16 @@ export const AGENT_TAB_ICONS = {
   creative: AGENT_ICONS.creative,
 } as const;
 
-/** UI labels: "{Name} Agent" for specialists; Sous Chef for supervisor chat. */
+/** UI labels for agents; Sous Chef for supervisor chat. */
 export function agentBrandLabel(agent: AgentBrandAgent | "sousChef" | "headChef"): string {
   switch (agent) {
     case "inventory":
-      return "Inventory Agent";
+      return "Inventory";
     case "business":
-      return "Business Agent";
+      return "Business";
     case "create":
     case "creative":
-      return "Creative Agent";
+      return "Creative";
     case "head_chef":
     case "headChef":
     case "head":

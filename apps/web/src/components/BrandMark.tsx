@@ -47,17 +47,7 @@ export function AgentBrandMark({
   className = "",
   priority = false,
 }: AgentBrandMarkProps) {
-  const src =
-    agent === "inventory"
-      ? AGENT_ICONS.inventory
-      : agent === "business"
-        ? AGENT_ICONS.business
-        : agent === "creative" || agent === "create"
-          ? AGENT_ICONS.creative
-          : agent === "head" || agent === "head_chef" || agent === "headChef"
-            ? AGENT_ICONS.headChef
-            : AGENT_ICONS.headChef;
-
+  const src = agentIconSrc(agent);
   const alt = agentBrandLabel(agent);
 
   return (
@@ -73,6 +63,51 @@ export function AgentBrandMark({
         unoptimized
         sizes={`${size}px`}
         className="object-contain object-center"
+      />
+    </span>
+  );
+}
+
+function agentIconSrc(agent: AgentBrandAgent): string {
+  if (agent === "inventory") return AGENT_ICONS.inventory;
+  if (agent === "business") return AGENT_ICONS.business;
+  if (agent === "creative" || agent === "create") return AGENT_ICONS.creative;
+  return AGENT_ICONS.headChef;
+}
+
+type AgentCircleCardProps = AgentBrandMarkProps & {
+  /** Emphasize as the active / current agent. */
+  highlighted?: boolean;
+};
+
+/** Agent logo in a fixed square circle card (chat FAB, dock avatar, switcher). */
+export function AgentCircleCard({
+  agent,
+  size = 48,
+  className = "",
+  priority = false,
+  highlighted = false,
+}: AgentCircleCardProps) {
+  const src = agentIconSrc(agent);
+  const alt = agentBrandLabel(agent);
+
+  return (
+    <span
+      className={`relative box-border inline-block shrink-0 overflow-hidden rounded-full border-2 bg-white shadow-[0_4px_14px_rgba(42,38,34,0.1)] ${
+        highlighted
+          ? "border-chef-sage ring-2 ring-chef-sage/25"
+          : "border-chef-sage/50"
+      } ${className}`}
+      style={{ width: size, height: size, minWidth: size, minHeight: size }}
+    >
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        priority={priority}
+        unoptimized
+        sizes={`${size}px`}
+        className="object-contain object-center p-[11%]"
       />
     </span>
   );
