@@ -14,6 +14,7 @@ COPY package.json package-lock.json ./
 COPY apps/web ./apps/web
 COPY backend/api ./backend/api
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV MONGODB_URI=mongodb://build-placeholder:27017/sous_chef
 WORKDIR /app/apps/web
 RUN npm run build
 
