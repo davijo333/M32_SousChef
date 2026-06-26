@@ -2,6 +2,8 @@
 
 Four **chat agents** chefs talk to, plus **background workers** for bills, images, and recipe linking.
 
+> **Implementation:** Conversational orchestration runs in **`backend/agent-service-v1`** (workflow YAML + supervisor). See [How-It-Works.md](./How-It-Works.md) and [System-Architecture.md](./System-Architecture.md).
+
 Manual UI always works in parallel — agents augment chat; they do not replace Kitchen control or Upload orders.
 
 ## Chat agents
@@ -17,8 +19,9 @@ Manual UI always works in parallel — agents augment chat; they do not replace 
 
 ### Sous Chef (supervisor)
 
-- Follows golden workflows in `backend/agent-service/workflows/` (canonical spec); legacy YAML at `agents/head/golden-workflows.yaml`
-- **Step state** — `conversation.workflowState` (`workflowId`, `stepId`, `lockedName`, `gatesPassed`) persisted in MongoDB and enforced by `agents/head/workflow_engine.py` before regex routing
+- Workflow catalog: `backend/agent-service-v1/workflows/catalog/` (runtime source of truth)
+- Golden semantics: `backend/agent-service/workflows/golden-*.md` and legacy `agents/head/golden-workflows.yaml`
+- **Step state** — `conversation.workflowState` persisted in MongoDB; enforced by `agent-service-v1/workflows/engine/`
 - Consults specialists sequentially; synthesizes tool output
 - Does **not** invent stock figures or claim writes completed
 - Deterministic chat gates in Next.js handle common confirms (price, reorder, recipe save) without LLM
@@ -64,7 +67,7 @@ Full tool list: [../tools/Tool_Index.md](../tools/Tool_Index.md)
 
 ## Background workers
 
-Python FastAPI workers at `backend/agent-service/` — invoked by tools and UI, not conversational:
+Python FastAPI workers at `backend/agent-service-v1/` — invoked by tools and UI, not conversational:
 
 | Worker | Endpoint |
 |--------|----------|

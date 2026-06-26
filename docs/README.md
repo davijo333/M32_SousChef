@@ -6,7 +6,9 @@ Reference docs for Sous Chef. Agent and tool **specs** also live at the repo roo
 
 | Doc | Contents |
 |-----|----------|
-| [Architecture.md](./Architecture.md) | System diagram, repo layout, chat dual path, deployment overview |
+| [System-Architecture.md](./System-Architecture.md) | **Detailed Mermaid diagrams** — platform, chat path, agent-service-v1 layers, workflow FSM |
+| [How-It-Works.md](./How-It-Works.md) | **End-to-end narrative** — web app, dual chat path, agent-service-v1 deep dive |
+| [Architecture.md](./Architecture.md) | Short system overview, repo layout, deployment |
 | [Agents.md](./Agents.md) | Four chat agents, workers, tools, confirmation flow |
 | [Technologies.md](./Technologies.md) | Full stack list and **Railway** deployment |
 | [Next-Features.md](./Next-Features.md) | Planned capabilities (POS, adaptive reorder, price compare, MCP delivery, consulting-agent UI) |
