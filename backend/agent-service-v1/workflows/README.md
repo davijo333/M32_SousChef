@@ -7,16 +7,9 @@ YAML in `catalog/` is **loaded at startup** and drives routing, gates, and worke
 | `catalog/` | Machine-readable workflow definitions |
 | `engine/` | Loader, state types, step resolver, transitions |
 | `schema/` | JSON schema for validating catalog YAML |
-| `docs/` | Human walkthroughs; golden semantics live in `agent-service/workflows/` |
+| `docs/` | Human walkthroughs per workflow family |
 
-## Golden docs (reference only)
-
-Use legacy golden files for **behavior and step semantics** — not v0 Python routing:
-
-- `backend/agent-service/workflows/golden-addition-workflows.md`
-- `backend/agent-service/workflows/golden-update-workflows.md`
-- `backend/agent-service/workflows/golden-shared-rules.md`
-- `backend/agent-service/agents/head/golden-workflows.yaml`
+Historical golden markdown specs (pre-v1) are preserved on git branch **`v0`**.
 
 Walkthroughs: [add dish](docs/add-dish-from-chat.md) · [updates](docs/update-workflows.md) · [queries](docs/query-workflows.md) · [bills](docs/bill-workflows.md)
 

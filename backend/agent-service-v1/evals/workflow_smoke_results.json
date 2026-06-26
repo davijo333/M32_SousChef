@@ -1,0 +1,696 @@
+[
+  {
+    "workflow_id": "add_ingredient_from_chat",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Add ingredient Test Spice f13a88 to the pantry",
+        "workflow_id": "add_ingredient_from_chat",
+        "step_id": "lookup",
+        "triage_id": "add_ingredient_from_chat",
+        "pending_action": false,
+        "reply_preview": "No matching pantry rows found for **Test Spice f13a88**. Please confirm if you'd like to create a new entry for this ingredient.",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "add_ingredient_from_chat",
+        "step_id": "lookup",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save **Test Spice f13a88** to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "add_addon_from_chat",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Add add-on Extra Pickles f13a88 to the menu",
+        "workflow_id": "add_addon_from_chat",
+        "step_id": "lookup",
+        "triage_id": "add_addon_from_chat",
+        "pending_action": false,
+        "reply_preview": "No add-on for **Extra Pickles** exists in the catalog. I will proceed to create it. Ready to save **Extra Pickles** to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "add_addon_from_chat",
+        "step_id": "lookup",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save **Extra Pickles** to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "update_dish",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Change the sell price of Mango Paradise Smoothie to $17.50",
+        "workflow_id": "update_dish",
+        "step_id": "preview",
+        "triage_id": "update_dish",
+        "pending_action": false,
+        "reply_preview": "Current:   - Classification: other   - Sell Price: $18.00   - Description: Mango Paradise Smoothie    Requested:   - Sell Price: $17.50    Ready to save **Mango Paradise Smoothie** to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, confirm",
+        "workflow_id": "update_dish",
+        "step_id": "confirm_update",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save **Mango Paradise Smoothie** to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "update_ingredient",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Change reorder level for Butter Croissant to 25",
+        "workflow_id": "update_ingredient",
+        "step_id": "lookup",
+        "triage_id": "update_ingredient",
+        "pending_action": false,
+        "reply_preview": "The current reorder threshold for **Butter Croissant** is 6. I will update it to 25.   Ready to save **Butter Croissant** to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, confirm",
+        "workflow_id": "update_ingredient",
+        "step_id": "lookup",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save **Butter Croissant** to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "update_addon",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Update add-on Bacon sell price to $2.75",
+        "workflow_id": "update_addon",
+        "step_id": "lookup",
+        "triage_id": "update_addon",
+        "pending_action": false,
+        "reply_preview": "The current sell price for the add-on **Bacon** is $3.24. You want to update it to $2.75.   Ready to save **Bacon** to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, confirm",
+        "workflow_id": "update_addon",
+        "step_id": "lookup",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save **Bacon** to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "link_dish_ingredients",
+    "passed": false,
+    "routed_ok": false,
+    "cleared": false,
+    "errors": [
+      "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=120)"
+    ],
+    "turns": [
+      {
+        "message": "Add honey to the Mango Paradise Smoothie recipe",
+        "workflow_id": null,
+        "step_id": null,
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "",
+        "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=120)"
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "link_addon_ingredients",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Add butter to the Bacon add-on recipe ingredients",
+        "workflow_id": "link_addon_ingredients",
+        "step_id": "lookup",
+        "triage_id": "link_addon_ingredients",
+        "pending_action": false,
+        "reply_preview": "The ingredient butter has been linked to the Bacon add-on recipe. Ready to save the update to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "link_addon_ingredients",
+        "step_id": "lookup",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save the update to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "link_addons_to_dish",
+    "passed": false,
+    "routed_ok": false,
+    "cleared": false,
+    "errors": [
+      "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=120)"
+    ],
+    "turns": [
+      {
+        "message": "Link Sausage add-on to The Sunrise Stack dish",
+        "workflow_id": null,
+        "step_id": null,
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "",
+        "error": "HTTPConnectionPool(host='localhost', port=8000): Read timed out. (read timeout=120)"
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_on_hand",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "How much mango do we have on hand?",
+        "workflow_id": "inventory_on_hand",
+        "step_id": "consult",
+        "triage_id": "inventory_on_hand",
+        "pending_action": false,
+        "reply_preview": "We currently have 0 mangoes on hand.",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_low_stock",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What's running low in the pantry?",
+        "workflow_id": "inventory_low_stock",
+        "step_id": "consult",
+        "triage_id": "inventory_low_stock",
+        "pending_action": false,
+        "reply_preview": "The following items are running low in the pantry, all at zero on-hand quantities, below their reorder thresholds:  - Black Pepper - Caesar Dressing - Coconut Milk - Honey - Mango - Onion - Parsley - Tortilla - Yogurt",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_expiring",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What ingredients are expiring soon?",
+        "workflow_id": "inventory_expiring",
+        "step_id": "consult",
+        "triage_id": "inventory_expiring",
+        "pending_action": false,
+        "reply_preview": "Here are the ingredients that are expiring soon:  - **Organic Baby Spinach**: 195 lb \u2014 expires on 2026-06-29 - **Hass Avocado**: 58 cases \u2014 expires on 2026-07-01 - **Roma Tomato**: 116 lb \u2014 expires on 2026-07-02 - **Gree",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_reorder_read",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What's the reorder level for Butter Croissant?",
+        "workflow_id": "inventory_reorder_read",
+        "step_id": "consult",
+        "triage_id": "inventory_reorder_read",
+        "pending_action": false,
+        "reply_preview": "The reorder level for Butter Croissant is currently set at 0, with a current quantity of 210.",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_search",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Search pantry for yogurt",
+        "workflow_id": "inventory_search",
+        "step_id": "consult",
+        "triage_id": "inventory_search",
+        "pending_action": false,
+        "reply_preview": "The pantry shows that we currently have 0 units of yogurt, with a reorder threshold also set at 0. Would you like to proceed with adding yogurt to the pantry?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_menu_lookup",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Do we have Mango Paradise Smoothie on the menu?",
+        "workflow_id": "inventory_menu_lookup",
+        "step_id": "consult",
+        "triage_id": "inventory_menu_lookup",
+        "pending_action": false,
+        "reply_preview": "The Mango Paradise Smoothie is not currently listed on the menu. Would you like to add it?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "inventory_purchase_queue",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What purchase bills are waiting to process?",
+        "workflow_id": "inventory_purchase_queue",
+        "step_id": "consult",
+        "triage_id": "inventory_purchase_queue",
+        "pending_action": false,
+        "reply_preview": "The following purchase bills are waiting to process:  1. **Bill ID:** 6a3ed36fb2ed41b8ca9803c3      **File Name:** Bill-3_Costco.pdf      **Supplier:** Costco Business Center      **Status:** Pending Review      **Bill D",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_sales_summary",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "How were sales this week?",
+        "workflow_id": "business_sales_summary",
+        "step_id": "consult",
+        "triage_id": "business_sales_summary",
+        "pending_action": false,
+        "reply_preview": "Sales this week were non-existent, with no tickets or items sold. We currently have 15 active dishes, but there were no sales recorded in the past 7 days.",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_dish_pricing",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What's the margin on Mango Paradise Smoothie?",
+        "workflow_id": "business_dish_pricing",
+        "step_id": "consult",
+        "triage_id": "business_dish_pricing",
+        "pending_action": false,
+        "reply_preview": "The margin on the Mango Paradise Smoothie is $13.50, which is 75%.",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_margin_rank",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Which dishes have the best margins?",
+        "workflow_id": "business_margin_rank",
+        "step_id": "consult",
+        "triage_id": "business_margin_rank",
+        "pending_action": false,
+        "reply_preview": "Here are the dishes with the best margins:  1. **Grilled Chicken Caesar Wrap**    - Sell Price: $45.04    - Food Cost: $11.26    - Margin: $33.78 (75%)  2. **Veggie Omelette With Roma Tomatoes**    - Sell Price: $41.92  ",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_promotion_read",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What should I promote this week?",
+        "workflow_id": "business_promotion_read",
+        "step_id": "consult",
+        "triage_id": "business_promotion_read",
+        "pending_action": false,
+        "reply_preview": "This week, consider promoting the following items as they have not sold any units in the past week:  - **Build-Your-Own Bagel** - **Build-Your-Own Croissant** - **Build-Your-Own Sourdough** - **Classic Bagel** - **Englis",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_reorder_advice",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What reorder level should I use for mango?",
+        "workflow_id": "business_reorder_advice",
+        "step_id": "consult",
+        "triage_id": "business_reorder_advice",
+        "pending_action": false,
+        "reply_preview": "The reorder level for mango should be set to 1 each, as it is currently at 0 in stock. There have been no sales of dishes containing mango in the past 7 days. Ready to save mango reorder level to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "business_purchases_vs_cogs",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "How do supplier purchases compare to ticket COGS?",
+        "workflow_id": "business_purchases_vs_cogs",
+        "step_id": "consult",
+        "triage_id": "business_purchases_vs_cogs",
+        "pending_action": false,
+        "reply_preview": "The comparison of supplier purchases to ticket COGS for the past 7 days shows:  - **COGS (sold)**: $0 - **Supplier purchases**: $0  This indicates there has been no activity in sales or purchases during this period.",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "creative_cues",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Give me an idea for today's special",
+        "workflow_id": "creative_cues",
+        "step_id": "consult",
+        "triage_id": "creative_cues",
+        "pending_action": false,
+        "reply_preview": "Here are three ideas for today's special:  1. **Avocado Spinach Salad**: A fresh, healthy option utilizing expiring organic baby spinach and Hass avocados. The creamy avocado pairs well with the spinach, creating a nutri",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "expiry_special",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What can I make with expiring ingredients?",
+        "workflow_id": "expiry_special",
+        "step_id": "consult",
+        "triage_id": "expiry_special",
+        "pending_action": false,
+        "reply_preview": "You can make the **Avocado Spinach Salad with Roasted Bell Peppers and Tomatoes**.   ### Description A fresh and vibrant salad featuring creamy avocado, nutrient-rich spinach, and roasted bell peppers and tomatoes. This ",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "promotion_special",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Suggest a limited-time promo for breakfast",
+        "workflow_id": "promotion_special",
+        "step_id": "consult",
+        "triage_id": "promotion_special",
+        "pending_action": false,
+        "reply_preview": "For a limited-time breakfast promotion, I suggest featuring the **Avocado Spinach Toast**.   **Description:** A vibrant and nutritious toast topped with creamy Hass avocado, fresh organic baby spinach, and a sprinkle of ",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "suggest_dish_addons",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What add-ons go well with The Sunrise Stack?",
+        "workflow_id": "suggest_dish_addons",
+        "step_id": "consult",
+        "triage_id": "suggest_dish_addons",
+        "pending_action": false,
+        "reply_preview": "Here are some add-on proposals that pair well with The Sunrise Stack:  1. **American Cheese**    - **Description**: Creamy and mild, it adds a rich flavor.    - **Ingredients**: 1 slice of American cheese.    - **Steps**",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "creative_pantry_recipe",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "What can I make with eggs and bacon?",
+        "workflow_id": "creative_pantry_recipe",
+        "step_id": "consult",
+        "triage_id": "creative_pantry_recipe",
+        "pending_action": false,
+        "reply_preview": "### Dish Name Bacon and Egg Breakfast Bowl  ### Description A hearty breakfast bowl featuring crispy bacon, perfectly cooked eggs, and a base of seasoned quinoa or rice, topped with fresh vegetables and a drizzle of hot ",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "upload_purchase_orders",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "I uploaded supplier bills \u2014 please summarize",
+        "workflow_id": "upload_purchase_orders",
+        "step_id": "confirm_process",
+        "triage_id": "upload_purchase_orders",
+        "pending_action": false,
+        "reply_preview": "### Supplier Bill Batch Summary - **Filenames**: Bill-3_Costco.pdf - **Line Counts**: 1 - **Ready for Review**: 1 - **Needs Review**: 0  Please confirm if you would like to process these purchase orders into the pantry. ",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "upload_purchase_orders",
+        "step_id": "persist",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save updates to pantry stock?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "upload_sales_orders",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "I uploaded sales receipts \u2014 ready to process",
+        "workflow_id": "upload_sales_orders",
+        "step_id": "prerequisite",
+        "triage_id": "upload_sales_orders",
+        "pending_action": false,
+        "reply_preview": "We have 1 ticket to process, with the bill file named \"1.c_bill.pdf.\" I'll proceed with the upload of this sales order. Ready to save the sales order to Kitchen?",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "upload_sales_orders",
+        "step_id": "prerequisite",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "Ready to save the sales order to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "upload_mixed_bill_batch",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": false,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Process my mixed PO and sales batch",
+        "workflow_id": "upload_mixed_bill_batch",
+        "step_id": "confirm_order",
+        "triage_id": "upload_mixed_bill_batch",
+        "pending_action": false,
+        "reply_preview": "We will process your mixed batch in two steps: first, the purchase orders for pantry stock, followed by the sales receipts for depletion.   Currently, there are no purchase orders or sales receipts to process.  Ready to ",
+        "error": ""
+      },
+      {
+        "message": "Yes, go ahead",
+        "workflow_id": "upload_mixed_bill_batch",
+        "step_id": "prerequisite",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "The purchase orders have been processed successfully, updating the pantry stock from the uploaded invoices.   Ready to save the order to Kitchen?",
+        "error": ""
+      }
+    ],
+    "notes": ""
+  },
+  {
+    "workflow_id": "process_purchase_bills",
+    "passed": true,
+    "routed_ok": true,
+    "cleared": true,
+    "errors": [],
+    "turns": [
+      {
+        "message": "Process the purchase bills in the queue",
+        "workflow_id": "process_purchase_bills",
+        "step_id": "confirm_process",
+        "triage_id": "process_purchase_bills",
+        "pending_action": false,
+        "reply_preview": "The following supplier bills are ready to process:  1. **Bill-3_Costco.pdf** - pending review 2. **Bill-1_Sysco.pdf** - pending review 3. **SYSCO-4823** - confirmed 4. **USF-77102** - confirmed 5. **COSTCO-90614** - conf",
+        "error": ""
+      },
+      {
+        "message": "Yes, confirm",
+        "workflow_id": "process_purchase_bills",
+        "step_id": "persist",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "The confirmed purchase bills have been processed, and the pantry stock has been updated accordingly.",
+        "error": ""
+      }
+    ],
+    "notes": "uses pending bill 6a3ed364b2ed41b8ca9803bf"
+  },
+  {
+    "workflow_id": "process_sales_bills",
+    "passed": false,
+    "routed_ok": false,
+    "cleared": false,
+    "errors": [
+      "expected process_sales_bills, got activity=upload_sales_orders triage="
+    ],
+    "turns": [
+      {
+        "message": "Process the sales receipts in the queue",
+        "workflow_id": "upload_sales_orders",
+        "step_id": "prerequisite",
+        "triage_id": "",
+        "pending_action": false,
+        "reply_preview": "The following sales receipts are pending review and need to be processed:  1. **Filename:** 1.c_bill.pdf    - **Ticket Count:** 1    - **Bill Date:** 2026-06-18  I will proceed with processing the confirmed sales bills: ",
+        "error": ""
+      },
+      {
+        "message": "Yes, confirm",
+        "workflow_id": "upload_sales_orders",
+        "step_id": "confirm_process",
+        "triage_id": null,
+        "pending_action": false,
+        "reply_preview": "No processed supplier purchase orders are available for the sales receipt processing. The current pending purchase orders are:  - **Bill ID:** 6a3ed36fb2ed41b8ca9803c3 (Costco Business Center, Bill-3_Costco.pdf) - **Bill",
+        "error": ""
+      }
+    ],
+    "notes": "uses pending bill 6a3ed367b2ed41b8ca9803c1"
+  }
+]

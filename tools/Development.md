@@ -7,7 +7,7 @@ How to develop the agentic chat layer locally and deploy to production.
 | Component | Location | Host (prod) |
 |-----------|----------|-------------|
 | Web UI + auth + chat API | `apps/web` (Next.js) | **Railway** |
-| Bill parse + chat agents | `backend/agent-service` (FastAPI) | **Railway** |
+| Bill parse + chat agents | `backend/agent-service-v1` (FastAPI) | **Railway** |
 | Database | MongoDB | **MongoDB Atlas** |
 | LLM (chat) | OpenAI | `OPENAI_API_KEY` (both services) |
 
@@ -21,7 +21,7 @@ Browser → Railway (Next.js)
           MongoDB Atlas + OpenAI
 ```
 
-**Chat orchestration** runs in **LangChain/LangGraph** (`backend/agent-service`, `POST /chat`). Next.js proxies `POST /api/dashboard/chat` → `AGENT_SERVICE_URL/chat` when `USE_LANGCHAIN_AGENTS=true` (default). Falls back to inline OpenAI if the agent service is unreachable.
+**Chat orchestration** runs in **LangChain/LangGraph** (`backend/agent-service-v1`, `POST /chat`). Next.js proxies `POST /api/dashboard/chat` → `AGENT_SERVICE_URL/chat` when `USE_LANGCHAIN_AGENTS=true` (default). Falls back to inline OpenAI if the agent service is unreachable.
 
 **Writes from chat** return `pending_action` or `suggestion_action` from Python; Next.js executes them via `agent-pending-actions.ts` and `create-suggestion.ts` (same pattern as manual Upload orders / Recipes).
 
@@ -80,54 +80,32 @@ curl http://localhost:8000/health
 
 ---
 
-## LangChain agents (shipped)
+## Agent service (shipped)
 
-Layout in `backend/agent-service/`:
+Layout in `backend/agent-service-v1/`:
 
 ```
-backend/agent-service/
+backend/agent-service-v1/
 ├── main.py                 # FastAPI — /chat + bill parse endpoints
-├── agents/
-│   ├── supervisor.py       # LangGraph supervisor graph (Sous Chef)
-│   ├── state.py            # Shared graph state
-│   ├── specialists.py      # ReAct agent builders
-│   ├── runner.py           # Routes supervisor vs direct specialist
-│   ├── handoff.py          # Handoff regex (mirrors chat-handoff.ts)
-│   └── prompts.py          # System prompts
-├── chat/
-│   └── service.py          # POST /chat request/response models
-├── context/
-│   └── builders.py         # MongoDB kitchen context snapshots
-├── tools/core/
-│   ├── factory.py          # 9 consolidated @tools
-│   ├── reads.py            # query_* internal actions
-│   ├── bills.py            # Bill queue reads + upload_bills
-│   ├── writes.py           # CoreToolContext + PendingAction sink
-│   └── models.py           # SuggestedDishDraft, etc.
+├── api/routes/             # chat, bills, images, health
+├── supervisor/             # Sous Chef — triage, graph, reply policy
+├── workflows/
+│   ├── catalog/            # YAML workflow definitions (source of truth)
+│   └── engine/             # Loader, FSM executor, transitions
+├── specialists/            # inventory, business, create ReAct workers
+├── tools/core/             # 9 consolidated @tools + DB reads/writes
+├── workers/                # Bill parse, images, recipe linker
 └── db/mongo.py             # MongoDB for tool reads/writes
 ```
 
-### Core tools (9)
-
-| Agent | Tools |
-|-------|-------|
-| Sous Chef | `query_kitchen`, `orchestrate` |
-| Inventory | `query_inventory`, `apply_inventory`, `upload_bills` |
-| Business | `query_business`, `apply_business` |
-| Creative | `query_menu`, `apply_menu` |
-
-See [Tool_Index.md](./Tool_Index.md) for Built? status and internal actions.
-
-### Supervisor graph flow (Sous Chef / `context: head`)
+### Supervisor turn flow (Sous Chef / `context: head`)
 
 ```
-START → classify_intent (structured LLM)
-          ├─ answer      → head_answer (ReAct) → END
-          ├─ consult     → consult_specialist × N → synthesize → END
-          └─ handoff     → handoff_specialist (ReAct) → END
+POST /chat → TurnContext → triage (LLM) → workflow step resolve
+  → specialist consult (ReAct or direct tools) → synthesize → reply_policy
 ```
 
-Direct specialist mode (dashboard section tabs or Connect handoff) bypasses the supervisor and runs a single ReAct agent with that agent's core tools.
+Direct specialist mode (dashboard section tabs or Connect handoff) can bypass the supervisor depending on context.
 
 ### Write confirmation flow
 

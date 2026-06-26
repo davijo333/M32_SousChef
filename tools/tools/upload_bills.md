@@ -34,7 +34,7 @@ The LLM sees **one** tool; the backend routes to:
 
 ## Build status
 
-**Yes** — consolidated `@tool` shipped in `backend/agent-service/tools/core/`.
+**Yes** — consolidated `@tool` shipped in `backend/agent-service-v1/tools/core/`.
 
 Read-only or navigation — no confirmation.
 

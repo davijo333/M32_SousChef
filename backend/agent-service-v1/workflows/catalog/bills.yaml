@@ -1,6 +1,6 @@
 # Bill upload & processing — supplier POs and POS sales receipts
 #
-# Source: agent-service/agents/head/golden-workflows.yaml (bills section)
+# Source: golden-workflows.yaml bills section (archived on git branch v0)
 #         golden-shared-rules.md (PO before SO, confirm gate)
 # Walkthrough: ../docs/bill-workflows.md
 #

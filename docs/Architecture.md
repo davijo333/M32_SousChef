@@ -29,8 +29,7 @@ Next.js (apps/web)                    FastAPI (backend/agent-service-v1)
 | `apps/web/` | Next.js 14 UI, thin API route handlers |
 | `backend/api/` | Shared server logic — Mongoose models, domain services, chat intent parsers |
 | `backend/agent-service-v1/` | **Primary** Python FastAPI — workflow-first supervisor, specialist workers, tools |
-| `backend/agent-service/` | Legacy LangGraph stack (retiring); golden workflow markdown still referenced by v1 |
-| `agents/` | Agent **specs** (profiles, golden workflows, eval notes) |
+| `agents/` | Agent **specs** (profiles, overview docs) |
 | `tools/` | Tool **specs** — manifest, per-tool markdown, development notes |
 | `test/` | Committed catalog JSON, bill fixtures, seed images |
 | `infra/` | Docker Compose (MongoDB), dev start scripts |

@@ -49,4 +49,4 @@ npm run build
 npm run start
 ```
 
-Deploy root directory: `apps/web` (e.g. Vercel). Set `AGENT_SERVICE_URL` to the deployed `backend/agent-service`.
+Deploy root directory: `apps/web` (e.g. Vercel). Set `AGENT_SERVICE_URL` to the deployed `backend/agent-service-v1`.

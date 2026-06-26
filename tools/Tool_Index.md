@@ -3,7 +3,7 @@
 Nine **core chat tools** (4 read · 4 write/orchestrate · 1 upload). Each wraps many internal actions — not 92 separate LLM tools.
 
 **Built?**
-- **Yes** — consolidated `@tool` in `backend/agent-service/tools/core/`
+- **Yes** — consolidated `@tool` in `backend/agent-service-v1/tools/core/`
 - **Partial** — tool shipped; some actions still manual/UI-only
 - **No** — not implemented
 
@@ -42,8 +42,8 @@ Nine **core chat tools** (4 read · 4 write/orchestrate · 1 upload). Each wraps
 
 ## Code
 
-- Factory: `backend/agent-service/tools/core/factory.py`
-- Reads: `backend/agent-service/tools/core/reads.py`
-- Writes / pending actions: `backend/agent-service/tools/core/writes.py`, `backend/api/services/agents/agent-pending-actions.ts`
+- Factory: `backend/agent-service-v1/tools/core/factory.py`
+- Reads: `backend/agent-service-v1/tools/core/reads.py`
+- Writes / pending actions: `backend/agent-service-v1/tools/core/writes.py`, `backend/api/services/agents/agent-pending-actions.ts`
 
 Agent profiles: [agents/](../../agents/README.md)

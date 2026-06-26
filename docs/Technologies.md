@@ -36,7 +36,7 @@ Stack used across Sous Chef and where each piece runs in production (**Railway**
 - **OpenAI Node SDK** — fallback inline chat when agent service is unavailable
 - Chat intent modules — price adjustment, reorder threshold, recipe build, catalog lookup
 
-## Agent service (`backend/agent-service`)
+## Agent service (`backend/agent-service-v1`)
 
 - **FastAPI** + **Uvicorn** — HTTP API (`main.py`)
 - **LangChain / LangGraph** — supervisor graph + specialist ReAct agents
@@ -48,7 +48,7 @@ Stack used across Sous Chef and where each piece runs in production (**Railway**
 - **httpx** — outbound HTTP
 - **ddgs** — optional web search for creative cues
 
-See `backend/agent-service/requirements.txt` for pinned dependencies.
+See `backend/agent-service-v1/requirements.txt` for pinned dependencies.
 
 ## Data & storage
 
@@ -78,7 +78,7 @@ Production target is **Railway** for deployable services.
 ### Agent service (required)
 
 1. Railway project → deploy from GitHub, branch `dev` (or `main`)
-2. **Root directory:** `backend/agent-service`
+2. **Root directory:** `backend/agent-service-v1`
 3. **Start command:** `uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}`
 4. **Environment variables:**
 

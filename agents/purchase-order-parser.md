@@ -1,6 +1,6 @@
 # 1a — Purchase Order Parser
 
-**File:** `backend/agent-service/supplier_bill_parser.py`
+**File:** `backend/agent-service-v1/workers/supplier_bill_parser.py`
 
 **Endpoint:** `POST /parse-bill-pipeline` (multipart file + `bill_type=supplier`)
 

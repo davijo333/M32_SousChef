@@ -14,7 +14,7 @@ INDEX = ROOT.parent / "Tool_Index.md"
 
 def built_line(built: str, tool_id: str) -> str:
     if built == "Yes":
-        return "**Yes** — consolidated `@tool` shipped in `backend/agent-service/tools/core/`."
+        return "**Yes** — consolidated `@tool` shipped in `backend/agent-service-v1/tools/core/`."
     if built == "Partial":
         if tool_id == "upload_bills":
             return (
@@ -108,7 +108,7 @@ def render_index(tools: list[dict]) -> str:
         "Nine **core chat tools** (4 read · 4 write/orchestrate · 1 upload). "
         "Each wraps many internal actions — not 92 separate LLM tools.\n\n"
         "**Built?**\n"
-        "- **Yes** — consolidated `@tool` in `backend/agent-service/tools/core/`\n"
+        "- **Yes** — consolidated `@tool` in `backend/agent-service-v1/tools/core/`\n"
         "- **Partial** — tool shipped; some actions still manual/UI-only\n"
         "- **No** — not implemented\n\n"
         f"**Totals:** {len(tools)} core tools — Yes: {yes} · Partial: {partial} · No: {no}\n\n"
@@ -130,9 +130,9 @@ def render_index(tools: list[dict]) -> str:
         "- Read: [`query_menu`](./tools/query_menu.md)\n"
         "- Write: [`apply_menu`](./tools/apply_menu.md)\n\n"
         "## Code\n\n"
-        "- Factory: `backend/agent-service/tools/core/factory.py`\n"
-        "- Reads: `backend/agent-service/tools/core/reads.py`\n"
-        "- Writes / pending actions: `backend/agent-service/tools/core/writes.py`, `backend/api/services/agents/agent-pending-actions.ts`\n\n"
+        "- Factory: `backend/agent-service-v1/tools/core/factory.py`\n"
+        "- Reads: `backend/agent-service-v1/tools/core/reads.py`\n"
+        "- Writes / pending actions: `backend/agent-service-v1/tools/core/writes.py`, `backend/api/services/agents/agent-pending-actions.ts`\n\n"
         "Agent profiles: [agents/](../../agents/README.md)\n"
     )
 

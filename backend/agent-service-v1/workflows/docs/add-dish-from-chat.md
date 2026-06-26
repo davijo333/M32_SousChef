@@ -2,13 +2,15 @@
 
 Runtime catalog: [`../catalog/addition-dish.yaml`](../catalog/addition-dish.yaml)
 
-## Golden sources (semantics only)
+## Golden sources (archived on `v0` branch)
 
 | Document | Section |
 |----------|---------|
-| [golden-addition-workflows.md](../../../agent-service/workflows/golden-addition-workflows.md) | Dish Addition, Recipe Addition, Photo upload |
-| [golden-workflows.yaml](../../../agent-service/agents/head/golden-workflows.yaml) | `add_dish_from_chat` |
-| [golden-shared-rules.md](../../../agent-service/workflows/golden-shared-rules.md) | Confirm phrases, one question |
+| `golden-addition-workflows.md` | Dish Addition, Recipe Addition, Photo upload |
+| `golden-workflows.yaml` | `add_dish_from_chat` |
+| `golden-shared-rules.md` | Confirm phrases, one question |
+
+These files lived under the removed `backend/agent-service/` tree and are preserved on git branch **`v0`**.
 
 ## Product rule
 

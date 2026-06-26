@@ -34,7 +34,7 @@ The LLM sees **one** tool; the backend routes to:
 
 ## Build status
 
-**Yes** — consolidated `@tool` shipped in `backend/agent-service/tools/core/`.
+**Yes** — consolidated `@tool` shipped in `backend/agent-service-v1/tools/core/`.
 
 Destructive or persistent changes require chef confirmation (`confirm_inventory`, `confirm_business`, or `confirm_suggestion` in chat).
 

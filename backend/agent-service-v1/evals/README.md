@@ -25,4 +25,4 @@ assert:
 3. `inventory_stock_query` — read-only, no extra questions
 4. `add_addon_from_chat` — Inventory only, no Creative
 
-Migrate scenarios from legacy `agent-service/agents/head/evals/`.
+Migrate scenarios from archived head evals on git branch `v0`.

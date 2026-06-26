@@ -1,4 +1,4 @@
-/** Persisted Sous Chef workflow step — mirrors agent-service workflow_engine. */
+/** Persisted Sous Chef workflow step — mirrors agent-service-v1 workflow engine. */
 
 export type WorkflowStatePayload = {
   workflowId: string;

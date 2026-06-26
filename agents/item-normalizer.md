@@ -1,6 +1,6 @@
 # 2a — Item Normalizer
 
-**File:** `backend/agent-service/item_normalizer.py`
+**File:** `backend/agent-service-v1/workers/item_normalizer.py`
 
 Runs inside `/parse-bill-pipeline` for each new ingredient line on a **purchase order**.
 

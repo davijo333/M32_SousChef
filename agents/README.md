@@ -25,7 +25,7 @@ Tool index: [tools/Tool_Index.md](../tools/Tool_Index.md)
 
 ## Background workers
 
-Python FastAPI at `backend/agent-service/` (`npm run start:agents`). Invoked by tools and UI — not conversational agents.
+Python FastAPI at `backend/agent-service-v1/` (`npm run start:agents`). Invoked by tools and UI — not conversational agents.
 
 | Worker | Doc | Endpoint |
 |--------|-----|----------|

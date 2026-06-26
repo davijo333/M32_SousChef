@@ -6,7 +6,7 @@
 | **Icon** | `head_chef` |
 | **Dashboard** | Floating chat dock (supervisor) |
 | **Persona** | Kitchen supervisor — routes workflows, confirms before writes |
-| **Spec** | `backend/agent-service/agents/head/` |
+| **Spec** | `backend/agent-service-v1/supervisor/` |
 
 ## Role
 

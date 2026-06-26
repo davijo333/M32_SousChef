@@ -62,8 +62,7 @@ flowchart LR
   subgraph Root["Repo root"]
     Web["apps/web/\nNext.js 14 UI"]
     API["backend/api/\nShared TS services + models"]
-    V1["backend/agent-service-v1/\nPrimary agent stack"]
-    Legacy["backend/agent-service/\nLegacy LangGraph (being retired)"]
+    V1["backend/agent-service-v1/\nAgent stack"]
     Docs["docs/\nProduct + architecture"]
     Test["test/\nFixtures · seed images · bill PDFs"]
     Infra["infra/\nDocker Compose · scripts"]
@@ -78,7 +77,6 @@ flowchart LR
 | `apps/web/` | Pages, React components, thin API route handlers |
 | `backend/api/` | Domain services, Mongoose models, chat intent parsers, agent HTTP client |
 | `backend/agent-service-v1/` | **Workflow-first** Python orchestrator — triage, YAML workflows, specialists, tools |
-| `backend/agent-service/` | Legacy supervisor; golden workflow markdown still referenced by v1 |
 | `docs/` | Architecture, agents, DB schemas, UI notes |
 | `test/` | Committed catalog JSON, bill fixtures, seed images |
 | `infra/` | MongoDB via Docker Compose, dev start scripts |
@@ -289,7 +287,7 @@ Next.js and Python share this shape via `backend/api/services/chat/workflow-stat
 | `triage.yaml` | (metadata) | Triage hints for LLM classifier |
 | `shared.yaml` | — | Shared step fragments |
 
-Golden behavior semantics (human-readable) remain in `backend/agent-service/workflows/golden-*.md` and are ported into YAML.
+Executable workflow definitions live in `backend/agent-service-v1/workflows/catalog/`. Historical golden markdown specs are preserved on the `v0` git branch.
 
 ## Specialist delegation model
 

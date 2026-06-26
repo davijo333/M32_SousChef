@@ -1,7 +1,7 @@
 # Bill workflows (catalog)
 
 Runtime catalog: `catalog/bills.yaml`  
-Golden source: `backend/agent-service/agents/head/golden-workflows.yaml` (bills section)
+Golden source: archived on git branch `v0` (`agents/head/golden-workflows.yaml` bills section)
 
 **Rule:** supplier **purchase orders first**, then POS **sales receipts**. One confirm gate (`confirm_bills`) before any `apply_inventory` process action.
 

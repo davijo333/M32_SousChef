@@ -20,7 +20,7 @@ Manual UI always works in parallel — agents augment chat; they do not replace 
 ### Sous Chef (supervisor)
 
 - Workflow catalog: `backend/agent-service-v1/workflows/catalog/` (runtime source of truth)
-- Golden semantics: `backend/agent-service/workflows/golden-*.md` and legacy `agents/head/golden-workflows.yaml`
+- Workflow catalog: YAML in `workflows/catalog/`; historical golden specs preserved on git branch `v0`
 - **Step state** — `conversation.workflowState` persisted in MongoDB; enforced by `agent-service-v1/workflows/engine/`
 - Consults specialists sequentially; synthesizes tool output
 - Does **not** invent stock figures or claim writes completed
@@ -83,10 +83,10 @@ Detailed profiles, tasks, and eval notes:
 
 | Agent | Spec folder | Overview doc |
 |-------|-------------|--------------|
-| Sous Chef | `backend/agent-service/agents/head/` | [../agents/sous-chef.md](../agents/sous-chef.md) |
-| Inventory | `backend/agent-service/agents/inventory/` | [../agents/inventory.md](../agents/inventory.md) |
-| Business | `backend/agent-service/agents/business/` | [../agents/business.md](../agents/business.md) |
-| Creative | `backend/agent-service/agents/creative/` | [../agents/creative.md](../agents/creative.md) |
+| Sous Chef | `backend/agent-service-v1/supervisor/` | [../agents/sous-chef.md](../agents/sous-chef.md) |
+| Inventory | `backend/agent-service-v1/specialists/inventory/` | [../agents/inventory.md](../agents/inventory.md) |
+| Business | `backend/agent-service-v1/specialists/business/` | [../agents/business.md](../agents/business.md) |
+| Creative | `backend/agent-service-v1/specialists/creative/` | [../agents/creative.md](../agents/creative.md) |
 
 Index: [../agents/README.md](../agents/README.md)
 

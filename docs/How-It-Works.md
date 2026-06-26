@@ -24,7 +24,6 @@ M32_SousChef/
 ├── apps/web/                    # Next.js 14 — UI + API routes
 ├── backend/api/                 # Shared TypeScript — models, services, chat helpers
 ├── backend/agent-service-v1/    # Primary Python agent stack (FastAPI)
-├── backend/agent-service/       # Legacy stack (being retired; golden docs still referenced)
 ├── docs/                        # You are here
 ├── test/                        # Fixtures, seed data, bill generators
 └── infra/                       # Docker Compose, dev scripts
@@ -138,7 +137,7 @@ From Sous Chef chat, **Connect to Inventory Agent** (etc.) sets `connectAgent` a
 
 ## agent-service-v1 — deep dive
 
-`backend/agent-service-v1` is a **workflow-first** rebuild of the legacy `agent-service`. The design goals:
+`backend/agent-service-v1` is the **workflow-first** agent stack. The design goals:
 
 1. **YAML workflows drive behavior** — not buried Python routing logic
 2. **Supervisor is mostly deterministic** — LLM for triage and voice, not for step transitions
@@ -359,7 +358,7 @@ Each specialist has a **contract** under `specialists/{inventory,business,creati
 
 ### Tools layer (`tools/core/`)
 
-Consolidated from legacy agent-service. Key modules:
+Ported from the pre-v1 stack (preserved on git branch `v0`). Key modules:
 
 | Module | Role |
 |--------|------|
@@ -463,17 +462,18 @@ Load test data: Dashboard → **Load test data**, or `POST /api/seed?force=1`.
 
 ---
 
-## Legacy agent-service vs v1
+## Pre-v1 stack (archived)
 
-| | `agent-service` (legacy) | `agent-service-v1` (primary) |
-|--|--------------------------|------------------------------|
+The original LangGraph-based `backend/agent-service` was removed from `master`. It remains available on git branch **`v0`** for reference.
+
+| | `v0` branch (archived) | `agent-service-v1` (current) |
+|--|------------------------|------------------------------|
 | Orchestration | LangGraph in `agents/head/graph.py` | Linear `run_supervisor_turn()` |
 | Workflow defs | Python `workflow_engine.py` + golden YAML | **Runtime YAML catalog** |
 | Routing | `orchestration.py` regex + classifier | `triage.py` + `executor.py` |
 | Reply sanitization | Multiple layers | Single `reply_policy.py` |
-| Status | Retained for reference | **Default via `npm run dev:agent`** |
 
-Golden workflow **semantics** in `backend/agent-service/workflows/golden-*.md` remain the behavioral spec while YAML in v1 is the executable spec.
+Executable specs live in `backend/agent-service-v1/workflows/catalog/`.
 
 ---
 

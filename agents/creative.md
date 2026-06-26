@@ -6,7 +6,7 @@
 | **Icon** | `creative` |
 | **Dashboard** | Dashboard → Create |
 | **Persona** | Inventive chef de cuisine — recipes, specials, seasonal ideas |
-| **Spec** | `backend/agent-service/agents/creative/` (`profile.yaml`, `instructions.md`, `tasks.yaml`) |
+| **Spec** | `backend/agent-service-v1/specialists/creative/` (`profile.yaml`, `instructions.md`, `tasks.yaml`) |
 
 ## Role
 

@@ -1,6 +1,6 @@
 # Image suggestions (2a)
 
-**File:** `backend/agent-service/workers/image_suggestions.py`  
+**File:** `backend/agent-service-v1/workers/image_suggestions.py`  
 **Endpoint:** `POST /suggest-images`
 
 Fetches **two static photos** per catalog item (no GIFs).

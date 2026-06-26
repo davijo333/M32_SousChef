@@ -40,6 +40,6 @@ cd backend/agent-service-v1
 bash run.sh                # copies ../../.env on first run if missing
 ```
 
-**Chat** uses this service (`POST /chat`). Bill parse, catalog identify, and image workers will be ported here before `agent-service` is removed.
+**Chat** uses this service (`POST /chat`). Bill parse, catalog identify, and image workers run here.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md).

@@ -22,7 +22,7 @@ LangChain / LangGraph chat: **9 core tools**, **4 agents**, dual manual + chat p
 | **Business** | `query_business` | `apply_business` | — |
 | **Creative** | `query_menu` | `apply_menu` | — |
 
-**Runtime code:** `backend/agent-service/tools/core/` (LangChain `@tool` definitions)
+**Runtime code:** `backend/agent-service-v1/tools/core/` (LangChain `@tool` definitions)
 
 **Write execution (Next.js):** `backend/api/services/agents/agent-pending-actions.ts`, `agent-menu-actions.ts`, `backend/api/services/creative/create-suggestion.ts`
 

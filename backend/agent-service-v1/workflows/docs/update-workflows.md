@@ -1,7 +1,7 @@
 # Update workflows (catalog)
 
 Runtime catalogs: `catalog/update-*.yaml`  
-Golden source: `backend/agent-service/workflows/golden-update-workflows.md`
+Golden source: archived on git branch `v0` (`workflows/golden-update-workflows.md`)
 
 **Rule:** all updates are **inventory only** — never the create worker for writes.  
 (Optional create draft on `link_dish_ingredients` when chef needs recipe help — inventory still persists.)

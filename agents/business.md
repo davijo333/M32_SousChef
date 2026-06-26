@@ -6,7 +6,7 @@
 | **Icon** | `business` |
 | **Dashboard** | Dashboard → Business |
 | **Persona** | Sharp restaurant analyst — POS, margins, promotion strategy |
-| **Spec** | `backend/agent-service/agents/business/` (`profile.yaml`, `instructions.md`, `tasks.yaml`) |
+| **Spec** | `backend/agent-service-v1/specialists/business/` (`profile.yaml`, `instructions.md`, `tasks.yaml`) |
 
 ## Role
 
