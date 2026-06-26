@@ -13,6 +13,8 @@ from supervisor.reply_policy import sanitize_reply
 from supervisor.router import RouteDecision, resolve_route
 from specialists.registry import run_specialist_consult
 from workflows.engine.executor import advance_after_turn
+from workflows.engine.loader import get_workflow
+from workflows.engine.transitions import delegate_worker, find_step
 from workflows.engine.recipe_draft import recipe_build_from_draft
 from workflows.engine.transitions import (
     apply_dish_pick,
@@ -133,6 +135,31 @@ def _seed_recipe_build(ctx: TurnContext, step_id: str | None) -> None:
             ctx.recipe_build["dishName"] = locked
 
 
+def _chain_direct_delegate_consults(ctx: TurnContext, route: RouteDecision) -> None:
+    """Run chained direct delegate steps on the same turn (lookup → pantry check)."""
+    wf = get_workflow(route.workflow_id or "")
+    if not wf or not wf.get("direct_delegate") or not ctx.workflow_state:
+        return
+
+    hops = 0
+    while hops < 6:
+        step = find_step(wf, ctx.workflow_state.step_id)
+        if not step or not step.get("delegate"):
+            break
+        worker = delegate_worker(step)
+        ctx.consult_results[worker] = _safe_specialist_consult(worker, ctx, ctx.workflow_state.step_id)
+        advanced = advance_after_turn(
+            ctx,
+            workflow_id=ctx.workflow_state.workflow_id,
+            step_id=ctx.workflow_state.step_id,
+        )
+        if not advanced or advanced.step_id == ctx.workflow_state.step_id:
+            break
+        ctx.workflow_state = advanced
+        wf = get_workflow(advanced.workflow_id) or wf
+        hops += 1
+
+
 def run_supervisor_turn(req: ChatRequest) -> dict[str, Any]:
     """Single chat turn entrypoint."""
     ctx = TurnContext.from_request(req)
@@ -160,6 +187,8 @@ def run_supervisor_turn(req: ChatRequest) -> dict[str, Any]:
         )
         if next_wf:
             ctx.workflow_state = next_wf
+            _chain_direct_delegate_consults(ctx, route)
+            next_wf = ctx.workflow_state
 
     reply_step_id = next_wf.step_id if next_wf else route.step_id
     if (

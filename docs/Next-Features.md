@@ -9,3 +9,5 @@ Planned capabilities not yet built. Directional — scope and sequencing may cha
 - **Ingredient best price (near me / online)** — When an item is low or on the reorder list, surface cheapest local supplier, wholesaler, or online option for that SKU. Compare unit-normalized price, pack size, and delivery window; chef picks or confirms before order.
 
 - **MCP delivery integrations for auto-reorder** — Place purchase orders through delivery/supplier apps when stock hits reorder level. MCP tools for search, cart, submit, and confirm; order recorded as a PO in MongoDB. Confirm-before-submit per kitchen or ingredient until SKU mapping is trusted.
+
+- **Consulting-agent icons during thinking** — While Sous Chef is working on a reply, show specialist avatars (Inventory, Business, Creative) for agents being consulted in that turn — not only the generic “thinking…” spinner. Use existing brand icons; surface live activity from the supervisor (stream or `consultedAgents`-style events) so chefs see who is being asked before the answer lands.

@@ -67,3 +67,29 @@ export function detectUploadConfirm(message: string): boolean {
     message.trim()
   );
 }
+
+/** Last assistant message is asking to confirm bill upload/processing — not a generic yes. */
+export function threadAwaitingUploadConfirm(
+  messages: Array<{ role: string; content: string }>
+): boolean {
+  const lastAssistant = [...messages]
+    .reverse()
+    .find((row) => row.role === "assistant")?.content;
+  if (!lastAssistant?.trim()) return false;
+  return (
+    /\b(?:please confirm|confirm).+\b(?:process|processing|upload).+\b(?:bill|receipt|purchase|sales|batch)\b/i.test(
+      lastAssistant
+    ) ||
+    /\b(?:please confirm|confirm)\s+processing\b/i.test(lastAssistant) ||
+    /\b(?:process|upload).+\b(?:bill|receipt|purchase order|sales)\b.+\b(?:confirm|go ahead)\b/i.test(
+      lastAssistant
+    ) ||
+    /\bready to process\b.+\b(?:bill|receipt|batch)\b/i.test(lastAssistant)
+  );
+}
+
+export function hasReadyUploadBatch(
+  uploadBatch?: { slices?: Array<{ ready?: number }> } | null
+): boolean {
+  return Boolean(uploadBatch?.slices?.some((slice) => (slice.ready ?? 0) > 0));
+}

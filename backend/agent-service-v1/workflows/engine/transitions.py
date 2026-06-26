@@ -103,9 +103,10 @@ def consult_missing_ingredients_empty(text: str) -> bool:
 def consult_persist_success(text: str) -> bool:
     return bool(
         re.search(
-            r"\b(created dish|updated dish|created ingredient|created add-?on|"
-            r"finalize_recipe_build|plan_recipe_build|process_purchase_bills|process_sales_bills|"
-            r"bills? processed|stock updated|pantry updated)\b",
+            r"\b(created dish|updated dish|updated add-?on|updating add-?on|"
+            r"created ingredient|created add-?on|already linked|no change needed|"
+            r"linked dishes|finalize_recipe_build|plan_recipe_build|process_purchase_bills|"
+            r"process_sales_bills|bills? processed|stock updated|pantry updated)\b",
             text,
             re.I,
         )

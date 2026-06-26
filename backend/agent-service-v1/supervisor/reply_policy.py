@@ -69,7 +69,26 @@ def sanitize_reply(reply: str, ctx: TurnContext, route: RouteDecision) -> str:
             text = f"{text}\n\nReady to save **{subject}** to Kitchen now? {CONFIRM_OPTIONS}"
     elif route.step_id and route.step_id.startswith("confirm"):
         subject = _locked_subject(ctx)
-        if CONFIRM_OPTIONS not in text and "Ready to save" not in text and "Ready to apply" not in text:
+        baggage = (ctx.workflow_state.baggage or {}) if ctx.workflow_state else {}
+        if route.workflow_id == "link_addons_to_dish_chat" and route.step_id == "confirm_link":
+            if CONFIRM_OPTIONS not in text and "Ready to link" not in text:
+                addon = str(baggage.get("addon_name") or "").strip()
+                dish = subject
+                if addon and dish:
+                    label = f"**{addon}** to **{dish}**"
+                else:
+                    label = subject
+                text = f"{text}\n\nReady to link {label}? {CONFIRM_OPTIONS}"
+        elif route.workflow_id == "link_addon_ingredients_chat" and route.step_id == "confirm_link":
+            if CONFIRM_OPTIONS not in text and "Ready to link" not in text:
+                ingredient = str(baggage.get("link_ingredient_name") or "").strip()
+                addon = subject
+                if ingredient and addon:
+                    label = f"**{ingredient}** to add-on **{addon}**"
+                else:
+                    label = subject
+                text = f"{text}\n\nReady to link {label}? {CONFIRM_OPTIONS}"
+        elif CONFIRM_OPTIONS not in text and "Ready to save" not in text and "Ready to apply" not in text:
             if route.step_id == "confirm_process" and "confirm processing" not in text.lower():
                 text = f"{text}\n\nPlease confirm processing these bills. {CONFIRM_OPTIONS}"
             else:

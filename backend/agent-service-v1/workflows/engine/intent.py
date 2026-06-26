@@ -87,6 +87,53 @@ def _trigger_matches(token: str, lower: str) -> bool:
     return False
 
 
+_ADDON_TOKEN = r"add\s*[\s-]?ons?\b"
+
+
+def _looks_like_addon_list_query(message: str) -> bool:
+    """Chef wants the full add-on/modifier catalog, not a single item search."""
+    lower = (message or "").lower()
+    if re.search(
+        rf"\b(list|show|what|which|tell me|give me)\b.+\b{_ADDON_TOKEN}",
+        lower,
+    ):
+        return True
+    if re.search(
+        rf"\b{_ADDON_TOKEN}.+\b(we have|available|in (?:our|the) (?:menu|kitchen|catalog))\b",
+        lower,
+    ):
+        return True
+    if re.search(rf"\bwhat {_ADDON_TOKEN}", lower):
+        return True
+    return False
+
+
+def _looks_like_menu_catalog_query(message: str) -> bool:
+    """Pantry vs menu — 'do we have smoothies' is a menu question, not on-hand qty."""
+    lower = (message or "").lower()
+    if re.search(r"(?i)\b(add|create|build)\b.+\b(new\s+)?(dish|menu item)\b", lower):
+        return False
+    if re.search(r"(?i)\blet'?s\s+add\b.+\bdish\b", lower):
+        return False
+    if _looks_like_addon_list_query(message):
+        return True
+    if re.search(r"\b(on hand|in stock|how much|qty of|reorder level|reorder threshold|pantry|ingredient)\b", lower):
+        return False
+    if re.search(
+        r"\b(dish|dishes|menu|smoothie|smoothies|sandwich|coffee|croissant|bagel|wrap|bowl|salad|"
+        r"drink|beverage|mocha|latte|frappe|stack|paradise|modifier|modifiers)\b",
+        lower,
+    ):
+        return True
+    if re.search(_ADDON_TOKEN, lower):
+        return True
+    if re.search(r"\bdo we have\b", lower):
+        return True
+    if re.search(r"\bis there\b.+\b(dish|dishes|menu|smoothie|sandwich|add[\s-]?on)\b", lower):
+        return True
+    return False
+
+
 def match_workflow_start(
     message: str,
     catalog_draft: dict[str, Any] | None = None,
@@ -174,8 +221,16 @@ def _intent_workflow_hits(message: str, locked: str) -> list[tuple[str, str, int
     if re.search(r"(?i)\b(add|create)\b.+\b(ingredient|pantry)\b", text):
         hits.append(("add_ingredient_from_chat", locked or extract_named_entity(text), 40))
 
-    if re.search(r"(?i)\b(add|create)\b.+\badd[\s-]?on\b", text):
-        hits.append(("add_addon_from_chat", locked or extract_named_entity(text), 40))
+    if re.search(r"(?i)\b(add|create)\b.+\badd[\s-]?on\b", text) and not _looks_like_addon_ingredient_link(text):
+        if not re.search(r"(?i)\bas\s+(?:an?\s+)?add[\s-]?on\s+to\b", text):
+            hits.append(("add_addon_from_chat", locked or extract_named_entity(text), 40))
+
+    if re.search(
+        r"(?i)\b(?:add|attach|link)\b.+\bas\s+(?:an?\s+)?add[\s-]?on\s+to\b",
+        text,
+    ) and not _looks_like_addon_ingredient_link(text):
+        _addon, dish = _parse_addon_dish_link(text)
+        hits.append(("link_addons_to_dish_chat", dish or locked, 66))
 
     if re.search(r"(?i)\b(low stock|running out|need to reorder)\b", lower):
         hits.append(("inventory_low_stock", "", 35))
@@ -208,4 +263,73 @@ def _intent_workflow_hits(message: str, locked: str) -> list[tuple[str, str, int
     if re.search(r"(?i)\b(process|run).+\b(sales|receipt|pos).+\b(queue|bills?)\b", lower):
         hits.append(("process_sales_bills", "", 37))
 
+    if _looks_like_addon_list_query(text):
+        hits.append(("inventory_menu_lookup", "", 52))
+
+    if _looks_like_menu_catalog_query(text):
+        hits.append(("inventory_menu_lookup", locked or extract_named_entity(text), 48))
+
+    if _prefers_addon_ingredient_link(text):
+        ing, addon, _ = _parse_addon_ingredient_link(text)
+        hits.append(("link_addon_ingredients_chat", addon or locked, 68))
+    elif _looks_like_addon_ingredient_link(text):
+        ing, addon, _ = _parse_addon_ingredient_link(text)
+        hits.append(("link_addon_ingredients_chat", addon or locked, 62))
+
+    if re.search(
+        r"(?i)\b(add|remove|link|update)\b.+\bto\b.+\b(recipe|dish)\b",
+        text,
+    ) or re.search(r"(?i)\b(add|remove|link)\b.+\b(recipe|ingredient)\b", text):
+        if re.search(r"(?i)\b(add[\s-]?on|modifier)\b", text):
+            pass
+        elif not re.search(r"(?i)\b(new|create|build)\b.+\bdish\b", text):
+            ing, dish, _ = _parse_dish_ingredient_link(text)
+            hits.append(("link_dish_ingredients_chat", dish or locked, 58))
+
+    if (
+        re.search(r"(?i)\b(link|attach)\b.+\bto\b", text)
+        and not _prefers_addon_ingredient_link(text)
+        and not _looks_like_addon_ingredient_link(text)
+        and not re.search(r"(?i)\b(recipe|ingredient)\b", text)
+    ):
+        addon, dish = _parse_addon_dish_link(text)
+        if not dish:
+            pass
+        elif addon and addon.lower() != dish.lower() and not re.search(
+            r"(?i)^(it|that|this|them)$", addon.strip()
+        ):
+            hits.append(("link_addons_to_dish_chat", dish or locked, 66))
+        elif not addon or re.search(r"(?i)^(it|that|this|them)$", addon.strip()):
+            hits.append(("link_addons_to_dish_chat", dish or locked, 64))
+
     return hits
+
+
+def _parse_addon_ingredient_link(message: str) -> tuple[str, str, str]:
+    from specialists.direct_link import parse_addon_ingredient_link
+
+    return parse_addon_ingredient_link(message)
+
+
+def _looks_like_addon_ingredient_link(message: str) -> bool:
+    from specialists.direct_link import looks_like_addon_ingredient_link
+
+    return looks_like_addon_ingredient_link(message)
+
+
+def _prefers_addon_ingredient_link(message: str) -> bool:
+    from specialists.direct_link import prefers_addon_ingredient_link
+
+    return prefers_addon_ingredient_link(message)
+
+
+def _parse_dish_ingredient_link(message: str) -> tuple[str, str, str]:
+    from specialists.direct_link import parse_dish_ingredient_link
+
+    return parse_dish_ingredient_link(message)
+
+
+def _parse_addon_dish_link(message: str) -> tuple[str, str]:
+    from specialists.direct_link import parse_addon_dish_link
+
+    return parse_addon_dish_link(message)

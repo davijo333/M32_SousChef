@@ -113,8 +113,14 @@ def _resolve_start(ctx: WorkflowTurn) -> tuple[ResolvedStep | None, WorkflowStat
         upload_batch=ctx.upload_batch,
     )
 
+    from specialists.direct_link import CHAT_LINK_WORKFLOW_IDS
+
+    chat_link = next((row for row in candidates if row[0] in CHAT_LINK_WORKFLOW_IDS), None)
+
     triage_id = getattr(ctx, "triage_workflow_id", None) or ""
-    if triage_id and get_workflow(triage_id):
+    if chat_link:
+        candidates = [chat_link] + [row for row in candidates if row[0] != chat_link[0]]
+    elif triage_id and get_workflow(triage_id):
         triage_locked = getattr(ctx, "triage_locked_name", "") or ""
         candidates = [(triage_id, triage_locked or locked)] + [
             row for row in candidates if row[0] != triage_id
@@ -267,7 +273,9 @@ def _prime_intake_baggage(ctx: WorkflowTurn, wf: dict, state: WorkflowState) -> 
         )
         if ready_ids:
             state = set_baggage(state, bill_ids=ready_ids)
-    return state
+    from specialists.direct_link import prime_link_chat_intake
+
+    return prime_link_chat_intake(ctx, state)
 
 
 def _apply_branch_side_effects(
@@ -358,11 +366,17 @@ def _advance_after_consult(ctx: WorkflowTurn, wf: dict, state: WorkflowState, st
             state.step_id = str(step["on_clear"])
             return state
 
-    if step_id == "lookup" and wf.get("id") == "update_dish":
+    if step_id == "lookup" and (wf.get("id") == "update_dish" or wf.get("direct_delegate")):
         if re.search(r"\bnot found\b", consult_text(ctx), re.I):
             stop = find_step(wf, str(step.get("on_missing") or "stop_not_found"))
             if stop and stop.get("clears_workflow_state"):
                 return None
+            state.step_id = str(step.get("on_missing") or "stop_not_found")
+        elif state.baggage.get("already_linked"):
+            completed = find_step(wf, "completed")
+            if completed and completed.get("clears_workflow_state"):
+                return None
+            state.step_id = "completed"
         else:
             state.step_id = str(step.get("on_found") or "preview")
         return state

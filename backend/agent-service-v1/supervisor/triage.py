@@ -109,7 +109,11 @@ Rules:
 - workflow_id MUST be exactly one id from the valid list, or empty for answer_only/cancel.
 - locked_name: dish/ingredient/add-on name if the chef stated one; else empty.
 - Prefer add_dish_from_chat when chef wants a new menu item without naming it yet.
-- Prefer update_* when chef says change/update an existing item.
+- link add-on to existing dish → link_addons_to_dish_chat (not link_addons_to_dish)
+- add/remove ingredient on existing dish recipe → link_dish_ingredients_chat (not link_dish_ingredients)
+- add/remove ingredient on existing add-on recipe → link_addon_ingredients_chat (not link_addon_ingredients)
+- "Do we have smoothies/dishes/on the menu" → inventory_menu_lookup (menu catalog). NOT inventory_on_hand unless chef asked on-hand qty for a pantry ingredient.
+- "What add-ons do we have / list add-ons" → inventory_menu_lookup (lists add-on catalog from DB).
 - Bill uploads/process PO/SO → bills workflows.
 
 Valid workflow ids:

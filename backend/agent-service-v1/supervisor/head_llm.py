@@ -124,6 +124,22 @@ Write the Sous Chef reply only — no preamble."""
 
 def synthesize_reply(ctx: TurnContext, route: RouteDecision) -> str:
     """Persona reply — LLM first, scripted fallback."""
+    wf = get_workflow(route.workflow_id) if route.workflow_id else None
+    if wf and wf.get("mode") == "read" and route.step_id in ("answer", "consult"):
+        blocks = [(text or "").strip() for text in ctx.consult_results.values() if (text or "").strip()]
+        if blocks:
+            return blocks[0]
+
+    if (
+        wf
+        and wf.get("direct_delegate")
+        and route.step_id == "persist"
+        and ctx.consult_results
+    ):
+        blocks = [(text or "").strip() for text in ctx.consult_results.values() if (text or "").strip()]
+        if blocks:
+            return blocks[0]
+
     llm = synthesize_with_llm(ctx, route)
     if llm:
         return llm

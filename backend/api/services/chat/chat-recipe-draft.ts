@@ -1,7 +1,7 @@
 /** Detect a Creative recipe draft waiting for chef confirmation in chat history. */
 
 import { isAgentAssistantLabel } from "@backend/services/agents/dashboard-chat";
-import { KITCHEN_SAVE_CONFIRM_RE } from "@backend/services/chat/chat-reply-sanitizer";
+import { KITCHEN_SAVE_CONFIRM_RE, replyIndicatesKitchenActionComplete } from "@backend/services/chat/chat-reply-sanitizer";
 import { isDishBrainstormReply } from "@backend/services/chat/dish-brainstorm";
 
 const RECIPE_SECTION_HEADERS =
@@ -14,9 +14,10 @@ export function threadHasKitchenBuildInThread(
   return messages.some(
     (row) =>
       row.role === "assistant" &&
-      /\b(created dish|updated dish)\b.+\b(linked ingredient|recipe steps)\b/i.test(
+      (/\b(created dish|updated dish)\b.+\b(linked ingredient|recipe steps)\b/i.test(
         row.content
-      )
+      ) ||
+        replyIndicatesKitchenActionComplete(row.content))
   );
 }
 
@@ -87,14 +88,22 @@ export function threadAwaitingKitchenSaveConfirm(
     .find((row) => row.role === "assistant")?.content;
 
   if (!lastAssistant?.trim()) return false;
+  if (replyIndicatesKitchenActionComplete(lastAssistant)) return false;
 
-  const asksConfirm = KITCHEN_SAVE_CONFIRM_RE.test(lastAssistant);
+  const asksConfirm =
+    KITCHEN_SAVE_CONFIRM_RE.test(lastAssistant) &&
+    !/\b(?:link|linking)\b.+\badd[\s-]?on\b/i.test(lastAssistant);
 
   const hasDishContext =
-    Boolean(inferRecipeDraftDishName(messages)) ||
-    /(?:menu name|proposed dish|pos description|visual brief|suggested add-?ons?)/i.test(
-      allText
-    );
+    (/\bready to save\b.+\bto kitchen\b/i.test(lastAssistant) ||
+      /\bready to add\b.+\bto kitchen\b.+\b(recipe|suggested add-?ons)\b/i.test(
+        lastAssistant
+      )) &&
+    (Boolean(inferRecipeDraftDishName(messages)) ||
+      /(?:menu name|proposed dish|pos description|visual brief|suggested add-?ons?)/i.test(
+        allText
+      ) ||
+      threadHasRecipeDraft(messages));
 
   return asksConfirm && hasDishContext;
 }

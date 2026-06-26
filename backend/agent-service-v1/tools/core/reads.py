@@ -111,19 +111,15 @@ def read_inventory(
             for dt, ing in expiring[:20]
         )
     if act == "search":
-        q = query.strip().lower()
+        q = query.strip()
         if not q:
             return "Provide a search query."
-        ingredients = find_many(
-            "ingredients",
-            restaurant_id,
-            {"name": 1, "slug": 1, "currentQty": 1, "inventoryUnit": 1, "category": 1},
-        )
-        matches = [
-            i
-            for i in ingredients
-            if q in str(i.get("name", "")).lower() or q in str(i.get("slug", "")).lower()
-        ][:15]
+        from tools.core.catalog_lookup import normalize_catalog_search_query, search_ingredients
+
+        search_q = normalize_catalog_search_query(q) or q
+        matches = search_ingredients(restaurant_id, search_q, limit=limit)
+        if not matches and search_q.lower() != q.lower():
+            matches = search_ingredients(restaurant_id, q, limit=limit)
         if not matches:
             return f"No ingredients matching '{query}'."
         return "\n".join(
@@ -370,15 +366,15 @@ def read_menu(
             + business_analytics.format_promotion_opportunities(restaurant_id, "week")
         )
     if act in ("search_dishes", "search"):
-        q = query.strip().lower()
+        q = query.strip()
         if not q:
             return "Provide a search query."
-        dishes = find_many(
-            "dishes",
-            restaurant_id,
-            {"name": 1, "slug": 1, "recipeStatus": 1, "sellPrice": 1},
-        )
-        matches = [d for d in dishes if q in str(d.get("name", "")).lower()][:limit]
+        from tools.core.catalog_lookup import normalize_catalog_search_query, search_dishes as fuzzy_search_dishes
+
+        search_q = normalize_catalog_search_query(q) or q
+        matches = fuzzy_search_dishes(restaurant_id, search_q, limit=limit)
+        if not matches and search_q.lower() != q.lower():
+            matches = fuzzy_search_dishes(restaurant_id, q, limit=limit)
         if not matches:
             return f"No dishes matching '{query}'."
         return "\n".join(

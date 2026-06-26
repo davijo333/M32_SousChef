@@ -41,8 +41,11 @@ workflows:
         - update_ingredient
         - update_addon
         - link_dish_ingredients
+        - link_dish_ingredients_chat
         - link_addon_ingredients
+        - link_addon_ingredients_chat
         - link_addons_to_dish
+        - link_addons_to_dish_chat
       write_bills:
         - upload_purchase_orders
         - upload_sales_orders
@@ -61,7 +64,9 @@ workflows:
         then: inventory_* query
       - if: update existing + allowed fields
         then: update_*
-      - if: link recipe or ingredients on existing dish
+      - if: link recipe or ingredients on existing dish (chat)
+        then: link_dish_ingredients_chat
+      - if: link recipe or ingredients on existing dish (handoff)
         then: link_dish_ingredients
       - if: duplicate on add dish
         then: stop_warn_chef → update_dish

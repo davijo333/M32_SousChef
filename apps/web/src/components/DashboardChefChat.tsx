@@ -13,6 +13,7 @@ import {
   MAX_CHAT_SESSIONS,
 } from "@backend/services/chat/chat-retention";
 import { CREATIVE_CUE_SELECT_EVENT } from "@backend/services/creative/creative-cue-events";
+import { dispatchCatalogUpdated } from "@/lib/catalog-updated";
 import {
   buildAssistantGreeting,
   CHAT_ASSISTANT_PROFILES,
@@ -55,7 +56,8 @@ import {
   threadHasKitchenBuildInThread,
   threadHasRecipeDraft,
 } from "@backend/services/chat/chat-recipe-draft";
-import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
+import { threadAwaitingLinkConfirmGate } from "@backend/services/chat/workflow-state";
+import { detectUploadConfirm, threadAwaitingUploadConfirm } from "@backend/services/chat/chat-upload-intent";
 import {
   isRecipeBuildReadyToFinalize,
   type RecipeBuildPlanPayload,
@@ -113,11 +115,9 @@ function MinimizeChatButton({
 }
 
 function sessionTabShellClass(active: boolean, equalWidth = false): string {
-  return `flex w-full items-center rounded-md transition ${
+  return `sc-chat-session-tab w-full ${
     equalWidth ? "min-w-0 flex-1" : "max-w-[11rem]"
-  } ${
-    active ? "bg-chef-sage text-white" : "bg-chef-muted text-chef-text-muted hover:text-chef-text"
-  }`;
+  } ${active ? "sc-chat-session-tab-active" : "sc-chat-session-tab-idle"}`;
 }
 
 function SessionTabsRow({
@@ -155,7 +155,7 @@ function SessionTabsRow({
       ))}
       {draftNewChat && (
         <span
-          className={`flex items-center rounded-md bg-chef-sage px-3 py-2 text-center text-sm font-medium text-white ${
+          className={`sc-chat-session-tab sc-chat-session-tab-active flex items-center px-3 py-2 text-center text-sm font-medium ${
             equalWidth ? "min-w-0 flex-1" : ""
           }`}
         >
@@ -213,6 +213,81 @@ function SessionTab({
   );
 }
 
+function ChatComposer({
+  inputRef,
+  value,
+  onChange,
+  onSubmit,
+  placeholder,
+  disabled,
+  canSend,
+  sending,
+  isDock,
+  showAttachments,
+  attachClipControl,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (event: React.FormEvent) => void;
+  placeholder: string;
+  disabled: boolean;
+  canSend: boolean;
+  sending: boolean;
+  isDock: boolean;
+  showAttachments: boolean;
+  attachClipControl: React.ReactNode;
+}) {
+  return (
+    <form onSubmit={onSubmit} className={isDock ? "p-3 sm:p-4" : "p-3"}>
+      <div className={`sc-chat-composer ${isDock ? "min-h-[3.25rem] px-2.5 py-2" : "min-h-[2.75rem] px-2 py-1.5"}`}>
+        {showAttachments ? attachClipControl : null}
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className={`sc-chat-composer-input ${isDock ? "py-2 text-base" : "py-1.5 text-sm"}`}
+        />
+        <button
+          type="submit"
+          disabled={disabled || !canSend}
+          className={`sc-chat-send-btn ${isDock ? "h-10 w-10" : ""}`}
+          aria-label="Send message"
+        >
+          {sending ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <Send className="h-4 w-4" aria-hidden />
+          )}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ThinkingIndicator() {
+  return (
+    <div className="flex items-start gap-2.5">
+      <AgentBrandMark agent="head_chef" size={28} className="mt-0.5 shrink-0 opacity-90" />
+      <div className="sc-chat-bubble-assistant flex items-center gap-3 py-3">
+        <span className="inline-flex items-center gap-1" aria-hidden>
+          {[0, 150, 300].map((delay) => (
+            <span
+              key={delay}
+              className="h-2 w-2 animate-bounce rounded-full bg-chef-sage/55"
+              style={{ animationDelay: `${delay}ms`, animationDuration: "1s" }}
+            />
+          ))}
+        </span>
+        <span className="text-sm text-chef-text-muted">Sous Chef is thinking…</span>
+      </div>
+    </div>
+  );
+}
+
 function hasUserMessages(messages: ChatMessage[]): boolean {
   return messages.some((message) => message.role === "user");
 }
@@ -251,6 +326,7 @@ export function DashboardChefChat({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inFlightSendRef = useRef(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [uploadEntries, setUploadEntries] = useState<ChatBillUploadEntry[]>([]);
   const [parsingBatch, setParsingBatch] = useState(false);
@@ -330,6 +406,7 @@ export function DashboardChefChat({
 
   const loadConversation = useCallback(
     async (selectedId?: string | null, expandOnLoad?: boolean) => {
+      if (inFlightSendRef.current) return;
       try {
         const params = new URLSearchParams();
         if (selectedId) params.set("conversationId", selectedId);
@@ -512,6 +589,7 @@ export function DashboardChefChat({
       createdSuggestion?: { name: string };
       recipeBuildPlan?: RecipeBuildPlanPayload | null;
       kitchenBuildComplete?: boolean;
+      catalogWriteComplete?: boolean;
       catalogDraft?: ChatCatalogDraftPayload | null;
       activity?: {
         orchestrator: "head";
@@ -528,9 +606,10 @@ export function DashboardChefChat({
     if (data.recipeBuildPlan !== undefined) {
       setRecipeBuildPlan(data.recipeBuildPlan);
     }
-    if (data.kitchenBuildComplete) {
+    if (data.kitchenBuildComplete || data.catalogWriteComplete) {
       setCatalogDraft(null);
       setRecipeBuildPlan(null);
+      dispatchCatalogUpdated();
     }
     if (data.catalogDraft !== undefined) {
       setCatalogDraft(data.catalogDraft);
@@ -545,6 +624,9 @@ export function DashboardChefChat({
         activity: data.activity ?? null,
       },
     ]);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    });
   }
 
   async function sendMessage(
@@ -591,37 +673,42 @@ export function DashboardChefChat({
       awaitingPriceConfirm,
       awaitingReorderConfirm,
     });
+    const linkConfirmGate = threadAwaitingLinkConfirmGate(threadHistory);
+    const effectiveKitchenBuildConfirm = kitchenBuildConfirm && !linkConfirmGate;
     const anyReorderConfirm =
       (reorderConfirm ||
         (awaitingReorderConfirm && /\b(yes|confirm|go ahead|proceed)\b/i.test(trimmed))) &&
-      !kitchenBuildConfirm &&
+      !effectiveKitchenBuildConfirm &&
       (!awaitingPriceConfirm || awaitingReorderConfirm);
     const anyPriceConfirm =
       (sellPriceConfirm ||
         priceAdjustConfirm ||
         (awaitingPriceConfirm && /\b(yes|confirm|go ahead|proceed)\b/i.test(trimmed))) &&
-      !kitchenBuildConfirm &&
+      !effectiveKitchenBuildConfirm &&
       !awaitingKitchenSave &&
       !awaitingReorderConfirm;
     const confirmSuggestionFlag =
       confirmSuggestion ||
       (!anyPriceConfirm &&
         !awaitingPriceConfirm &&
-        !anyReorderConfirm &&
-        !awaitingReorderConfirm &&
-        kitchenBuildConfirm) ||
+      !anyReorderConfirm &&
+      !awaitingReorderConfirm &&
+      effectiveKitchenBuildConfirm) ||
       (detectPantryAddZeroConfirm(trimmed) && activeCatalogDraft?.itemType === "dish") ||
       (Boolean(outboundRecipeBuild) &&
         isRecipeBuildReadyToFinalize(outboundRecipeBuild) &&
         menuConfirmPattern);
-    const confirmUpload = detectUploadConfirm(trimmed);
+    const confirmUpload =
+      detectUploadConfirm(trimmed) &&
+      (filesToSend.length > 0 || threadAwaitingUploadConfirm(threadHistory));
+    const confirmBusiness = confirmUpload;
     const confirmInventory =
       confirmUpload ||
       detectPantryAddZeroConfirm(trimmed) ||
-      (!anyPriceConfirm && !anyReorderConfirm && kitchenBuildConfirm) ||
+      linkConfirmGate ||
+      (!anyPriceConfirm && !anyReorderConfirm && effectiveKitchenBuildConfirm) ||
       anyPriceConfirm ||
       anyReorderConfirm;
-    const confirmBusiness = confirmUpload;
 
     setExpanded(true);
     setSending(true);
@@ -679,6 +766,7 @@ export function DashboardChefChat({
 
     setMessages((prev) => [...prev, { role: "user", content: outbound }]);
     setInput("");
+    inFlightSendRef.current = true;
 
     try {
       const res = await fetch("/api/dashboard/chat", {
@@ -708,6 +796,7 @@ export function DashboardChefChat({
         createdSuggestion?: { name: string };
         recipeBuildPlan?: RecipeBuildPlanPayload | null;
         kitchenBuildComplete?: boolean;
+        catalogWriteComplete?: boolean;
         catalogDraft?: ChatCatalogDraftPayload | null;
         activity?: {
           orchestrator: "head";
@@ -726,6 +815,7 @@ export function DashboardChefChat({
       setError("Network error — try again.");
       setMessages((prev) => prev.slice(0, -1));
     } finally {
+      inFlightSendRef.current = false;
       setSending(false);
       focusChatInput();
     }
@@ -768,7 +858,7 @@ export function DashboardChefChat({
         {attachments.map((file, index) => (
           <span
             key={`${file.name}-${file.size}-${index}`}
-            className="inline-flex max-w-[12rem] items-center gap-1 rounded-full border border-chef-border bg-chef-muted/70 px-2.5 py-1 text-xs text-chef-text"
+            className="inline-flex max-w-[12rem] items-center gap-1 rounded-full border border-chef-border/80 bg-white px-2.5 py-1 text-xs text-chef-text shadow-sm"
           >
             <span className="truncate">{file.name}</span>
             <button
@@ -810,8 +900,6 @@ export function DashboardChefChat({
       </div>
     ) : null;
 
-  const inputAttachPad = showAttachments ? "pr-11" : "";
-
   const attachClipControl = showAttachments ? (
     <Tooltip
       content={
@@ -831,7 +919,7 @@ export function DashboardChefChat({
           event.stopPropagation();
           openFilePicker();
         }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 sc-icon-btn h-8 w-8 p-0 text-chef-text-muted hover:text-chef-text disabled:opacity-40"
+        className="sc-icon-btn h-8 w-8 shrink-0 p-0 text-chef-text-muted hover:text-chef-text disabled:opacity-40"
         aria-label="Attach files"
       >
         <Paperclip className="h-4 w-4" aria-hidden />
@@ -840,20 +928,20 @@ export function DashboardChefChat({
   ) : null;
 
   const cardClass = isDock
-    ? "rounded-2xl border border-chef-border/80 bg-white/95 shadow-[0_8px_32px_rgba(42,38,34,0.12)] backdrop-blur-md"
+    ? "rounded-2xl border border-chef-border/70 bg-white/98 shadow-[0_12px_40px_rgba(42,38,34,0.14)] backdrop-blur-md"
     : "sc-card";
 
   if (!loaded) {
     return (
-      <div className={`${cardClass} flex flex-col gap-2 p-3 sm:p-4`}>
+      <div className={`${cardClass} flex flex-col gap-3 p-3 sm:p-4`}>
         <div className="grid grid-cols-5 gap-1.5">
           {Array.from({ length: MAX_CHAT_SESSIONS }).map((_, index) => (
-            <div key={index} className="h-8 animate-pulse rounded-md bg-chef-muted" />
+            <div key={index} className="h-8 animate-pulse rounded-lg bg-chef-muted" />
           ))}
         </div>
-        <div className="flex gap-2">
-          <div className={`flex-1 animate-pulse rounded-xl bg-chef-muted ${isDock ? "h-12" : "h-10"}`} />
-          <div className={`animate-pulse rounded-xl bg-chef-muted ${isDock ? "h-12 w-24" : "h-10 w-[4.5rem]"}`} />
+        <div className={`sc-chat-composer animate-pulse ${isDock ? "min-h-[3.5rem]" : "min-h-[2.75rem]"}`}>
+          <div className="h-8 flex-1 rounded-lg bg-chef-muted/80" />
+          <div className="h-9 w-9 shrink-0 rounded-xl bg-chef-muted" />
         </div>
       </div>
     );
@@ -923,50 +1011,46 @@ export function DashboardChefChat({
             {attachmentChips}
             {uploadProgressBanner}
             {uploadLockBanner}
-            <div className="flex gap-2">
-              <div className="relative min-w-0 flex-1">
-                <input
-                  type="text"
-                  readOnly
-                  value=""
-                  placeholder={CHAT_PLACEHOLDER.head}
-                  onClick={openChat}
-                  onFocus={openChat}
-                  aria-label={`Open ${profile.name}`}
-                  className={`w-full cursor-text rounded-xl border border-chef-border bg-white px-4 text-chef-text placeholder:text-chef-text-muted/70 ${inputAttachPad} ${
-                    isDock ? "py-4 text-lg" : "py-2.5 text-base"
-                  }`}
-                />
-                {attachClipControl}
-              </div>
-              <button
-                type="button"
-                onClick={openChat}
-                className={`sc-btn-primary shrink-0 ${isDock ? "px-6 py-4 text-base" : "px-4 py-2.5 text-base"}`}
-              >
-                <Send className="h-4 w-4" aria-hidden />
-                <span className="sr-only sm:not-sr-only">Send</span>
-              </button>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={openChat}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  openChat();
+                }
+              }}
+              aria-label={`Open ${profile.name}`}
+              className={`sc-chat-composer cursor-text ${isDock ? "min-h-[3.5rem] px-2.5 py-2" : "min-h-[2.75rem] px-2 py-1.5"}`}
+            >
+              {showAttachments ? attachClipControl : null}
+              <span className={`sc-chat-composer-input cursor-text ${isDock ? "py-2 text-base" : "py-1.5 text-sm"} text-chef-text-muted/70`}>
+                {CHAT_PLACEHOLDER.head}
+              </span>
+              <span className={`sc-chat-send-btn pointer-events-none opacity-60 ${isDock ? "h-10 w-10" : ""}`} aria-hidden>
+                <Send className="h-4 w-4" />
+              </span>
             </div>
           </div>
         ) : (
           <>
-            <div className="border-b border-chef-border bg-chef-muted/40 px-3 py-2">
+            <div className="border-b border-chef-border/80 bg-gradient-to-r from-chef-muted/50 via-white to-chef-sage-light/20 px-3 py-2.5 sm:px-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex min-w-0 flex-col gap-2">
-                  <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm font-medium text-chef-text">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold text-chef-text">
                     {!hideHeaderIdentity && (
                       <>
-                        <AgentBrandMark agent={chatContextAgent()} size={32} />
+                        <AgentBrandMark agent={chatContextAgent()} size={28} />
                         {profile.name}
-                        <span className="font-normal text-chef-text-muted">·</span>
                       </>
                     )}
-                    <span className="font-normal text-chef-text-muted">{profile.tagline}</span>
-                    <span className="mx-1.5 font-normal text-chef-text-muted">·</span>
-                    <span className="font-normal text-chef-text-muted">
-                      Up to {MAX_CHAT_SESSIONS} saved chats
-                    </span>
+                    {hideHeaderIdentity && <span>{profile.name}</span>}
+                  </p>
+                  <p className="text-xs text-chef-text-muted">
+                    {profile.tagline}
+                    <span className="mx-1.5 text-chef-border">·</span>
+                    {sessions.length}/{MAX_CHAT_SESSIONS} saved
                   </p>
                 </div>
                 <div className="flex gap-1.5">
@@ -1000,39 +1084,42 @@ export function DashboardChefChat({
 
             <div
               ref={scrollRef}
-              className={`space-y-3 overflow-y-auto p-4 sm:p-5 ${
+              className={`sc-chat-messages p-4 sm:p-5 ${
                 isDock ? "max-h-[min(32rem,58vh)]" : "max-h-[20rem]"
               }`}
             >
               {showGreeting && (
-                <div className="flex justify-start">
-                  <div className="max-w-[90%] rounded-2xl bg-chef-muted px-4 py-2.5 text-sm leading-relaxed text-chef-text whitespace-pre-line">
+                <div className="flex items-start gap-2.5">
+                  <AgentBrandMark agent="head_chef" size={28} className="mt-0.5 shrink-0 opacity-90" />
+                  <div className="sc-chat-bubble-assistant max-w-[85%] whitespace-pre-line">
                     {renderChatMarkdown(greeting)}
                   </div>
                 </div>
               )}
 
               {messages.map((msg, index) => {
+                const isUser = msg.role === "user";
                 return (
                   <div
                     key={index}
-                    className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}
+                    className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
                   >
                     <div
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                      className={`flex max-w-[90%] gap-2.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}
                     >
+                      {!isUser && (
+                        <AgentBrandMark agent="head_chef" size={28} className="mt-0.5 shrink-0 opacity-90" />
+                      )}
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-line ${
-                          msg.role === "user"
-                            ? "bg-chef-sage text-white"
-                            : "bg-chef-muted text-chef-text"
+                        className={`min-w-0 whitespace-pre-line ${
+                          isUser ? "sc-chat-bubble-user" : "sc-chat-bubble-assistant"
                         }`}
                       >
                         {renderChatMarkdown(msg.content)}
                       </div>
                     </div>
                     {msg.role === "assistant" && msg.activity?.consultedAgents?.length ? (
-                      <p className="mt-1 px-1 text-xs text-chef-text-muted">
+                      <p className="mt-1.5 pl-9 text-xs text-chef-text-muted">
                         Consulted with{" "}
                         {msg.activity.consultedAgents
                           .map((agent) => CHAT_ASSISTANT_PROFILES[agent].name)
@@ -1058,16 +1145,18 @@ export function DashboardChefChat({
               )}
 
               {showSampleQueries && (
-                <div className="space-y-2 pt-1">
-                  <p className="text-xs font-medium text-chef-text-muted">Sample Queries</p>
-                  <div className="flex flex-wrap gap-2">
+                <div className="space-y-2.5 pt-1">
+                  <p className="pl-9 text-xs font-semibold uppercase tracking-wide text-chef-text-muted/80">
+                    Try asking
+                  </p>
+                  <div className="flex flex-wrap gap-2 pl-9">
                     {effectiveTryAsking.map((query) => (
                       <button
                         key={query}
                         type="button"
                         onClick={() => queuePrompt(query)}
                         disabled={sending}
-                        className="rounded-full border border-chef-border bg-white px-3 py-1.5 text-left text-xs text-chef-text hover:border-chef-sage hover:bg-chef-sage-light/30 disabled:opacity-50"
+                        className="sc-chat-suggestion"
                       >
                         {query}
                       </button>
@@ -1076,67 +1165,45 @@ export function DashboardChefChat({
                 </div>
               )}
 
-              {sending && (
-                <div className="space-y-1">
-                  <p className="flex items-center gap-2 text-sm text-chef-text-muted">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    Sous Chef is thinking…
-                  </p>
-                  <p className="text-xs text-chef-text-muted">
-                    Sous Chef may consult specialists before replying.
-                  </p>
-                </div>
-              )}
+              {sending && <ThinkingIndicator />}
             </div>
 
-            {error && <p className="px-4 pb-2 text-sm text-red-600">{error}</p>}
+            {error && (
+              <p className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </p>
+            )}
             {lastCreated && (
-              <p className="border-t border-chef-border bg-chef-sage-light/30 px-4 py-2 text-sm text-chef-text">
+              <p className="border-t border-chef-border bg-chef-sage-light/40 px-4 py-2.5 text-sm text-chef-text">
                 Added <span className="font-semibold">{lastCreated}</span> to Suggested.{" "}
-                <Link href="/recipes" className="font-medium text-chef-sage underline">
+                <Link href="/recipes" className="font-medium text-chef-sage underline underline-offset-2">
                   View in Recipes
                 </Link>
               </p>
             )}
 
-            <form
-              onSubmit={handleSubmit}
-              className={`flex flex-col gap-2 border-t border-chef-border bg-white/80 ${
-                isDock ? "p-3 sm:p-4" : "p-3"
-              }`}
-            >
-              {attachmentChips}
-              {uploadProgressBanner}
-              {uploadLockBanner}
-              <div className="flex gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    placeholder={CHAT_PLACEHOLDER.head}
-                    disabled={sending}
-                    className={`w-full rounded-xl border border-chef-border px-3 text-chef-text placeholder:text-chef-text-muted/70 ${inputAttachPad} ${
-                      isDock ? "py-3.5 text-base" : "py-2.5 text-sm"
-                    }`}
-                  />
-                  {attachClipControl}
+            <div className="border-t border-chef-border/80 bg-white/90">
+              {(attachmentChips || uploadProgressBanner || uploadLockBanner) && (
+                <div className="flex flex-col gap-2 px-3 pt-3 sm:px-4">
+                  {attachmentChips}
+                  {uploadProgressBanner}
+                  {uploadLockBanner}
                 </div>
-                <button
-                  type="submit"
-                  disabled={sending || !canSend}
-                  className={`sc-btn-primary shrink-0 ${isDock ? "px-6 py-4 text-base" : "px-4 py-2.5 text-base"}`}
-                >
-                  {sending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  ) : (
-                    <Send className="h-4 w-4" aria-hidden />
-                  )}
-                  <span className="sr-only sm:not-sr-only">Send</span>
-                </button>
-              </div>
-            </form>
+              )}
+              <ChatComposer
+                inputRef={inputRef}
+                value={input}
+                onChange={setInput}
+                onSubmit={handleSubmit}
+                placeholder={CHAT_PLACEHOLDER.head}
+                disabled={sending}
+                canSend={canSend}
+                sending={sending}
+                isDock={isDock}
+                showAttachments={showAttachments}
+                attachClipControl={attachClipControl}
+              />
+            </div>
           </>
         )}
       </div>

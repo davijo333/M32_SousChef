@@ -8,6 +8,7 @@ import { threadAwaitingPriceConfirm } from "@backend/services/chat/chat-price-ad
 import { isDishBrainstormReply } from "@backend/services/chat/dish-brainstorm";
 import { cleanMenuDishName, inferRecipeDraftDishName, threadAwaitingKitchenSaveConfirm } from "@backend/services/chat/chat-recipe-draft";
 import type { WorkflowStatePayload } from "@backend/services/chat/workflow-state";
+import { isLinkChatConfirmStep, isLinkChatWorkflow } from "@backend/services/chat/workflow-state";
 import { isWorkflowConfirmGate } from "@backend/services/chat/workflow-state";
 
 export const CONFIRM_OPTIONS = "(Yes/No/Update Instructions)";
@@ -44,9 +45,18 @@ const GENERIC_CONFIRM_RE =
 const DISH_PICK_ASK_RE =
   /\b(?:let me know which dish|which dish you(?:'d| would) like|confirm a dish or customize|modifications in mind)\b/i;
 
+/** Success lines after inventory/menu writes — must not get another confirm gate. */
+export const KITCHEN_ACTION_COMPLETE_RE =
+  /\b(?:(?:has )?been saved to (?:your )?kitchen|saved to (?:your )?kitchen|created (?:dish|add[\s-]?on)|updated (?:dish|add[\s-]?on)|linked (?:ingredient|add[\s-]?on)|(?:ingredient|add[\s-]?on).+\blinked\b|added pantry item|already linked|no change needed|updated add-on|created add-on|reorder level updated|sell price updated|confirmed — updating add-?on|linked dishes →)\b/i;
+
+export function replyIndicatesKitchenActionComplete(text: string): boolean {
+  return KITCHEN_ACTION_COMPLETE_RE.test((text ?? "").trim());
+}
+
 export type ConfirmGateKind =
   | "kitchen_build"
   | "kitchen_finalize"
+  | "link_confirm"
   | "dish_pick"
   | "catalog_create"
   | "price_change"
@@ -126,6 +136,8 @@ export function confirmGateCloser(kind: ConfirmGateKind, subject: string): strin
       return `Ready to add **${label || "this dish"}** to Kitchen with the recipe and suggested add-ons? ${CONFIRM_OPTIONS}`;
     case "kitchen_finalize":
       return `Ready to save **${label || "this dish"}** to Kitchen now? ${CONFIRM_OPTIONS}`;
+    case "link_confirm":
+      return `Ready to link **${label || "this"}**? ${CONFIRM_OPTIONS}`;
     case "dish_pick":
       return `Which dish — **1**, **2**, or **3**? (Yes = option 1, or reply with the name.) ${DISH_PICK_OPTIONS}`;
     case "catalog_create":
@@ -148,6 +160,14 @@ export function inferConfirmGateKind(
   workflowState: WorkflowStatePayload | null,
   history?: Array<{ role: string; content: string }>
 ): ConfirmGateKind | null {
+  if (isLinkChatWorkflow(workflowState)) {
+    if (isLinkChatConfirmStep(workflowState)) {
+      const text = (reply ?? "").trim();
+      if (text && hasConfirmOptions(text)) return null;
+      return "link_confirm";
+    }
+    return null;
+  }
   if (workflowState?.workflowId === "add_dish_from_chat") {
     if (workflowState.stepId === "pick_dish") return "dish_pick";
     if (workflowState.stepId === "confirm_dish_identity") return "catalog_create";
@@ -176,6 +196,11 @@ export function inferConfirmGateKind(
 
   const text = (reply ?? "").trim();
   if (!text) return null;
+  if (replyIndicatesKitchenActionComplete(text)) return null;
+  if (/\b(?:link|linking|attach)\b.+\badd[\s-]?on\b/i.test(text)) {
+    if (hasConfirmOptions(text)) return null;
+    return isLinkChatConfirmStep(workflowState) ? "link_confirm" : null;
+  }
 
   if (isDishBrainstormReply(text) || DISH_PICK_ASK_RE.test(text)) return "dish_pick";
   if (
@@ -191,7 +216,11 @@ export function inferConfirmGateKind(
   ) {
     return null;
   }
-  if (replyAsksKitchenSaveConfirm(text)) return "kitchen_build";
+  if (replyAsksKitchenSaveConfirm(text)) {
+    if (/\bwith the recipe and suggested add-?ons\b/i.test(text)) return "kitchen_build";
+    if (/\bready to save\b/i.test(text)) return "kitchen_finalize";
+    return "kitchen_build";
+  }
   if (PRICE_CONFIRM_RE.test(text)) return "price_change";
   if (replyAsksReorderConfirm(text)) return "reorder_change";
   if (BILL_CONFIRM_RE.test(text)) return "bill_upload";
@@ -201,10 +230,19 @@ export function inferConfirmGateKind(
   }
   if (GENERIC_CONFIRM_RE.test(text)) return "generic";
 
-  if (history?.length) {
+  if (history?.length && !replyIndicatesKitchenActionComplete(text)) {
     const lastAssistant = [...history].reverse().find((row) => row.role === "assistant")?.content;
-    if (lastAssistant && replyAsksAnyConfirmGate(lastAssistant)) {
-      if (replyAsksKitchenSaveConfirm(lastAssistant)) return "kitchen_build";
+    if (
+      lastAssistant &&
+      !replyIndicatesKitchenActionComplete(lastAssistant) &&
+      replyAsksAnyConfirmGate(lastAssistant)
+    ) {
+      if (replyAsksKitchenSaveConfirm(lastAssistant)) {
+        if (/\b(?:link|linking)\b.+\badd[\s-]?on\b/i.test(lastAssistant)) return "link_confirm";
+        if (/\bwith the recipe and suggested add-?ons\b/i.test(lastAssistant)) return "kitchen_build";
+        if (/\bready to save\b/i.test(lastAssistant)) return "kitchen_finalize";
+        return "kitchen_build";
+      }
       if (PRICE_CONFIRM_RE.test(lastAssistant)) return "price_change";
       if (replyAsksReorderConfirm(lastAssistant)) return "reorder_change";
     }
@@ -213,12 +251,77 @@ export function inferConfirmGateKind(
   return null;
 }
 
+function inferLinkSubjectFromReply(reply: string): string {
+  const match = reply.match(
+    /\b(?:link|linking|attach)\s+(?:add[\s-]?on\s+)?\*\*([^*]+)\*\*\s+to\s+\*\*([^*]+)\*\*/i
+  );
+  if (match) {
+    return `${match[1].trim()} to ${match[2].trim()}`;
+  }
+  const plain = reply.match(
+    /\b(?:link|linking|attach)\s+(?:add[\s-]?on\s+)?(.+?)\s+to\s+(?:the\s+)?(.+?)(?:[.?!]|$)/i
+  );
+  if (plain) {
+    const left = plain[1].trim().replace(/\*+/g, "");
+    const right = plain[2].trim().replace(/\*+/g, "");
+    if (left && right && !/^(it|that|this)$/i.test(left)) {
+      return `${left} to ${right}`;
+    }
+  }
+  return "";
+}
+
+function inferLinkSubjectFromHistory(
+  history: Array<{ role: string; content: string }>
+): string {
+  for (const row of [...history].reverse()) {
+    if (row.role !== "assistant" && row.role !== "user") continue;
+    const subject = inferLinkSubjectFromReply(row.content);
+    if (subject) return subject;
+    const addonMatch = row.content.match(/\*\*([^*]+)\*\*\s*\(`addon-[^`]+`\)/i);
+    const dishMatch = row.content.match(/\blink it to\s+(.+?)(?:[.?!]|$)/i);
+    if (addonMatch && dishMatch) {
+      return `${addonMatch[1].trim()} to ${dishMatch[1].trim()}`;
+    }
+  }
+  return "";
+}
+
 function inferConfirmSubject(
   kind: ConfirmGateKind,
   reply: string,
   workflowState: WorkflowStatePayload | null,
   history: Array<{ role: string; content: string }>
 ): string {
+  if (kind === "link_confirm") {
+    const baggage = workflowState?.baggage ?? {};
+    if (workflowState?.workflowId === "link_addon_ingredients_chat") {
+      const ingredient = String(
+        baggage.link_ingredient_name ?? baggage.linkIngredientName ?? ""
+      ).trim();
+      const addon = String(
+        baggage.locked_name ??
+          baggage.lockedName ??
+          workflowState?.lockedName ??
+          ""
+      ).trim();
+      if (ingredient && addon) {
+        return `${ingredient} to ${addon} add-on`;
+      }
+    }
+    const addon = String(baggage.addon_name ?? baggage.addonName ?? "").trim();
+    const dish = String(
+      baggage.locked_name ??
+        baggage.lockedName ??
+        workflowState?.lockedName ??
+        ""
+    ).trim();
+    if (addon && dish) {
+      return `${addon} to ${cleanMenuDishName(dish) || dish}`;
+    }
+    return inferLinkSubjectFromReply(reply) || inferLinkSubjectFromHistory(history) || "";
+  }
+
   if (workflowState?.lockedName?.trim()) {
     return cleanMenuDishName(workflowState.lockedName.trim()) || workflowState.lockedName.trim();
   }
@@ -282,6 +385,10 @@ export function sanitizeHeadChatReply(
 ): string {
   let text = stripGenericClosers((reply ?? "").trim());
   if (!text) return text;
+
+  if (replyIndicatesKitchenActionComplete(text)) {
+    return collapseMultipleQuestionBlocks(text);
+  }
 
   const kind =
     options.kitchenBuildComplete || options.finalizeAttempted

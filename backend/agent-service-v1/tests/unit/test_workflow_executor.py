@@ -17,6 +17,7 @@ def _ctx(
     upload_batch: dict | None = None,
     consult_results: dict | None = None,
     history: list | None = None,
+    confirm_inventory: bool = False,
 ):
     return SimpleNamespace(
         restaurant_id="r1",
@@ -31,7 +32,7 @@ def _ctx(
         catalog_draft=catalog_draft,
         upload_batch=upload_batch,
         recipe_build=None,
-        confirm_inventory=False,
+        confirm_inventory=confirm_inventory,
         confirm_business=False,
         confirm_suggestion=False,
         consult_results=consult_results or {},
@@ -418,4 +419,40 @@ def test_cancel_clears_active_workflow():
     step, new_state = resolve_step_for_turn(_ctx("never mind", workflow_state=state))
     assert step is None
     assert new_state is None
+
+
+def test_link_addon_dish_confirm_yes_advances_to_persist_and_clears():
+    state = WorkflowState(
+        "link_addons_to_dish_chat",
+        "confirm_link",
+        locked_name="Pancakes",
+        baggage={
+            "addon_name": "glazed bananas",
+            "addon_slug": "addon-glazed-bananas",
+            "locked_dish_slug": "dish-pancakes",
+            "merged_linked_dish_slugs": ["dish-pancakes"],
+        },
+    )
+    step, new_state = resolve_step_for_turn(_ctx("yes", workflow_state=state, confirm_inventory=True))
+    assert step is not None
+    assert step.workflow_id == "link_addons_to_dish_chat"
+    assert step.step_id == "persist"
+    assert step.delegate == ["inventory"]
+    assert new_state is not None
+    assert new_state.step_id == "persist"
+
+    ctx = _ctx(
+        "yes",
+        workflow_state=new_state,
+        confirm_inventory=True,
+        consult_results={
+            "inventory": "Update add-on **glazed bananas**: linked dishes → 1.\n\nConfirmed — updating add-on."
+        },
+    )
+    cleared = advance_after_turn(
+        ctx,
+        workflow_id=step.workflow_id,
+        step_id=step.step_id,
+    )
+    assert cleared is None
 

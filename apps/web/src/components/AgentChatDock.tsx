@@ -88,7 +88,7 @@ export function AgentChatDock({
           <button
             type="button"
             onClick={() => setFloatingOpen(true)}
-            className="pointer-events-auto shrink-0 rounded-full transition hover:opacity-95"
+            className="pointer-events-auto shrink-0 rounded-full shadow-[0_8px_24px_rgba(42,38,34,0.18)] ring-2 ring-white transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(42,38,34,0.22)]"
             aria-label={`Open ${agentLabel} chat`}
           >
             <AgentCircleCard agent="head" size={72} highlighted priority />
@@ -110,7 +110,7 @@ export function AgentChatDock({
             <button
               type="button"
               onClick={() => setFloatingOpen(false)}
-              className="shrink-0 rounded-full transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/40"
+              className="shrink-0 rounded-full shadow-[0_8px_24px_rgba(42,38,34,0.16)] ring-2 ring-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/40"
               aria-label="Minimize chat"
             >
               <AgentCircleCard agent="head" size={88} highlighted priority />

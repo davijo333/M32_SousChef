@@ -34,6 +34,7 @@ import {
 import type { DishDetail, DishIngredientLink } from "@backend/services/catalog/dish-payload";
 import type { IngredientLabel } from "@backend/models/Ingredient";
 import { useNewCatalogReview, NEW_CATALOG_EVENT } from "@/lib/use-new-catalog-review";
+import { CATALOG_UPDATED_EVENT } from "@/lib/catalog-updated";
 
 type IngredientRow = IngredientDetail & {
   category: string;
@@ -143,7 +144,11 @@ export default function KitchenControlPage() {
       void load();
     };
     window.addEventListener(NEW_CATALOG_EVENT, refresh);
-    return () => window.removeEventListener(NEW_CATALOG_EVENT, refresh);
+    window.addEventListener(CATALOG_UPDATED_EVENT, refresh);
+    return () => {
+      window.removeEventListener(NEW_CATALOG_EVENT, refresh);
+      window.removeEventListener(CATALOG_UPDATED_EVENT, refresh);
+    };
   }, [load]);
 
   const kitchen = data ?? {

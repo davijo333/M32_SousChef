@@ -13,7 +13,8 @@ workflows:
     trigger:
       - how much
       - qty of
-      - do we have
+      - do we have on hand
+      - how much do we have
       - on hand
       - in stock
     workers:
@@ -194,12 +195,20 @@ workflows:
     status: catalogued
     mode: read
     trigger:
+      - do we have
+      - do we have any
       - do we have a dish
+      - dishes named
+      - dishes that are
       - on the menu
       - is there an addon
       - lookup dish
+      - what add-ons
+      - list add-ons
+      - add-ons we have
+      - show add-ons
     workers:
-      inventory: query_menu search_dishes, addons
+      inventory: query_menu search_dishes, addons; query_inventory search (pantry)
 
     steps:
       - id: intake

@@ -1,0 +1,256 @@
+# Standalone chat link workflows — direct tool calls (no ReAct).
+# Embedded link_addons_to_dish in addition-dish.yaml and catalogued update-link.yaml
+# workflows are unchanged for update_dish handoffs and add-dish builds.
+
+workflows:
+  - id: link_dish_ingredients_chat
+    name: Link dish ingredients (chat)
+    status: catalogued
+    direct_delegate: true
+    description: >
+      Add or remove ingredient links on an existing dish from a single chef message.
+      Uses direct inventory tools instead of ReAct consult loops.
+
+    trigger:
+      - add ingredient to dish
+      - remove ingredient from dish
+      - link ingredients to dish
+      - update recipe for dish
+      - change recipe ingredients
+
+    not_this_workflow:
+      - new dish full build → add_dish_from_chat
+      - dish name/price only → update_dish
+
+    workers:
+      inventory: search, link
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Parse dish name and ingredient link request (name, qty, unit) from chef message.
+        outputs: [locked_slug, locked_name, link_ingredient_name, link_mode]
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu dish_detail
+        on_missing: stop_not_found
+        on_found: check_recipe_ingredients
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        action: Dish not found. Offer add_dish_from_chat or correct name.
+        clears_workflow_state: true
+        handoff_workflow: add_dish_from_chat
+
+      - id: check_recipe_ingredients
+        order: 4
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory search
+        branch:
+          ingredient_names_missing_empty: confirm_link
+          has_missing: confirm_new_ingredients
+
+      - id: confirm_new_ingredients
+        order: 5
+        actor: sous_chef
+        gate: confirm_new_ingredients
+        skip_when: ingredient_names_missing_empty
+        action: Confirm adding gap pantry items at qty 0 before linking dish.
+        on_confirm: add_new_ingredients
+        on_reject: confirm_link
+        reply_gate: pantry_gaps
+
+      - id: add_new_ingredients
+        order: 6
+        actor: sous_chef
+        sub_workflow: add_ingredient_from_chat
+        sub_workflow_mode: sub_call
+        skip_when: ingredient_names_missing_empty
+        next: confirm_link
+
+      - id: confirm_link
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: >
+          Ready to update ingredient links for **{locked_name}**?
+        on_confirm: persist
+        on_reject: intake
+        reply_gate: catalog_create
+
+      - id: persist
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu link_dish_ingredients
+        on_success: completed
+
+      - id: completed
+        order: 9
+        actor: sous_chef
+        action: Report linked slugs, dish name, recipe pricing status.
+        clears_workflow_state: true
+
+  - id: link_addons_to_dish_chat
+    name: Link add-ons to dish (chat)
+    status: catalogued
+    direct_delegate: true
+    description: >
+      Attach an existing add-on to an existing dish via linked_dish_slugs from chat.
+
+    trigger:
+      - link addons to dish
+      - attach modifier to dish
+      - link add-on to dish
+      - attach add-on
+
+    workers:
+      inventory: update_addon linked_dish_slugs
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Lock dish and add-on names from chef message.
+        outputs: [locked_dish_slug, addon_name, locked_name]
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu dish_detail
+        on_missing: stop_not_found
+        on_found: confirm_link
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        handoff_workflow: add_dish_from_chat
+        clears_workflow_state: true
+
+      - id: confirm_link
+        order: 4
+        actor: sous_chef
+        gate: confirm_inventory
+        action: Show add-on to link for dish and ask chef to confirm.
+        on_confirm: persist
+        on_reject: intake
+        reply_gate: catalog_create
+
+      - id: persist
+        order: 5
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu update_addon
+        on_success: completed
+
+      - id: completed
+        order: 6
+        actor: sous_chef
+        clears_workflow_state: true
+
+  - id: link_addon_ingredients_chat
+    name: Link add-on ingredients (chat)
+    status: catalogued
+    direct_delegate: true
+    description: >
+      Add or remove pantry ingredient links on an existing add-on from chat.
+      Uses direct inventory tools instead of ReAct consult loops.
+
+    trigger:
+      - link addon ingredients
+      - add ingredient to addon
+      - link ingredient to add-on
+      - update addon recipe
+      - change addon recipe ingredients
+
+    not_this_workflow:
+      - new add-on → add_addon_from_chat
+      - add-on metadata only → update_addon
+      - link add-on to dish → link_addons_to_dish_chat
+
+    workers:
+      inventory: search, link
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Parse add-on name and ingredient link request from chef message.
+        outputs: [locked_slug, locked_name, link_ingredient_name, link_mode]
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu addon_detail
+        on_missing: stop_not_found
+        on_found: check_recipe_ingredients
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        action: Add-on not found. Offer add_addon_from_chat or correct name.
+        clears_workflow_state: true
+        handoff_workflow: add_addon_from_chat
+
+      - id: check_recipe_ingredients
+        order: 4
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory search
+        branch:
+          ingredient_names_missing_empty: confirm_link
+          has_missing: confirm_new_ingredients
+
+      - id: confirm_new_ingredients
+        order: 5
+        actor: sous_chef
+        gate: confirm_new_ingredients
+        skip_when: ingredient_names_missing_empty
+        action: Confirm adding gap pantry items at qty 0 before linking add-on.
+        on_confirm: add_new_ingredients
+        on_reject: confirm_link
+        reply_gate: pantry_gaps
+
+      - id: add_new_ingredients
+        order: 6
+        actor: sous_chef
+        sub_workflow: add_ingredient_from_chat
+        sub_workflow_mode: sub_call
+        skip_when: ingredient_names_missing_empty
+        next: confirm_link
+
+      - id: confirm_link
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: >
+          Ready to update ingredient links for add-on **{locked_name}**?
+        on_confirm: persist
+        on_reject: intake
+        reply_gate: catalog_create
+
+      - id: persist
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu link_addon_ingredients
+        on_success: completed
+
+      - id: completed
+        order: 9
+        actor: sous_chef
+        action: Summarize linked slugs on add-on.
+        clears_workflow_state: true

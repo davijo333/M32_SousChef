@@ -47,7 +47,7 @@ import {
   threadHasKitchenBuildInThread,
   threadHasRecipeDraft,
 } from "@backend/services/chat/chat-recipe-draft";
-import { sanitizeHeadChatReply } from "@backend/services/chat/chat-reply-sanitizer";
+import { sanitizeHeadChatReply, replyIndicatesKitchenActionComplete } from "@backend/services/chat/chat-reply-sanitizer";
 import { inferRecipeBuildPlanFromThread } from "@backend/services/chat/recipe-build-from-thread";
 import { isAgentAssistantLabel } from "@backend/services/agents/dashboard-chat";
 import {
@@ -88,7 +88,7 @@ import {
 } from "@backend/services/chat/chat-reorder-adjustment";
 import { resolveReorderThresholdForAdjustment } from "@backend/services/chat/chat-reorder-adjustment-server";
 import { resolveSellPriceForAdjustment } from "@backend/services/chat/chat-price-adjustment-server";
-import { detectUploadConfirm } from "@backend/services/chat/chat-upload-intent";
+import { detectUploadConfirm, hasReadyUploadBatch, threadAwaitingUploadConfirm } from "@backend/services/chat/chat-upload-intent";
 import {
   detectBusinessConfirm,
   detectInventoryConfirm,
@@ -96,7 +96,14 @@ import {
   executeAgentPendingAction,
   executeConfirmedUploadBatch,
 } from "@backend/services/agents/agent-pending-actions";
-import { isWorkflowConfirmGate, isActiveAddDishWorkflow, normalizeWorkflowState } from "@backend/services/chat/workflow-state";
+import {
+  isWorkflowConfirmGate,
+  isActiveAddDishWorkflow,
+  isLinkChatWorkflow,
+  mergeAgentWorkflowState,
+  normalizeWorkflowState,
+  threadAwaitingLinkConfirmGate,
+} from "@backend/services/chat/workflow-state";
 
 const USE_LANGCHAIN_AGENTS = process.env.USE_LANGCHAIN_AGENTS !== "false";
 
@@ -442,9 +449,6 @@ export async function POST(req: Request) {
   const confirmBusiness =
     Boolean(body.confirmBusiness) ||
     detectBusinessConfirm(userMessage, agentContextParam ?? contextParam);
-  const confirmUpload =
-    detectUploadConfirm(userMessage) &&
-    (contextParam === "head" || agentContextParam === "head" || !agentContextParam);
 
   if (!isDashboardChatContext(contextParam)) {
     return NextResponse.json({ error: "Invalid context" }, { status: 400 });
@@ -504,13 +508,6 @@ export async function POST(req: Request) {
   if (connectAgent) {
     handoff = connectAgent;
     agentContext = connectAgent;
-  } else if (context === "head") {
-    const uploadHandoff =
-      detectUploadBatchHandoffTarget(uploadBatch, confirmUpload) ??
-      (confirmUpload ? await pendingUploadHandoffTarget(userId) : null);
-    if (uploadHandoff) {
-      // Keep the user in Sous Chef; supervisor will consult specialists behind the scenes.
-    }
   }
 
   let cues;
@@ -568,6 +565,22 @@ Check query_menu suggested/active and query_inventory search before proposing du
     content: m.content,
   }));
 
+  const confirmUpload =
+    detectUploadConfirm(userMessage) &&
+    (hasReadyUploadBatch(uploadBatch) ||
+      recentBillIds.length > 0 ||
+      threadAwaitingUploadConfirm(history)) &&
+    (contextParam === "head" || agentContextParam === "head" || !agentContextParam);
+
+  if (context === "head" && !connectAgent) {
+    const uploadHandoff =
+      detectUploadBatchHandoffTarget(uploadBatch, confirmUpload) ??
+      (confirmUpload ? await pendingUploadHandoffTarget(userId) : null);
+    if (uploadHandoff) {
+      // Keep the user in Sous Chef; supervisor will consult specialists behind the scenes.
+    }
+  }
+
   let workflowState = normalizeWorkflowState(conversation.workflowState ?? null);
   const activeWorkflowConfirmGate = isWorkflowConfirmGate(workflowState);
   const activeAddDishWorkflow = isActiveAddDishWorkflow(workflowState);
@@ -592,6 +605,8 @@ Check query_menu suggested/active and query_inventory search before proposing du
   const isKitchenBuildConfirm =
     !activeWorkflowConfirmGate &&
     !activeAddDishWorkflow &&
+    !isLinkChatWorkflow(workflowState) &&
+    !threadAwaitingLinkConfirmGate(history) &&
     detectKitchenBuildConfirm(userMessage, {
     hasCatalogDish: catalogDishForKitchenBuild,
     hasRecipePlan: Boolean(recipeBuild),
@@ -657,6 +672,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
     }
   }
   let kitchenBuildComplete = false;
+  let catalogWriteComplete = false;
   let builtDishName: string | null = null;
   let finalizeAttempted = false;
 
@@ -1066,7 +1082,8 @@ Check query_menu suggested/active and query_inventory search before proposing du
     !finalizeAttempted &&
     !threadPlan &&
     !awaitingPriceConfirm &&
-    !activeAddDishWorkflow
+    !activeAddDishWorkflow &&
+    !isLinkChatWorkflow(workflowState)
   ) {
     finalizeAttempted = true;
     reply =
@@ -1139,10 +1156,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
       if (agentResult.recipeBuildPlan) {
         recipeBuildPlan = agentResult.recipeBuildPlan;
       }
-      if (agentResult.workflowState !== undefined) {
-        workflowState =
-          normalizeWorkflowState(agentResult.workflowState) ?? workflowState;
-      }
+      workflowState = mergeAgentWorkflowState(workflowState, agentResult.workflowState);
       if (confirmUpload) {
         try {
           const batchResult = await executeConfirmedUploadBatch(
@@ -1158,7 +1172,8 @@ Check query_menu suggested/active and query_inventory search before proposing du
             (reply ? `${reply}\n\n` : "") +
             (err instanceof Error ? err.message : "Could not process uploaded bills.");
         }
-      } else if (agentResult.pendingAction) {
+      }
+      if (agentResult.pendingAction) {
         try {
           const actionMessage = await executeAgentPendingAction(
             restaurantId,
@@ -1172,7 +1187,10 @@ Check query_menu suggested/active and query_inventory search before proposing du
             workflowState = null;
             reply = actionMessage;
           } else {
-            reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
+            reply = actionMessage;
+            finalizeAttempted = true;
+            catalogWriteComplete = true;
+            workflowState = null;
           }
           if (kitchenBuildComplete && builtDishName) {
             const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
@@ -1290,6 +1308,9 @@ Check query_menu suggested/active and query_inventory search before proposing du
 
   if (kitchenBuildComplete) {
     workflowState = null;
+    catalogWriteComplete = true;
+  } else if (finalizeAttempted && replyIndicatesKitchenActionComplete(reply)) {
+    catalogWriteComplete = true;
   }
 
   conversation.workflowState = workflowState;
@@ -1332,6 +1353,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
     createdSuggestion,
     recipeBuildPlan,
     kitchenBuildComplete,
+    catalogWriteComplete,
     catalogDraft: effectiveCatalogDraft ?? null,
     choices: chatChoices,
     activity,

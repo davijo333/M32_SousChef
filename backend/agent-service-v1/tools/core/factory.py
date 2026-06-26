@@ -972,10 +972,13 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
             changes = []
             addon_slug = str(addon.get("slug", slug))
             dish_links = linked_dish_slugs
+            effective_class = classification.strip()
+            if effective_class == "other" and not draft.get("classification"):
+                effective_class = ""
             link_only = dish_links is not None and not any(
                 [
                     name.strip(),
-                    classification.strip() or draft.get("classification", ""),
+                    effective_class,
                     description.strip() or draft.get("description", ""),
                     sell_price is not None,
                     image_url.strip() or draft.get("image_url", ""),
@@ -1005,8 +1008,8 @@ def _apply_menu(restaurant_id: str, ctx: CoreToolContext):
                 PendingAction(
                     kind="update_addon",
                     slug=addon_slug,
-                    description=(description.strip() or draft.get("description", "")) or None,
-                    classification=(classification.strip() or draft.get("classification", "")) or None,
+                    description=(description.strip() or draft.get("description", "")) or None if not link_only else None,
+                    classification=(classification.strip() or draft.get("classification", "")) or None if not link_only else None,
                     sellPrice=float(sell_price) if sell_price is not None else None,
                     linkedDishSlugs=dish_links if link_only else None,
                 )

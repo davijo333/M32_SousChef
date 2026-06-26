@@ -134,6 +134,59 @@ body {
       var(--sc-chat-dock-offset, 5.5rem) + env(safe-area-inset-bottom, 0px)
     );
   }
+
+  .sc-chat-composer {
+    @apply flex items-center gap-1 rounded-2xl border border-chef-border bg-white px-2 shadow-[0_1px_4px_rgba(42,38,34,0.05)] transition-[box-shadow,border-color] focus-within:border-chef-sage/60 focus-within:shadow-[0_2px_12px_rgba(74,107,82,0.12)] focus-within:ring-2 focus-within:ring-chef-sage/15;
+  }
+
+  .sc-chat-composer-input {
+    @apply min-w-0 flex-1 border-0 bg-transparent text-chef-text placeholder:text-chef-text-muted/70 focus:outline-none focus:ring-0;
+  }
+
+  .sc-chat-send-btn {
+    @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-chef-sage text-white transition hover:bg-chef-sage-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-chef-sage/40 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .sc-chat-bubble-user {
+    @apply rounded-2xl rounded-br-md bg-chef-sage px-4 py-2.5 text-sm leading-relaxed text-white shadow-[0_1px_2px_rgba(42,38,34,0.08)];
+  }
+
+  .sc-chat-bubble-assistant {
+    @apply rounded-2xl rounded-bl-md border border-chef-border/60 bg-white px-4 py-2.5 text-sm leading-relaxed text-chef-text shadow-[0_1px_3px_rgba(42,38,34,0.05)];
+  }
+
+  .sc-chat-suggestion {
+    @apply rounded-full border border-chef-border/80 bg-white px-3.5 py-2 text-left text-xs leading-snug text-chef-text shadow-sm transition hover:-translate-y-px hover:border-chef-sage/50 hover:bg-chef-sage-light/40 hover:shadow disabled:opacity-50;
+  }
+
+  .sc-chat-session-tab {
+    @apply flex min-w-0 items-center rounded-lg border transition;
+  }
+
+  .sc-chat-session-tab-active {
+    @apply border-chef-sage/30 bg-chef-sage text-white shadow-sm;
+  }
+
+  .sc-chat-session-tab-idle {
+    @apply border-transparent bg-chef-muted/80 text-chef-text-muted hover:border-chef-border hover:bg-chef-muted hover:text-chef-text;
+  }
+
+  .sc-chat-messages {
+    @apply relative space-y-4 overflow-y-auto bg-gradient-to-b from-chef-muted/25 via-chef-cream/40 to-chef-muted/20;
+    scrollbar-gutter: stable;
+  }
+
+  .sc-chat-messages::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sc-chat-messages::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-chef-border/80;
+  }
+
+  .sc-chat-messages::-webkit-scrollbar-thumb:hover {
+    @apply bg-chef-text-muted/40;
+  }
 }
 
 @layer utilities {

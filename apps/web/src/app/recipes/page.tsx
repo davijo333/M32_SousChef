@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CATALOG_UPDATED_EVENT } from "@/lib/catalog-updated";
 import { CatalogEmptyPrompt } from "@/components/CatalogEmptyPrompt";
 import { SousChefChatDock } from "@/components/SousChefChatDock";
 import { KitchenClassifiedGrid } from "@/components/KitchenClassifiedGrid";
@@ -174,6 +175,14 @@ export default function RecipesPage() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const refresh = () => {
+      void load();
+    };
+    window.addEventListener(CATALOG_UPDATED_EVENT, refresh);
+    return () => window.removeEventListener(CATALOG_UPDATED_EVENT, refresh);
   }, [load]);
 
   useEffect(() => {

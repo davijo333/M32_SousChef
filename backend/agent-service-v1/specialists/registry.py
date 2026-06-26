@@ -13,6 +13,17 @@ def run_specialist_consult(
     step_id: str | None,
 ) -> str:
     """Run one specialist for the current workflow step."""
+    from specialists.direct_link import try_direct_link
+    from specialists.direct_read import try_direct_read
+
+    direct = try_direct_link(ctx, step_id)
+    if direct is not None:
+        return direct
+
+    direct = try_direct_read(ctx, step_id)
+    if direct is not None:
+        return direct
+
     task_prompt = _build_task_prompt(ctx, step_id)
 
     if specialist_id == "inventory":
