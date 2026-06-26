@@ -1,0 +1,204 @@
+# Business queries — read-only sales, margin, promotion
+#
+# Source: golden-business-query-workflows.md
+
+workflows:
+  - id: business_sales_summary
+    name: Sales / finance summary
+    status: catalogued
+    mode: read
+    trigger:
+      - sales this week
+      - how did we do
+      - POS totals
+      - finance summary
+    workers:
+      business: query_business finance_summary
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Parse finance period (week/month/dashboard default).
+        outputs: [finance_period]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business finance_summary
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: >
+          Quote sales, tickets, COGS, gross profit from tool. Never confuse bulk
+          supplier purchases with per-ticket COGS.
+
+  - id: business_dish_pricing
+    name: Dish or add-on margin / sell price
+    status: catalogued
+    mode: read
+    trigger:
+      - margin on
+      - sell price of
+      - food cost for
+      - pricing for
+    workers:
+      business: query_business dish_pricing, addon_pricing, suggest_price_change
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [locked_name, entity_kind]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business dish_pricing
+        on_multiple_matches: disambiguate
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Quote sell price (menu) and margin $ from DB.
+        optional_follow_up:
+          - set price → update_dish or update_addon
+
+      - id: disambiguate
+        order: 4
+        actor: sous_chef
+        gate: disambiguate
+        reply_gate: other
+
+  - id: business_margin_rank
+    name: Margin / velocity ranking
+    status: catalogued
+    mode: read
+    trigger:
+      - best margins
+      - worst sellers
+      - top dishes
+      - slow sellers
+    workers:
+      business: query_business margins, top_selling, slow_sellers
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [rank_direction, limit]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business margins
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: List with sell $ and margin $ per line.
+        optional_follow_up:
+          - promote one → promotion_special or business_promotion_read
+
+  - id: business_promotion_read
+    name: Promotion opportunities
+    status: catalogued
+    mode: read
+    trigger:
+      - what to promote
+      - feature this week
+      - promotion opportunities
+    workers:
+      business: query_business promotion_opportunities
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [focus_margin_or_velocity]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business promotion_opportunities
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - draft special → promotion_special or add_dish_from_chat
+
+  - id: business_reorder_advice
+    name: Reorder threshold advice
+    status: catalogued
+    mode: read
+    trigger:
+      - what reorder level should
+      - how much to stock
+      - reorder advice
+    workers:
+      business: query_business suggest_reorder_threshold
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [locked_name]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business suggest_reorder_threshold
+        on_multiple_matches: disambiguate
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - set reorder → update_ingredient
+
+      - id: disambiguate
+        order: 4
+        actor: sous_chef
+        gate: disambiguate
+        reply_gate: other
+
+  - id: business_purchases_vs_cogs
+    name: Supplier spend vs ticket COGS
+    status: catalogued
+    mode: read
+    trigger:
+      - supplier spend
+      - purchases vs sales
+      - why is COGS different
+    workers:
+      business: query_business finance_summary, sales_vs_purchases
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [finance_period]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [business]
+        tool: query_business sales_vs_purchases
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Explain bulk restock vs per-ticket COGS in plain language.

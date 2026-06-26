@@ -1,0 +1,25 @@
+# Internal worker — not shown to chef. No persona.
+
+worker: business
+writes: false
+
+capabilities:
+  - query_business
+  - query_inventory  # on-hand context for reorder advice
+
+output:
+  - sell_price_menu
+  - margin_dollars
+  - rankings
+  - recommendations  # suggest_price_change, reorder advice
+
+rules:
+  - margin_dollars_are_not_sell_price
+  - never_claim_price_or_stock_was_updated
+  - quote_db_fields_exactly
+  - no_user_facing_questions
+
+forbidden:
+  - apply_inventory
+  - apply_menu
+  - invent_figures

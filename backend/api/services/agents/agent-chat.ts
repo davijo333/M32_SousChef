@@ -5,6 +5,7 @@ import type { DashboardChatContext } from "@backend/services/agents/dashboard-ch
 import type { SpecialistHandoffTarget } from "@backend/services/agents/chat-handoff";
 import type { AgentPendingAction, AgentNavigationAction } from "@backend/services/agents/agent-pending-actions";
 import type { SuggestionNote } from "@backend/services/creative/suggestion-notes";
+import type { WorkflowStatePayload } from "@backend/services/chat/workflow-state";
 
 const AGENT_URL = process.env.AGENT_SERVICE_URL ?? "http://localhost:8000";
 
@@ -32,6 +33,7 @@ export type AgentChatRequest = {
   confirmSuggestion?: boolean;
   confirmInventory?: boolean;
   confirmBusiness?: boolean;
+  workflowState?: WorkflowStatePayload | null;
 };
 
 export type AgentChatResponse = {
@@ -52,6 +54,7 @@ export type AgentChatResponse = {
     orchestrator: "head";
     consultedAgents: Array<"inventory" | "business" | "create">;
   } | null;
+  workflowState: WorkflowStatePayload | null;
 };
 
 export async function callLangChainAgentChat(
@@ -82,6 +85,7 @@ export async function callLangChainAgentChat(
         confirm_suggestion: Boolean(payload.confirmSuggestion),
         confirm_inventory: Boolean(payload.confirmInventory),
         confirm_business: Boolean(payload.confirmBusiness),
+        workflow_state: payload.workflowState ?? null,
       }),
       signal: AbortSignal.timeout(120_000),
     });
@@ -109,6 +113,7 @@ export async function callLangChainAgentChat(
         orchestrator?: "head";
         consulted_agents?: Array<"inventory" | "business" | "create">;
       } | null;
+      workflow_state?: WorkflowStatePayload | null;
     };
 
     return {
@@ -133,6 +138,7 @@ export async function callLangChainAgentChat(
             consultedAgents: data.activity.consulted_agents ?? [],
           }
         : null,
+      workflowState: data.workflow_state ?? null,
     };
   } catch (err) {
     console.error("LangChain agent chat error:", err);

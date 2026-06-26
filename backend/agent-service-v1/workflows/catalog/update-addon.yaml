@@ -1,0 +1,138 @@
+# Add-on update — update_addon only
+#
+# Writable attributes ONLY: classification (class), sell_price (price), description.
+# After attribute persist, optional route_post_persist → link_addon_ingredients.
+
+workflows:
+  - id: update_addon
+    name: Update menu add-on
+    status: catalogued
+    description: >
+      Update add-on class, sell price, or description. Optionally continue to
+      link_addon_ingredients when chef also requested ingredient link changes.
+
+    allowed_fields: [classification, sell_price, description]
+
+    trigger:
+      - update add-on
+      - update addon
+      - change addon price
+      - update addon description
+      - change addon class
+    trigger_when:
+      catalog_draft_item_type: addon
+
+    not_this_workflow:
+      - rename add-on → not supported
+      - new add-on → add_addon_from_chat
+      - link-only to dish → link_addons_to_dish
+      - ingredient link-only → link_addon_ingredients
+
+    workers:
+      inventory: lookup, update_addon, apply_price_change
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Lock add-on slug or name for lookup. Parse attribute changes — **only**
+          classification, sell_price, or description for persist. If chef also asked
+          to change ingredient links, set needs_ingredient_link for route_post_persist.
+        outputs:
+          - locked_slug
+          - locked_name
+          - requested_changes
+          - needs_ingredient_link
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu addons
+        task_template: |
+          Fetch add-on **{locked_name}** or slug `{locked_slug}`.
+          Return classification, sellPrice, description (name for display only).
+        on_missing: stop_not_found
+        on_found: preview
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        action: >
+          Add-on not found. Offer add_addon_from_chat or correct name.
+        clears_workflow_state: true
+        handoff_workflow: add_addon_from_chat
+
+      - id: preview
+        order: 4
+        actor: sous_chef
+        action: Show current vs requested for class, price, description only.
+        next: route_change_type
+
+      - id: route_change_type
+        order: 5
+        actor: sous_chef
+        branch:
+          sell_price_only: confirm_price
+          has_classification_change: confirm_class
+          default: confirm_update
+
+      - id: confirm_class
+        order: 6
+        actor: sous_chef
+        gate: confirm_class
+        on_confirm: confirm_update
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: confirm_price
+        order: 6
+        actor: sous_chef
+        gate: confirm_price
+        on_confirm: persist_price
+        on_reject: preview
+        reply_gate: price_change
+
+      - id: confirm_update
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: Ready to apply changes to **{locked_name}**?
+        on_confirm: persist
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: persist_price
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory apply_price_change
+        on_success: route_post_persist
+
+      - id: persist
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu update_addon
+        task_template: |
+          update_addon for slug `{locked_slug}` — only classification, description,
+          and/or sell_price. Never pass name, linked_dish_slugs, or ingredient links.
+        on_success: route_post_persist
+
+      - id: route_post_persist
+        order: 9
+        actor: sous_chef
+        branch:
+          needs_ingredient_link: link_addon_ingredients
+          default: completed
+
+      - id: completed
+        order: 10
+        actor: sous_chef
+        action: Quote updated class, price, and/or description from tool output.
+        clears_workflow_state: true
+
+    sub_workflow_handoffs:
+      link_addon_ingredients: update-link.yaml

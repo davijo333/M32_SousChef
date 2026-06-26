@@ -1,0 +1,5 @@
+# Internal metadata only — chef never sees this voice.
+
+context: business
+worker: business
+writes: false

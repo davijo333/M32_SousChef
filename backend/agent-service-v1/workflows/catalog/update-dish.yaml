@@ -1,0 +1,158 @@
+# Dish update — update_dish only
+#
+# Source: golden-update-workflows.md#dish-update-golden-workflow
+# Walkthrough: ../docs/update-workflows.md
+#
+# Writable attributes ONLY: classification (class), sell_price (price), description.
+# After attribute persist, optional route_post_persist → link workflows when chef also needs links.
+
+workflows:
+  - id: update_dish
+    name: Update existing dish
+    status: catalogued
+    description: >
+      Update dish class, sell price, or POS description. Optionally continue to
+      link_dish_ingredients or link_addons_to_dish when chef also requested link changes.
+
+    allowed_fields: [classification, sell_price, description]
+
+    trigger:
+      - update dish
+      - change sell price
+      - change dish price
+      - update description
+      - change classification
+      - change class
+    trigger_when:
+      catalog_draft_item_type: dish
+      existing_dish_slug: true
+
+    not_this_workflow:
+      - rename dish → not supported; dish name is locked after create
+      - new dish → add_dish_from_chat
+      - link-only (no attribute change) → link_dish_ingredients or link_addons_to_dish
+      - margin read only → query.yaml
+
+    workers:
+      inventory: lookup, preview, update_dish, apply_price_change
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Lock dish slug or name for lookup. Parse attribute changes — **only**
+          classification, sell_price, or description for the persist step. If chef
+          also asked to change ingredient links, recipe, or add-ons, set
+          needs_ingredient_link and/or needs_addon_link for route_post_persist
+          (handled by link workflows — not in update_dish persist).
+        outputs:
+          - locked_slug
+          - locked_name
+          - requested_changes
+          - needs_ingredient_link
+          - needs_addon_link
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu dish_detail
+        task_template: |
+          Fetch dish **{locked_name}** or slug `{locked_slug}`.
+          Return classification, sellPrice, description (and name for display only).
+        on_missing: stop_not_found
+        on_found: preview
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        action: >
+          Dish not found. Offer add_dish_from_chat or correct the name.
+        clears_workflow_state: true
+        handoff_workflow: add_dish_from_chat
+
+      - id: preview
+        order: 4
+        actor: sous_chef
+        action: >
+          Show current vs requested for allowed fields only (class, price, description).
+          Sell-price-only → confirm_price. Classification change → confirm_class first.
+        outputs: [preview_diff]
+        next: route_change_type
+
+      - id: route_change_type
+        order: 5
+        actor: sous_chef
+        branch:
+          sell_price_only: confirm_price
+          has_classification_change: confirm_class
+          default: confirm_update
+
+      - id: confirm_class
+        order: 6
+        actor: sous_chef
+        gate: confirm_class
+        action: Present new dish class; chef confirms or corrects.
+        on_confirm: confirm_update
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: confirm_price
+        order: 6
+        actor: sous_chef
+        gate: confirm_price
+        action: Confirm sell price change only.
+        on_confirm: persist_price
+        on_reject: preview
+        reply_gate: price_change
+
+      - id: confirm_update
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: Ready to apply changes to **{locked_name}**?
+        on_confirm: persist
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: persist_price
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory apply_price_change
+        task_template: |
+          apply_price_change for dish slug `{locked_slug}` — sell_price only.
+        on_success: route_post_persist
+
+      - id: persist
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu update_dish
+        task_template: |
+          update_dish for slug `{locked_slug}` — only classification, description,
+          and/or sell_price from confirmed preview. Never pass name or links.
+        on_success: route_post_persist
+
+      - id: route_post_persist
+        order: 9
+        actor: sous_chef
+        action: >
+          After attribute update, continue only if chef also requested link changes.
+          Otherwise summarize and complete.
+        branch:
+          needs_ingredient_link: link_dish_ingredients
+          needs_addon_link: link_addons_to_dish
+          default: completed
+
+      - id: completed
+        order: 10
+        actor: sous_chef
+        action: Quote updated class, price, and/or description from tool output.
+        clears_workflow_state: true
+
+    sub_workflow_handoffs:
+      link_dish_ingredients: update-link.yaml
+      link_addons_to_dish: update-link.yaml

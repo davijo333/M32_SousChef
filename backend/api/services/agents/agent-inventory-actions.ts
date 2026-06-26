@@ -123,6 +123,8 @@ export async function executeInventoryPendingAction(
     if (action.inventoryUnit?.trim()) ing.inventoryUnit = action.inventoryUnit.trim();
     if (action.currentQty != null) ing.currentQty = action.currentQty;
     if (action.reorderThreshold != null) ing.reorderThreshold = action.reorderThreshold;
+    if (action.lastPurchasePrice != null) ing.lastPurchasePrice = action.lastPurchasePrice;
+    if (action.lastOrderedQty != null) ing.lastOrderedQty = action.lastOrderedQty;
     if (action.brandName !== undefined) {
       ing.brandName = action.brandName.trim() || undefined;
     }

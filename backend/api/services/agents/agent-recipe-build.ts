@@ -1,5 +1,11 @@
-import { dishSlugFromName } from "@backend/services/catalog/dish-catalog";
+import { cleanMenuDishName } from "@backend/services/chat/chat-recipe-draft";
 import { executeInventoryPendingAction } from "@backend/services/agents/agent-inventory-actions";
+import { dishSlugFromName } from "@backend/services/catalog/dish-catalog";
+import {
+  buildIngredientSku,
+  findExistingIngredient,
+  basicPantryName,
+} from "@backend/services/catalog/ingredient-identity";
 import { normalizeIngredientLinks } from "@backend/services/catalog/dish-payload";
 import { dishMissingPhotos } from "@backend/services/catalog/dish-image-status";
 import { ingredientMissingPhotos } from "@backend/services/catalog/ingredient-image-status";
@@ -98,43 +104,51 @@ async function ensureIngredient(
     return existingSlug;
   }
 
-  const pantryName = row.name.trim();
+  const pantryName = basicPantryName(row.name.trim());
+  const inventoryUnit = row.unit || "each";
+  const identity = {
+    name: pantryName,
+    inventoryUnit,
+    rawName: row.name.trim(),
+    sku: buildIngredientSku({
+      name: pantryName,
+      inventoryUnit,
+      rawName: row.name.trim(),
+    }),
+  };
 
-  const baseSlug = ingredientSlugFromName(pantryName);
-  let existing = await Ingredient.findOne({ restaurantId, slug: baseSlug });
-  if (!existing) {
-    existing = await Ingredient.findOne({
-      restaurantId,
-      name: new RegExp(`^${pantryName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+  const linked = await findExistingIngredient(restaurantId, identity);
+  if (linked) return linked.slug;
+
+  try {
+    await executeInventoryPendingAction(restaurantId, {
+      kind: "create_ingredient",
+      ingredientName: pantryName,
+      label: "new",
+      inventoryUnit,
+      currentQty: 0,
+      category: "misc",
     });
-  }
-  if (existing) {
-    return existing.slug;
+  } catch (err) {
+    const afterError = await findExistingIngredient(restaurantId, identity);
+    if (afterError) return afterError.slug;
+    throw err;
   }
 
-  await executeInventoryPendingAction(restaurantId, {
-    kind: "create_ingredient",
-    ingredientName: pantryName,
-    label: "new",
-    inventoryUnit: row.unit || "each",
-    currentQty: 0,
-    category: "misc",
+  const created = await findExistingIngredient(restaurantId, identity);
+  if (created) return created.slug;
+
+  const slug = ingredientSlugFromName(pantryName);
+  const bySlug = await Ingredient.findOne({ restaurantId, slug });
+  if (bySlug) return bySlug.slug;
+
+  const byName = await Ingredient.findOne({
+    restaurantId,
+    name: new RegExp(`^${pantryName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
   });
+  if (byName) return byName.slug;
 
-  let slug = ingredientSlugFromName(pantryName);
-  let ing = await Ingredient.findOne({ restaurantId, slug });
-  if (!ing) {
-    ing = await Ingredient.findOne({
-      restaurantId,
-      name: new RegExp(`^${pantryName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
-    });
-  }
-  if (!ing) {
-    throw new Error(`Could not create ingredient for **${pantryName}**.`);
-  }
-  slug = ing.slug;
-
-  return slug;
+  throw new Error(`Could not create ingredient for **${pantryName}**.`);
 }
 
 export async function executeFinalizeRecipeBuild(
@@ -143,20 +157,28 @@ export async function executeFinalizeRecipeBuild(
 ): Promise<string> {
   await connectDB();
 
-  const dishName = plan.dishName?.trim();
+  const dishName =
+    cleanMenuDishName(plan.dishName?.trim() || "") || plan.dishName?.trim();
   if (!dishName) throw new Error("Recipe plan missing dish name.");
   const instructionSteps = (plan.instructions ?? [])
     .map((step) => String(step).trim())
     .filter(Boolean);
 
-  const messages: string[] = [formatRecipeBuildSelectionSummary(plan), ""];
+  const messages: string[] = [formatRecipeBuildSelectionSummary({ ...plan, dishName }), ""];
   const links: Array<{ ingredientSlug: string; qtyPerServing: number; unit: string }> = [];
 
+  const seenIngredientKeys = new Set<string>();
   for (const row of plan.ingredients ?? []) {
+    const pantryName = basicPantryName(row.name);
+    const dedupeKey = pantryName.toLowerCase();
+    if (seenIngredientKeys.has(dedupeKey)) continue;
+    seenIngredientKeys.add(dedupeKey);
     const preExisting = await Ingredient.findOne({
       restaurantId,
-      slug: ingredientSlugFromName(row.name),
-    }).select("slug").lean();
+      slug: ingredientSlugFromName(pantryName),
+    })
+      .select("slug")
+      .lean();
     const slug = await ensureIngredient(restaurantId, row);
     links.push({
       ingredientSlug: slug,

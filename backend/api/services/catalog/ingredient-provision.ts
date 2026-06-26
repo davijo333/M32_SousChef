@@ -1,4 +1,9 @@
 import { executeInventoryPendingAction } from "@backend/services/agents/agent-inventory-actions";
+import {
+  basicPantryName,
+  buildIngredientSku,
+  findExistingIngredient,
+} from "@backend/services/catalog/ingredient-identity";
 import { Ingredient } from "@backend/models/Ingredient";
 
 export function ingredientSlugFromName(name: string): string {
@@ -14,7 +19,7 @@ export async function ensureIngredientSlug(
   token: string,
   options?: { inventoryUnit?: string; category?: string }
 ): Promise<string> {
-  const key = token.trim();
+  const key = basicPantryName(token.trim());
   if (!key) throw new Error("Empty ingredient reference");
 
   if (key.startsWith("ing-")) {
@@ -22,34 +27,40 @@ export async function ensureIngredientSlug(
     if (bySlug) return bySlug.slug;
   }
 
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  let ing = await Ingredient.findOne({
-    restaurantId,
-    name: new RegExp(`^${escaped}$`, "i"),
-  });
-  if (ing) return ing.slug;
+  const inventoryUnit = options?.inventoryUnit ?? "each";
+  const identity = {
+    name: key,
+    inventoryUnit,
+    rawName: token.trim(),
+    sku: buildIngredientSku({ name: key, inventoryUnit, rawName: token.trim() }),
+  };
+
+  const linked = await findExistingIngredient(restaurantId, identity);
+  if (linked) return linked.slug;
+
+  try {
+    await executeInventoryPendingAction(restaurantId, {
+      kind: "create_ingredient",
+      ingredientName: key,
+      label: "new",
+      inventoryUnit,
+      currentQty: 0,
+      category: options?.category ?? "misc",
+    });
+  } catch (err) {
+    const afterError = await findExistingIngredient(restaurantId, identity);
+    if (afterError) return afterError.slug;
+    throw err;
+  }
+
+  const created = await findExistingIngredient(restaurantId, identity);
+  if (created) return created.slug;
 
   const slug = ingredientSlugFromName(key);
-  ing = await Ingredient.findOne({ restaurantId, slug });
-  if (ing) return ing.slug;
+  const bySlug = await Ingredient.findOne({ restaurantId, slug });
+  if (bySlug) return bySlug.slug;
 
-  await executeInventoryPendingAction(restaurantId, {
-    kind: "create_ingredient",
-    ingredientName: key,
-    label: "new",
-    inventoryUnit: options?.inventoryUnit ?? "each",
-    currentQty: 0,
-    category: options?.category ?? "misc",
-  });
-
-  ing =
-    (await Ingredient.findOne({ restaurantId, slug })) ??
-    (await Ingredient.findOne({
-      restaurantId,
-      name: new RegExp(`^${escaped}$`, "i"),
-    }));
-  if (!ing) throw new Error(`Could not create pantry item **${key}**.`);
-  return ing.slug;
+  throw new Error(`Could not create pantry item **${key}**.`);
 }
 
 export async function ensureIngredientSlugs(

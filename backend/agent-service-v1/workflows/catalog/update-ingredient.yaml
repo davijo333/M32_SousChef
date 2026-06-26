@@ -1,0 +1,139 @@
+# Pantry ingredient update — update_ingredient only
+#
+# Writable attributes ONLY: category, current_qty (available), reorder_threshold,
+# last_purchase_price (previous cost), last_ordered_qty (previous order quantity).
+
+workflows:
+  - id: update_ingredient
+    name: Update pantry ingredient
+    status: catalogued
+    description: >
+      Update pantry category, available quantity, reorder level, previous cost,
+      or previous order quantity. No rename or brand changes.
+
+    allowed_fields:
+      - category
+      - current_qty
+      - reorder_threshold
+      - last_purchase_price
+      - last_ordered_qty
+
+    trigger:
+      - update ingredient
+      - change reorder
+      - reorder level
+      - change on hand
+      - available quantity
+      - previous cost
+      - last purchase price
+      - previous order quantity
+      - update pantry
+    trigger_when:
+      catalog_draft_item_type: ingredient
+
+    not_this_workflow:
+      - rename ingredient → not supported
+      - new pantry row → add_ingredient_from_chat
+      - dish recipe change → link_dish_ingredients
+
+    workers:
+      inventory: lookup, update_ingredient, update_reorder_threshold
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Lock ingredient slug or name for lookup. Parse changes — **only** category,
+          current_qty (available quantity), reorder_threshold, last_purchase_price
+          (previous cost), last_ordered_qty (previous order quantity). Reject name/brand.
+        outputs: [locked_slug, locked_name, requested_changes]
+        next: lookup
+
+      - id: lookup
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory ingredient_detail
+        task_template: |
+          Fetch pantry row **{locked_name}** or slug `{locked_slug}`.
+          Return category, currentQty, reorderThreshold, lastPurchasePrice,
+          lastOrderedQty (name for display only).
+        on_missing: stop_not_found
+        on_found: preview
+
+      - id: stop_not_found
+        order: 3
+        actor: sous_chef
+        action: >
+          Ingredient not in pantry. Offer add_ingredient_from_chat or correct name.
+        clears_workflow_state: true
+        handoff_workflow: add_ingredient_from_chat
+
+      - id: preview
+        order: 4
+        actor: sous_chef
+        action: >
+          Show current vs requested for allowed fields only. Map chef language:
+          available quantity → current_qty; previous cost → last_purchase_price;
+          previous order quantity → last_ordered_qty.
+        next: route_change_type
+
+      - id: route_change_type
+        order: 5
+        actor: sous_chef
+        branch:
+          reorder_only: confirm_reorder
+          has_category_change: confirm_class
+          default: confirm_update
+
+      - id: confirm_class
+        order: 6
+        actor: sous_chef
+        gate: confirm_class
+        action: Present new ingredient category; chef confirms or corrects.
+        on_confirm: confirm_update
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: confirm_reorder
+        order: 6
+        actor: sous_chef
+        gate: confirm_reorder
+        action: Confirm reorder level change only.
+        on_confirm: persist_reorder
+        on_reject: preview
+        reply_gate: reorder_level
+
+      - id: confirm_update
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: Ready to apply changes to **{locked_name}**?
+        on_confirm: persist
+        on_reject: preview
+        reply_gate: catalog_create
+
+      - id: persist_reorder
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory update_reorder_threshold
+        on_success: completed
+
+      - id: persist
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory update_ingredient
+        task_template: |
+          update_ingredient for slug `{locked_slug}` — only category, currentQty,
+          lastPurchasePrice, lastOrderedQty as confirmed. Reorder-only may use
+          update_reorder_threshold instead. Never pass name or brandName.
+        on_success: completed
+
+      - id: completed
+        order: 9
+        actor: sous_chef
+        action: Quote updated pantry fields from tool output.
+        clears_workflow_state: true

@@ -38,7 +38,7 @@ railway variables set \
   OPENAI_API_KEY="$OPENAI_API_KEY" \
   MONGODB_URI='${{MongoDB.MONGO_URL}}' \
   --service agent-service
-railway up --service agent-service --path-as-root backend/agent-service --detach
+railway up --service agent-service --path-as-root backend/agent-service-v1 --detach
 
 AGENT_URL="$(railway domain --service agent-service 2>/dev/null | tail -1 || true)"
 if [[ -z "$AGENT_URL" ]]; then

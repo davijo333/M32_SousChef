@@ -1,0 +1,142 @@
+# Pantry ingredient addition — add_ingredient_from_chat only
+#
+# Source: golden-addition-workflows.md#ingredient-addition-golden-workflow
+# Worker: inventory only (no create)
+
+workflows:
+  - id: add_ingredient_from_chat
+    name: Add pantry ingredient
+    status: catalogued
+    description: >
+      Add a pantry row at qty 0 (label new). Inventory only. Standalone when chef adds
+      pantry directly; sub-called from add_new_ingredients during dish/add-on build for
+      names that failed pantry search only.
+
+    invocation_modes:
+      standalone:
+        on_duplicate: stop_warn_chef
+        gates: [confirm_category, confirm_create]
+      sub_call:
+        when_parent: [add_dish_from_chat, add_addon_from_chat]
+        input_from_parent: ingredient_names_missing
+        on_duplicate: return_existing_slug
+        skip_gates: [confirm_create]
+        gates: [confirm_category]
+
+    intake_modes:
+      name_only:
+        when: chef states ingredient name in message
+        then: lookup
+      image_only:
+        when: product photo / catalog_draft ingredient image
+        then: image_context → confirm_name_from_image → lookup
+      name_and_image:
+        when: name in message + photo
+        then: vision enriches category hint; chef name wins unless corrected
+
+    trigger:
+      - add ingredient
+      - add to pantry
+      - create ingredient
+    trigger_when:
+      catalog_draft_item_type: ingredient
+
+    not_this_workflow:
+      - add dish → addition-dish.yaml
+      - add add-on → addition-addon.yaml
+
+    workers:
+      inventory: search, create, images
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Parse name; detect catalog_draft / photo; set intake_mode.
+        outputs: [intake_mode, locked_name, catalog_draft]
+        next: route_intake
+
+      - id: route_intake
+        order: 2
+        actor: sous_chef
+        branch:
+          name_only: lookup
+          image_only: image_context
+          name_and_image: image_context
+
+      - id: image_context
+        order: 3
+        actor: sous_chef
+        action: >
+          Vision — general pantry name, category hint, brand in description only.
+          Chef correction overrides photo label.
+        next: confirm_name_from_image
+
+      - id: confirm_name_from_image
+        order: 4
+        actor: sous_chef
+        gate: confirm_dish
+        action: Chef confirms or corrects pantry item name from photo.
+        on_confirm: lookup
+        reply_gate: catalog_create
+
+      - id: lookup
+        order: 5
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory search
+        task_template: |
+          Search exact and similar pantry rows for **{locked_name}**.
+          If found, return slug, category, on-hand qty.
+          Sub-call: return slug to parent and resume — do not stop parent workflow.
+          Standalone: if found, stop and warn chef (duplicate).
+        on_duplicate:
+          standalone: stop_warn_chef
+          sub_call: return_existing_slug
+        on_clear: confirm_category
+
+      - id: stop_warn_chef
+        order: 6
+        actor: sous_chef
+        action: >
+          Pantry item **{locked_name}** already exists (`{duplicate_slug}`). Stop standalone add.
+          Offer update_ingredient or a different name.
+        clears_workflow_state: true
+        handoff_workflow: update_ingredient
+        on_new_name: lookup
+
+      - id: confirm_category
+        order: 7
+        actor: sous_chef
+        gate: confirm_class
+        action: >
+          Present ingredient category (bakery, dairy, produce, …). Chef picks or confirms inferred class.
+        on_confirm: confirm_create
+
+      - id: confirm_create
+        order: 8
+        actor: sous_chef
+        gate: confirm_create
+        skip_when: invocation_mode_sub_call
+        action: Preview qty 0, label new, unit, reorder; **Ready to save?**
+        on_confirm: persist
+        reply_gate: catalog_create
+
+      - id: persist
+        order: 9
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory create_ingredient
+        task_template: |
+          create_ingredient at qty 0 (label new). Auto-generate packaging images.
+          Sub-call: return new slug to parent; do not clear parent workflow state.
+        implementation: batched
+        on_success:
+          standalone: completed
+          sub_call: resume_parent
+
+      - id: completed
+        order: 10
+        actor: sous_chef
+        action: Summarize ingredient slug, category, image status.
+        clears_workflow_state: true

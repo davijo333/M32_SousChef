@@ -1,717 +1,718 @@
-# Golden workflows — predictable multi-step flows Sous Chef (head) orchestrates.
+# DEPRECATED: superseded by backend/agent-service-v1. Entire file commented out.
+# # Golden workflows — predictable multi-step flows Sous Chef (head) orchestrates.
+# #
+# # Each workflow is a ordered sequence of steps. Steps run one at a time; gates block
+# # until the chef confirms or provides input. Specialists execute tools; Head owns
+# # triage, confirmation, routing, and the final summary.
+# #
+# # Status:
+# #   documented — target behavior for Head spec / evals
+# #   partial    — some steps exist but routing differs from target
+# #   batched    — multiple logical steps run inside one tool (e.g. finalize_recipe_build)
+# #
+# # Context key for Creator Agent is `create` (folder: creative/).
 #
-# Each workflow is a ordered sequence of steps. Steps run one at a time; gates block
-# until the chef confirms or provides input. Specialists execute tools; Head owns
-# triage, confirmation, routing, and the final summary.
+# version: 1
 #
-# Status:
-#   documented — target behavior for Head spec / evals
-#   partial    — some steps exist but routing differs from target
-#   batched    — multiple logical steps run inside one tool (e.g. finalize_recipe_build)
+# defaults:
+#   max_consults_per_turn: 3
+#   confirm_phrases:
+#     - go ahead
+#     - confirm
+#     - yes
+#     - add it
+#     - save it
+#     - looks good
+#   dish_lock_sources:
+#     - catalog_draft from photo / image link
+#     - chef name correction in thread
+#     - explicit dish name in user message
+#     - recipe_build.dishName
 #
-# Context key for Creator Agent is `create` (folder: creative/).
-
-version: 1
-
-defaults:
-  max_consults_per_turn: 3
-  confirm_phrases:
-    - go ahead
-    - confirm
-    - yes
-    - add it
-    - save it
-    - looks good
-  dish_lock_sources:
-    - catalog_draft from photo / image link
-    - chef name correction in thread
-    - explicit dish name in user message
-    - recipe_build.dishName
-
-# Classification / category — required on all catalog creates (dish, add-on, ingredient).
-# Head must confirm class with chef before Inventory persists. Invalid values must not
-# be silently dropped without chef awareness.
-classification_policy:
-  dish:
-    field: classification
-    allowed:
-      - sandwich
-      - byo-sandwich
-      - coffee
-      - tea
-      - juice
-      - other
-    infer_from: photo vision, dish name keywords, chef statement
-    on_unknown: map to other and ask chef to confirm or pick from list
-    create_new_class: not_implemented  # target: allow chef-defined class when none fit
-  addon:
-    field: classification
-    common:
-      - addon
-      - cheese
-      - protein
-      - veggie
-      - coffee
-    infer_from: add-on name keywords, photo vision
-    on_unknown: default addon; confirm with chef
-    create_new_class: not_implemented
-  ingredient:
-    field: category
-    allowed:
-      - bakery
-      - dairy
-      - produce
-      - protein
-      - coffee
-      - tea
-      - juice
-      - syrup
-      - pantry
-      - misc
-    infer_from: product name, photo vision, supplier line text
-    on_unknown: misc (Other); confirm with chef
-    create_new_class: not_implemented  # target: extend category list when chef insists
-
-workflow_index:
-  catalog_create:
-    - add_dish_from_chat
-    - add_addon_from_chat
-    - add_ingredient_from_chat
-    - add_suggested_dish_lite
-  catalog_update:
-    - update_dish
-    - update_addon
-    - update_ingredient
-    - link_dish_ingredients
-    - link_addon_ingredients
-  bills:
-    - upload_purchase_orders
-    - upload_sales_orders
-    - upload_mixed_bill_batch
-    - process_purchase_bills
-    - process_sales_bills
-  creative:
-    - expiry_special
-    - promotion_special
-    - suggest_dish_addons
-  business:
-    - margin_and_price_pass
-    - reorder_threshold_advice
-  triage:
-    - daily_kitchen_triage
-    - specialist_handoff
-
-workflows:
-  - id: add_dish_from_chat
-    name: Add Dish (user request from chat)
-    status: partial
-    trigger:
-      - chef asks to add / create a menu dish or recipe from chat
-      - chef attaches a menu photo or image link (catalog_draft.itemType = dish)
-      - chef says "build this" / "add to kitchen" for a named dish
-    not_this_workflow:
-      - save idea only to Recipes → Suggested → use add_suggested_dish_lite
-      - update existing dish links only → inventory link_dish_ingredients
-      - add pantry ingredient only → inventory create_ingredient
-
-    steps:
-      - id: intake
-        order: 1
-        actor: head
-        action: Parse user message; lock dish name if present; accept catalog_draft from UI.
-        outputs:
-          - locked_dish_name
-          - catalog_draft optional
-        notes: Head stays in supervisor chat — no writes.
-
-      - id: image_context
-        order: 2
-        actor: head
-        action: If catalog_draft.image or photo source exists, enrich context from vision draft (name, description, classification).
-        gate: optional
-        skip_when: no catalog_draft and no image attachment
-        outputs:
-          - proposed dish name
-          - POS description draft
-          - classification hint
-        notes: Chef may correct the photo label — correction overrides vision name.
-
-      - id: duplicate_check
-        order: 3
-        actor: head
-        delegate: inventory
-        tool: query_menu search_dishes
-        action: Search active menu and suggested list for same or similar dish name.
-        outputs:
-          - duplicate warning or clear to proceed
-        notes: MISSING from user list — avoid creating collisions.
-
-      - id: confirm_dish_identity
-        order: 4
-        actor: head
-        action: Present proposed dish name, short description, and classification (pick from dish classes or confirm inferred class); ask chef to confirm or correct.
-        gate: confirm_dish
-        on_reject: return to confirm_dish_identity with corrected name (loop in chat)
-        on_accept: lock dish for remainder of workflow
-        outputs:
-          - locked_dish_name
-          - description
-          - classification
-
-      - id: draft_recipe
-        order: 5
-        actor: head
-        delegate: creative
-        tool: query_inventory search + query_menu cues as needed
-        action: Draft full recipe — general ingredient names (no brands), qty, unit, numbered prep steps, and a **Visual brief** (1–3 sentences for dish photo styling).
-        outputs:
-          - recipe_ingredients list
-          - recipe_instructions list
-          - visual_brief
-          - ingredient_slugs where pantry matches exist
-        notes: Creative is read-only; prose + structured lists only. Never show image picks in chat.
-
-      - id: confirm_recipe
-        order: 6
-        actor: head
-        action: Show recipe to chef; ask to confirm or edit before any DB writes.
-        gate: confirm_recipe
-        on_reject: re-delegate draft_recipe with chef edits
-        on_accept: proceed to visual brief and add-ons
-
-      - id: confirm_visual
-        order: 6.5
-        actor: head
-        action: Show Creative's visual brief; chef confirms or edits plating/angle/lighting notes.
-        gate: confirm_visual
-        skip_when: chef says use default photos
-        outputs:
-          - locked visual_brief for image generation
-        notes: Brief is text only — Inventory passes it to auto image generation; no image tiles in chat.
-
-      - id: suggest_addons
-        order: 7
-        actor: head
-        delegate: creative
-        tool: query_menu addons + search_dishes
-        action: Propose 1–3 suggested add-ons for the locked dish — reuse existing add-ons or draft new (name, classification, general ingredients, optional price).
-        notes: Creative owns add-on pairing logic; Inventory persists on confirm.
-
-      - id: confirm_addons
-        order: 8
-        actor: head
-        gate: confirm_addons
-        action: Chef confirms or edits suggested add-ons before persist.
-        skip_when: chef declines add-ons for this dish
-
-      - id: plan_build
-        order: 9
-        actor: head
-        delegate: inventory
-        tool: apply_menu plan_recipe_build
-        action: Map each ingredient to pantry slug or new general-name row; pass visual_brief from Creative.
-        outputs:
-          - recipe_build status ready_to_finalize
-        notes: No store-product or image picking in chat — pantry uses general names only.
-
-      - id: confirm_finalize
-        order: 10
-        actor: head
-        action: Summarize dish + ingredient list; ask chef to confirm full kitchen build.
-        gate: confirm_finalize
-        on_reject: return to confirm_recipe or confirm_dish_identity
-        on_accept: proceed to persist
-
-      - id: persist_ingredients
-        order: 12
-        actor: head
-        delegate: inventory
-        tool: apply_menu finalize_recipe_build
-        implementation: batched
-        action: For each recipe ingredient — create pantry row at qty 0 (label new) if missing, else link existing slug.
-        notes: Today runs inside finalize_recipe_build on Next.js, not separate Head consults.
-
-      - id: persist_ingredient_images
-        order: 13
-        actor: head
-        delegate: inventory
-        tool: apply_inventory / finalize side-effect generate_ingredient_image
-        implementation: batched
-        action: Generate primary + secondary packaging images for each new ingredient.
-        notes: User listed before dish image; code generates per-ingredient during finalize loop.
-
-      - id: persist_dish_and_links
-        order: 14
-        actor: head
-        delegate: inventory
-        tool: finalize_recipe_build
-        implementation: batched
-        action: Create or update dish record, link all ingredientLinks, write recipe instructions, schedule food-cost build.
-
-      - id: persist_dish_images
-        order: 15
-        actor: head
-        delegate: inventory
-        tool: generate_dish_image via finalize side-effect
-        implementation: batched
-        action: Auto-generate primary + secondary dish images using name, description, visual_brief, classification, ingredient names.
-        notes: Images upload to R2 during finalize; Kitchen control shows results. Generate buttons are fail-safe only when missingPhotos.
-
-      - id: persist_addons
-        order: 16
-        actor: head
-        delegate: inventory
-        tool: apply_menu create_addon + link_addon_ingredients
-        gate: optional
-        skip_when: no add-ons confirmed
-        action: Create new add-ons and link to dish slug; reuse existing add-on slugs when Creative recommended catalog matches.
-
-      - id: persist_addon_images
-        order: 17
-        actor: head
-        delegate: inventory
-        tool: generate_dish_image pattern on add-on via create_addon side-effect
-        implementation: batched
-        action: Auto-generate primary + secondary add-on images after create_addon.
-
-      - id: completion_summary
-        order: 18
-        actor: head
-        action: Confirm completed message — list dish, ingredients added/linked, image status, link to Kitchen control / Recipes review.
-        outputs:
-          - human-readable build summary
-          - recipeStatus remains new until chef promotes in Recipes UI
-
-    optional_follow_ups:
-      - id: margin_pass
-        delegate: business
-        tool: query_business suggest_price_change
-        when: dish has sell price and recipe food cost ready
-      - id: apply_price
-        delegate: inventory
-        tool: apply_inventory apply_price_change
-        when: chef confirms Business recommendation
-
-  - id: suggest_dish_addons
-    name: Suggested add-ons for a dish
-    status: documented
-    trigger:
-      - chef asks what add-ons, modifiers, or upsells fit a dish
-      - step in add_dish_from_chat after recipe confirm
-    steps:
-      - id: lock_dish
-        actor: head
-        action: Lock dish name from thread or catalog_draft.
-      - id: draft_addons
-        delegate: creative
-        tool: query_menu addons + search_dishes
-        action: Propose 1–3 add-ons — existing catalog reuse or new modifier drafts.
-      - id: confirm
-        actor: head
-        gate: confirm_addons
-      - id: persist
-        delegate: inventory
-        tool: apply_menu create_addon, link_addon_ingredients, linked_dish_slugs
-        when: chef confirmed new add-ons
-
-  - id: add_ingredient_from_chat
-    name: Add pantry ingredient
-    status: partial
-    trigger:
-      - chef asks to add / create an ingredient or pantry item
-      - chef attaches product photo (catalog_draft.itemType = ingredient)
-    steps:
-      - id: intake
-        actor: head
-        action: Parse name; accept catalog_draft from photo if present.
-      - id: image_context
-        actor: head
-        gate: optional
-        action: Enrich from vision — general pantry name, brand in description only, category hint.
-      - id: duplicate_check
-        actor: head
-        delegate: inventory
-        tool: query_inventory search
-        action: Search exact and similar pantry rows.
-      - id: confirm_class
-        actor: head
-        gate: confirm_class
-        action: Present ingredient category (bakery, dairy, produce, …) — chef picks or confirms inferred class.
-        outputs:
-          - category
-          - inventory_unit
-          - reorder_threshold optional
-      - id: confirm_create
-        actor: head
-        gate: confirm_inventory
-        action: Preview qty 0, label new, unit, reorder; ask chef to confirm.
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory create_ingredient
-      - id: ingredient_images
-        delegate: inventory
-        tool: apply_inventory generate_ingredient_image
-        implementation: required
-        action: Auto-generate packaging images after row exists (sync in create_ingredient / finalize).
-      - id: completion_summary
-        actor: head
-        action: Confirm ingredient slug, category, image status.
-
-  - id: add_addon_from_chat
-    name: Add menu add-on
-    status: implemented
-    trigger:
-      - chef asks to add / create an add-on or modifier
-      - chef attaches add-on photo (catalog_draft)
-    notes: Inventory only — no Creative consult. Search duplicates, create_addon, auto images.
-    steps:
-      - id: duplicate_check
-        delegate: inventory
-        tool: query_menu addons + search
-      - id: confirm_identity
-        actor: head
-        gate: confirm_inventory
-        action: Confirm name, classification, sell price when chef provided them.
-      - id: persist
-        delegate: inventory
-        tool: apply_menu create_addon
-      - id: link_ingredients
-        delegate: inventory
-        tool: apply_menu link_addon_ingredients
-        gate: optional
-        skip_when: no ingredient links requested
-      - id: completion_summary
-        actor: head
-        action: Confirm add-on slug and Kitchen control link.
-
-  - id: upload_purchase_orders
-    name: Upload purchase orders (supplier bills)
-    status: partial
-    trigger:
-      - chef uploads PDF/PNG supplier invoices in chat or Upload orders tab
-      - upload_batch with billType supplier
-    steps:
-      - id: ingest
-        actor: head
-        notes: UI parses and classifies before agent runs (/classify-bill → supplier pipeline).
-        action: Accept upload_batch attachment; no agent parse in chat path.
-      - id: summarize
-        delegate: inventory
-        tool: upload_bills summarize | batch_status
-        action: Report filenames, line counts, ready vs needs review.
-      - id: confirm_process
-        actor: head
-        gate: confirm_inventory
-        action: Chef confirms processing purchase orders into pantry.
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory process_purchase_bills
-      - id: completion_summary
-        actor: head
-        action: Stock updated summary; note any unmatched lines.
-
-  - id: upload_sales_orders
-    name: Upload sales orders (POS receipts)
-    status: partial
-    trigger:
-      - chef uploads customer/POS receipt files
-      - upload_batch with billType customer
-    steps:
-      - id: ingest
-        actor: head
-        notes: UI classifies as customer before agent runs.
-      - id: summarize
-        delegate: inventory
-        tool: upload_bills summarize
-        action: Report ticket counts and filenames.
-      - id: prerequisite
-        delegate: business
-        tool: query_business purchase_prerequisite
-        action: At least one processed supplier PO must exist before sales processing.
-        gate: block_when not met — route chef to upload_purchase_orders first
-      - id: confirm_process
-        actor: head
-        gate: confirm_inventory
-        notes: Business tab confirms coerce to Inventory for process_sales_bills.
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory process_sales_bills
-      - id: completion_summary
-        actor: head
-
-  - id: upload_mixed_bill_batch
-    name: Upload mixed PO + SO batch in one chat attach
-    status: partial
-    trigger:
-      - upload_batch contains both supplier and customer slices
-    steps:
-      - id: summarize
-        delegate: inventory
-        tool: upload_bills batch_status
-      - id: confirm_order
-        actor: head
-        action: Explain POs first, then SOs — same as Upload orders tab.
-      - id: process_pos
-        workflow: upload_purchase_orders
-        from_step: confirm_process
-      - id: process_sos
-        workflow: upload_sales_orders
-        from_step: prerequisite
-
-  - id: update_dish
-    name: Update existing dish
-    status: documented
-    trigger:
-      - chef asks to change dish price, name, classification, or description
-    steps:
-      - id: lookup
-        delegate: inventory
-        tool: query_menu search_dishes
-      - id: confirm_class
-        actor: head
-        gate: confirm_class
-        action: If changing classification, chef picks from dish classes.
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_menu update_dish or apply_inventory apply_price_change
-
-  - id: update_addon
-    name: Update existing add-on
-    status: documented
-    trigger:
-      - chef asks to change add-on price, class, or description
-    steps:
-      - id: lookup
-        delegate: inventory
-        tool: query_menu addons
-      - id: confirm_class
-        actor: head
-        gate: confirm_class
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_menu update_addon
-
-  - id: update_ingredient
-    name: Update pantry ingredient
-    status: documented
-    trigger:
-      - chef asks to change qty, reorder, category, or brand
-    steps:
-      - id: lookup
-        delegate: inventory
-        tool: query_inventory ingredient_detail
-      - id: confirm_class
-        actor: head
-        gate: confirm_class
-        action: If changing category, chef picks from ingredient categories.
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory update_ingredient
-
-  - id: link_dish_ingredients
-    name: Link ingredients to existing dish
-    status: documented
-    trigger:
-      - chef asks to add/remove ingredients on a dish without full rebuild
-    steps:
-      - id: lookup
-        delegate: inventory
-        tool: query_menu search_dishes + query_inventory search
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_menu link_dish_ingredients
-
-  - id: link_addon_ingredients
-    name: Link ingredients to existing add-on
-    status: documented
-    trigger:
-      - chef asks to link pantry items to an add-on
-    steps:
-      - id: lookup
-        delegate: inventory
-        tool: query_menu addons + query_inventory search
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_menu link_addon_ingredients
-
-  - id: reorder_threshold_advice
-    name: Reorder level recommendation
-    status: documented
-    trigger:
-      - chef asks what reorder threshold to set
-    steps:
-      - id: analyze
-        delegate: business
-        tool: query_business suggest_reorder_threshold
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory update_reorder_threshold
-
-  - id: daily_kitchen_triage
-    name: Daily priorities (supervisor answer)
-    status: partial
-    trigger:
-      - chef asks what to focus on today
-      - floating Sous Chef chat opening
-    steps:
-      - id: snapshot
-        actor: head
-        tool: query_kitchen
-        action: Summarize low stock, expiry, sales period — no writes.
-      - id: route
-        actor: head
-        action: Suggest which specialist tab if depth needed; optional orchestrate suggest_handoff.
-
-  - id: specialist_handoff
-    name: Connect to specialist agent
-    status: partial
-    trigger:
-      - chef taps Connect or asks to switch to Inventory / Business / Creator
-    steps:
-      - id: handoff
-        actor: head
-        tool: orchestrate open_chat_agent | suggest_handoff
-        action: Transfer thread context to specialist tab.
-
-  - id: add_suggested_dish_lite
-    name: Save brainstorm to Suggested (no full kitchen build)
-    status: documented
-    trigger:
-      - chef likes a special idea and says add it / save it
-      - promotional or expiry-driven idea without full pantry build
-    steps:
-      - id: draft
-        actor: head
-        delegate: creative
-        action: Draft name, description, classification (dish class), notes (expiring_ingredients, seasonal, etc.)
-      - id: confirm_class
-        actor: head
-        gate: confirm_class
-      - id: confirm
-        actor: head
-        gate: confirm_save
-      - id: persist
-        actor: head
-        delegate: inventory
-        tool: apply_menu add_suggested_dish
-        action: Save to Recipes → Suggested tab
-
-  - id: expiry_special
-    name: Expiry-driven special
-    status: documented
-    trigger:
-      - chef asks what to make with expiring stock
-      - pantry expiring cue on Create dashboard
-    steps:
-      - id: expiring_read
-        delegate: creative
-        tool: query_inventory expiring
-      - id: draft_recipe
-        delegate: creative
-        action: Draft dish using expiring ingredients first
-      - id: confirm
-        actor: head
-        gate: confirm_save
-      - id: persist
-        delegate: inventory
-        tool: add_suggested_dish or full add_dish_from_chat if chef wants full build
-
-  - id: promotion_special
-    name: Promotional recipe for slow seller
-    status: documented
-    trigger:
-      - chef asks for promotion / feature slow dish
-    steps:
-      - id: targets
-        delegate: creative
-        tool: query_menu promotion_targets
-      - id: draft
-        delegate: creative
-        action: Draft limited-time special or bundle
-      - id: confirm
-        actor: head
-        gate: confirm_save
-      - id: persist
-        delegate: inventory
-        tool: add_suggested_dish
-
-  - id: margin_and_price_pass
-    name: Margin review after dish exists
-    status: partial
-    trigger:
-      - chef asks about margin / price for a named dish
-    steps:
-      - id: analyze
-        delegate: business
-        tool: query_business suggest_price_change
-      - id: confirm_price
-        actor: head
-        gate: confirm_price
-      - id: apply
-        delegate: inventory
-        tool: apply_inventory apply_price_change
-
-  - id: process_purchase_bills
-    name: Supplier PO → pantry
-    status: partial
-    trigger:
-      - chef confirms purchase order processing
-    steps:
-      - id: queue
-        delegate: inventory
-        tool: query_inventory purchase_queue
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory process_purchase_bills
-
-  - id: process_sales_bills
-    name: POS receipts → stock depletion
-    status: partial
-    trigger:
-      - chef confirms sales receipt processing
-    steps:
-      - id: prerequisite
-        delegate: business
-        tool: query_business purchase_prerequisite
-      - id: queue
-        delegate: inventory
-        tool: query_business sales_queue
-      - id: confirm
-        actor: head
-        gate: confirm_inventory
-      - id: persist
-        delegate: inventory
-        tool: apply_inventory process_sales_bills
-
-implementation_gaps:
-  classification:
-    - Dish/add-on/ingredient "create new class if none fit" is not implemented — invalid dish class falls to other; ingredient unknown → misc
-    - Head should always surface class choice to chef before persist (target; not always enforced in chat today)
-  images:
-    - Chat never shows image or store-product picks — RecipeBuildPicker is text-only; Kitchen control Generate is fail-safe when missingPhotos
-    - Creative visual brief is text-only; Inventory passes visual_brief to dish image generation on finalize
-  add_dish_from_chat:
-    - finalize_recipe_build batches ingredient create, images, dish, recipe in one Next.js call
-    - dish recipeStatus stays new — not auto-active
-    - scheduleRecipeBuild runs async for food cost / COGS on recipe record
+# # Classification / category — required on all catalog creates (dish, add-on, ingredient).
+# # Head must confirm class with chef before Inventory persists. Invalid values must not
+# # be silently dropped without chef awareness.
+# classification_policy:
+#   dish:
+#     field: classification
+#     allowed:
+#       - sandwich
+#       - byo-sandwich
+#       - coffee
+#       - tea
+#       - juice
+#       - other
+#     infer_from: photo vision, dish name keywords, chef statement
+#     on_unknown: map to other and ask chef to confirm or pick from list
+#     create_new_class: not_implemented  # target: allow chef-defined class when none fit
+#   addon:
+#     field: classification
+#     common:
+#       - addon
+#       - cheese
+#       - protein
+#       - veggie
+#       - coffee
+#     infer_from: add-on name keywords, photo vision
+#     on_unknown: default addon; confirm with chef
+#     create_new_class: not_implemented
+#   ingredient:
+#     field: category
+#     allowed:
+#       - bakery
+#       - dairy
+#       - produce
+#       - protein
+#       - coffee
+#       - tea
+#       - juice
+#       - syrup
+#       - pantry
+#       - misc
+#     infer_from: product name, photo vision, supplier line text
+#     on_unknown: misc (Other); confirm with chef
+#     create_new_class: not_implemented  # target: extend category list when chef insists
+#
+# workflow_index:
+#   catalog_create:
+#     - add_dish_from_chat
+#     - add_addon_from_chat
+#     - add_ingredient_from_chat
+#     - add_suggested_dish_lite
+#   catalog_update:
+#     - update_dish
+#     - update_addon
+#     - update_ingredient
+#     - link_dish_ingredients
+#     - link_addon_ingredients
+#   bills:
+#     - upload_purchase_orders
+#     - upload_sales_orders
+#     - upload_mixed_bill_batch
+#     - process_purchase_bills
+#     - process_sales_bills
+#   creative:
+#     - expiry_special
+#     - promotion_special
+#     - suggest_dish_addons
+#   business:
+#     - margin_and_price_pass
+#     - reorder_threshold_advice
+#   triage:
+#     - daily_kitchen_triage
+#     - specialist_handoff
+#
+# workflows:
+#   - id: add_dish_from_chat
+#     name: Add Dish (user request from chat)
+#     status: partial
+#     trigger:
+#       - chef asks to add / create a menu dish or recipe from chat
+#       - chef attaches a menu photo or image link (catalog_draft.itemType = dish)
+#       - chef says "build this" / "add to kitchen" for a named dish
+#     not_this_workflow:
+#       - save idea only to Recipes → Suggested → use add_suggested_dish_lite
+#       - update existing dish links only → inventory link_dish_ingredients
+#       - add pantry ingredient only → inventory create_ingredient
+#
+#     steps:
+#       - id: intake
+#         order: 1
+#         actor: head
+#         action: Parse user message; lock dish name if present; accept catalog_draft from UI.
+#         outputs:
+#           - locked_dish_name
+#           - catalog_draft optional
+#         notes: Head stays in supervisor chat — no writes.
+#
+#       - id: image_context
+#         order: 2
+#         actor: head
+#         action: If catalog_draft.image or photo source exists, enrich context from vision draft (name, description, classification).
+#         gate: optional
+#         skip_when: no catalog_draft and no image attachment
+#         outputs:
+#           - proposed dish name
+#           - POS description draft
+#           - classification hint
+#         notes: Chef may correct the photo label — correction overrides vision name.
+#
+#       - id: duplicate_check
+#         order: 3
+#         actor: head
+#         delegate: inventory
+#         tool: query_menu search_dishes
+#         action: Search active menu and suggested list for same or similar dish name.
+#         outputs:
+#           - duplicate warning or clear to proceed
+#         notes: MISSING from user list — avoid creating collisions.
+#
+#       - id: confirm_dish_identity
+#         order: 4
+#         actor: head
+#         action: Present proposed dish name, short description, and classification (pick from dish classes or confirm inferred class); ask chef to confirm or correct.
+#         gate: confirm_dish
+#         on_reject: return to confirm_dish_identity with corrected name (loop in chat)
+#         on_accept: lock dish for remainder of workflow
+#         outputs:
+#           - locked_dish_name
+#           - description
+#           - classification
+#
+#       - id: draft_recipe
+#         order: 5
+#         actor: head
+#         delegate: creative
+#         tool: query_inventory search + query_menu cues as needed
+#         action: Draft full recipe — general ingredient names (no brands), qty, unit, numbered prep steps, and a **Visual brief** (1–3 sentences for dish photo styling).
+#         outputs:
+#           - recipe_ingredients list
+#           - recipe_instructions list
+#           - visual_brief
+#           - ingredient_slugs where pantry matches exist
+#         notes: Creative is read-only; prose + structured lists only. Never show image picks in chat.
+#
+#       - id: confirm_recipe
+#         order: 6
+#         actor: head
+#         action: Show recipe to chef; ask to confirm or edit before any DB writes.
+#         gate: confirm_recipe
+#         on_reject: re-delegate draft_recipe with chef edits
+#         on_accept: proceed to visual brief and add-ons
+#
+#       - id: confirm_visual
+#         order: 6.5
+#         actor: head
+#         action: Show Creative's visual brief; chef confirms or edits plating/angle/lighting notes.
+#         gate: confirm_visual
+#         skip_when: chef says use default photos
+#         outputs:
+#           - locked visual_brief for image generation
+#         notes: Brief is text only — Inventory passes it to auto image generation; no image tiles in chat.
+#
+#       - id: suggest_addons
+#         order: 7
+#         actor: head
+#         delegate: creative
+#         tool: query_menu addons + search_dishes
+#         action: Propose 1–3 suggested add-ons for the locked dish — reuse existing add-ons or draft new (name, classification, general ingredients, optional price).
+#         notes: Creative owns add-on pairing logic; Inventory persists on confirm.
+#
+#       - id: confirm_addons
+#         order: 8
+#         actor: head
+#         gate: confirm_addons
+#         action: Chef confirms or edits suggested add-ons before persist.
+#         skip_when: chef declines add-ons for this dish
+#
+#       - id: plan_build
+#         order: 9
+#         actor: head
+#         delegate: inventory
+#         tool: apply_menu plan_recipe_build
+#         action: Map each ingredient to pantry slug or new general-name row; pass visual_brief from Creative.
+#         outputs:
+#           - recipe_build status ready_to_finalize
+#         notes: No store-product or image picking in chat — pantry uses general names only.
+#
+#       - id: confirm_finalize
+#         order: 10
+#         actor: head
+#         action: Summarize dish + ingredient list; ask chef to confirm full kitchen build.
+#         gate: confirm_finalize
+#         on_reject: return to confirm_recipe or confirm_dish_identity
+#         on_accept: proceed to persist
+#
+#       - id: persist_ingredients
+#         order: 12
+#         actor: head
+#         delegate: inventory
+#         tool: apply_menu finalize_recipe_build
+#         implementation: batched
+#         action: For each recipe ingredient — create pantry row at qty 0 (label new) if missing, else link existing slug.
+#         notes: Today runs inside finalize_recipe_build on Next.js, not separate Head consults.
+#
+#       - id: persist_ingredient_images
+#         order: 13
+#         actor: head
+#         delegate: inventory
+#         tool: apply_inventory / finalize side-effect generate_ingredient_image
+#         implementation: batched
+#         action: Generate primary + secondary packaging images for each new ingredient.
+#         notes: User listed before dish image; code generates per-ingredient during finalize loop.
+#
+#       - id: persist_dish_and_links
+#         order: 14
+#         actor: head
+#         delegate: inventory
+#         tool: finalize_recipe_build
+#         implementation: batched
+#         action: Create or update dish record, link all ingredientLinks, write recipe instructions, schedule food-cost build.
+#
+#       - id: persist_dish_images
+#         order: 15
+#         actor: head
+#         delegate: inventory
+#         tool: generate_dish_image via finalize side-effect
+#         implementation: batched
+#         action: Auto-generate primary + secondary dish images using name, description, visual_brief, classification, ingredient names.
+#         notes: Images upload to R2 during finalize; Kitchen control shows results. Generate buttons are fail-safe only when missingPhotos.
+#
+#       - id: persist_addons
+#         order: 16
+#         actor: head
+#         delegate: inventory
+#         tool: apply_menu create_addon + link_addon_ingredients
+#         gate: optional
+#         skip_when: no add-ons confirmed
+#         action: Create new add-ons and link to dish slug; reuse existing add-on slugs when Creative recommended catalog matches.
+#
+#       - id: persist_addon_images
+#         order: 17
+#         actor: head
+#         delegate: inventory
+#         tool: generate_dish_image pattern on add-on via create_addon side-effect
+#         implementation: batched
+#         action: Auto-generate primary + secondary add-on images after create_addon.
+#
+#       - id: completion_summary
+#         order: 18
+#         actor: head
+#         action: Confirm completed message — list dish, ingredients added/linked, image status, link to Kitchen control / Recipes review.
+#         outputs:
+#           - human-readable build summary
+#           - recipeStatus remains new until chef promotes in Recipes UI
+#
+#     optional_follow_ups:
+#       - id: margin_pass
+#         delegate: business
+#         tool: query_business suggest_price_change
+#         when: dish has sell price and recipe food cost ready
+#       - id: apply_price
+#         delegate: inventory
+#         tool: apply_inventory apply_price_change
+#         when: chef confirms Business recommendation
+#
+#   - id: suggest_dish_addons
+#     name: Suggested add-ons for a dish
+#     status: documented
+#     trigger:
+#       - chef asks what add-ons, modifiers, or upsells fit a dish
+#       - step in add_dish_from_chat after recipe confirm
+#     steps:
+#       - id: lock_dish
+#         actor: head
+#         action: Lock dish name from thread or catalog_draft.
+#       - id: draft_addons
+#         delegate: creative
+#         tool: query_menu addons + search_dishes
+#         action: Propose 1–3 add-ons — existing catalog reuse or new modifier drafts.
+#       - id: confirm
+#         actor: head
+#         gate: confirm_addons
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu create_addon, link_addon_ingredients, linked_dish_slugs
+#         when: chef confirmed new add-ons
+#
+#   - id: add_ingredient_from_chat
+#     name: Add pantry ingredient
+#     status: partial
+#     trigger:
+#       - chef asks to add / create an ingredient or pantry item
+#       - chef attaches product photo (catalog_draft.itemType = ingredient)
+#     steps:
+#       - id: intake
+#         actor: head
+#         action: Parse name; accept catalog_draft from photo if present.
+#       - id: image_context
+#         actor: head
+#         gate: optional
+#         action: Enrich from vision — general pantry name, brand in description only, category hint.
+#       - id: duplicate_check
+#         actor: head
+#         delegate: inventory
+#         tool: query_inventory search
+#         action: Search exact and similar pantry rows.
+#       - id: confirm_class
+#         actor: head
+#         gate: confirm_class
+#         action: Present ingredient category (bakery, dairy, produce, …) — chef picks or confirms inferred class.
+#         outputs:
+#           - category
+#           - inventory_unit
+#           - reorder_threshold optional
+#       - id: confirm_create
+#         actor: head
+#         gate: confirm_inventory
+#         action: Preview qty 0, label new, unit, reorder; ask chef to confirm.
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory create_ingredient
+#       - id: ingredient_images
+#         delegate: inventory
+#         tool: apply_inventory generate_ingredient_image
+#         implementation: required
+#         action: Auto-generate packaging images after row exists (sync in create_ingredient / finalize).
+#       - id: completion_summary
+#         actor: head
+#         action: Confirm ingredient slug, category, image status.
+#
+#   - id: add_addon_from_chat
+#     name: Add menu add-on
+#     status: implemented
+#     trigger:
+#       - chef asks to add / create an add-on or modifier
+#       - chef attaches add-on photo (catalog_draft)
+#     notes: Inventory only — no Creative consult. Search duplicates, create_addon, auto images.
+#     steps:
+#       - id: duplicate_check
+#         delegate: inventory
+#         tool: query_menu addons + search
+#       - id: confirm_identity
+#         actor: head
+#         gate: confirm_inventory
+#         action: Confirm name, classification, sell price when chef provided them.
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu create_addon
+#       - id: link_ingredients
+#         delegate: inventory
+#         tool: apply_menu link_addon_ingredients
+#         gate: optional
+#         skip_when: no ingredient links requested
+#       - id: completion_summary
+#         actor: head
+#         action: Confirm add-on slug and Kitchen control link.
+#
+#   - id: upload_purchase_orders
+#     name: Upload purchase orders (supplier bills)
+#     status: partial
+#     trigger:
+#       - chef uploads PDF/PNG supplier invoices in chat or Upload orders tab
+#       - upload_batch with billType supplier
+#     steps:
+#       - id: ingest
+#         actor: head
+#         notes: UI parses and classifies before agent runs (/classify-bill → supplier pipeline).
+#         action: Accept upload_batch attachment; no agent parse in chat path.
+#       - id: summarize
+#         delegate: inventory
+#         tool: upload_bills summarize | batch_status
+#         action: Report filenames, line counts, ready vs needs review.
+#       - id: confirm_process
+#         actor: head
+#         gate: confirm_inventory
+#         action: Chef confirms processing purchase orders into pantry.
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory process_purchase_bills
+#       - id: completion_summary
+#         actor: head
+#         action: Stock updated summary; note any unmatched lines.
+#
+#   - id: upload_sales_orders
+#     name: Upload sales orders (POS receipts)
+#     status: partial
+#     trigger:
+#       - chef uploads customer/POS receipt files
+#       - upload_batch with billType customer
+#     steps:
+#       - id: ingest
+#         actor: head
+#         notes: UI classifies as customer before agent runs.
+#       - id: summarize
+#         delegate: inventory
+#         tool: upload_bills summarize
+#         action: Report ticket counts and filenames.
+#       - id: prerequisite
+#         delegate: business
+#         tool: query_business purchase_prerequisite
+#         action: At least one processed supplier PO must exist before sales processing.
+#         gate: block_when not met — route chef to upload_purchase_orders first
+#       - id: confirm_process
+#         actor: head
+#         gate: confirm_inventory
+#         notes: Business tab confirms coerce to Inventory for process_sales_bills.
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory process_sales_bills
+#       - id: completion_summary
+#         actor: head
+#
+#   - id: upload_mixed_bill_batch
+#     name: Upload mixed PO + SO batch in one chat attach
+#     status: partial
+#     trigger:
+#       - upload_batch contains both supplier and customer slices
+#     steps:
+#       - id: summarize
+#         delegate: inventory
+#         tool: upload_bills batch_status
+#       - id: confirm_order
+#         actor: head
+#         action: Explain POs first, then SOs — same as Upload orders tab.
+#       - id: process_pos
+#         workflow: upload_purchase_orders
+#         from_step: confirm_process
+#       - id: process_sos
+#         workflow: upload_sales_orders
+#         from_step: prerequisite
+#
+#   - id: update_dish
+#     name: Update existing dish
+#     status: documented
+#     trigger:
+#       - chef asks to change dish price, name, classification, or description
+#     steps:
+#       - id: lookup
+#         delegate: inventory
+#         tool: query_menu search_dishes
+#       - id: confirm_class
+#         actor: head
+#         gate: confirm_class
+#         action: If changing classification, chef picks from dish classes.
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu update_dish or apply_inventory apply_price_change
+#
+#   - id: update_addon
+#     name: Update existing add-on
+#     status: documented
+#     trigger:
+#       - chef asks to change add-on price, class, or description
+#     steps:
+#       - id: lookup
+#         delegate: inventory
+#         tool: query_menu addons
+#       - id: confirm_class
+#         actor: head
+#         gate: confirm_class
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu update_addon
+#
+#   - id: update_ingredient
+#     name: Update pantry ingredient
+#     status: documented
+#     trigger:
+#       - chef asks to change qty, reorder, category, or brand
+#     steps:
+#       - id: lookup
+#         delegate: inventory
+#         tool: query_inventory ingredient_detail
+#       - id: confirm_class
+#         actor: head
+#         gate: confirm_class
+#         action: If changing category, chef picks from ingredient categories.
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory update_ingredient
+#
+#   - id: link_dish_ingredients
+#     name: Link ingredients to existing dish
+#     status: documented
+#     trigger:
+#       - chef asks to add/remove ingredients on a dish without full rebuild
+#     steps:
+#       - id: lookup
+#         delegate: inventory
+#         tool: query_menu search_dishes + query_inventory search
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu link_dish_ingredients
+#
+#   - id: link_addon_ingredients
+#     name: Link ingredients to existing add-on
+#     status: documented
+#     trigger:
+#       - chef asks to link pantry items to an add-on
+#     steps:
+#       - id: lookup
+#         delegate: inventory
+#         tool: query_menu addons + query_inventory search
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_menu link_addon_ingredients
+#
+#   - id: reorder_threshold_advice
+#     name: Reorder level recommendation
+#     status: documented
+#     trigger:
+#       - chef asks what reorder threshold to set
+#     steps:
+#       - id: analyze
+#         delegate: business
+#         tool: query_business suggest_reorder_threshold
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory update_reorder_threshold
+#
+#   - id: daily_kitchen_triage
+#     name: Daily priorities (supervisor answer)
+#     status: partial
+#     trigger:
+#       - chef asks what to focus on today
+#       - floating Sous Chef chat opening
+#     steps:
+#       - id: snapshot
+#         actor: head
+#         tool: query_kitchen
+#         action: Summarize low stock, expiry, sales period — no writes.
+#       - id: route
+#         actor: head
+#         action: Suggest which specialist tab if depth needed; optional orchestrate suggest_handoff.
+#
+#   - id: specialist_handoff
+#     name: Connect to specialist agent
+#     status: partial
+#     trigger:
+#       - chef taps Connect or asks to switch to Inventory / Business / Creator
+#     steps:
+#       - id: handoff
+#         actor: head
+#         tool: orchestrate open_chat_agent | suggest_handoff
+#         action: Transfer thread context to specialist tab.
+#
+#   - id: add_suggested_dish_lite
+#     name: Save brainstorm to Suggested (no full kitchen build)
+#     status: documented
+#     trigger:
+#       - chef likes a special idea and says add it / save it
+#       - promotional or expiry-driven idea without full pantry build
+#     steps:
+#       - id: draft
+#         actor: head
+#         delegate: creative
+#         action: Draft name, description, classification (dish class), notes (expiring_ingredients, seasonal, etc.)
+#       - id: confirm_class
+#         actor: head
+#         gate: confirm_class
+#       - id: confirm
+#         actor: head
+#         gate: confirm_save
+#       - id: persist
+#         actor: head
+#         delegate: inventory
+#         tool: apply_menu add_suggested_dish
+#         action: Save to Recipes → Suggested tab
+#
+#   - id: expiry_special
+#     name: Expiry-driven special
+#     status: documented
+#     trigger:
+#       - chef asks what to make with expiring stock
+#       - pantry expiring cue on Create dashboard
+#     steps:
+#       - id: expiring_read
+#         delegate: creative
+#         tool: query_inventory expiring
+#       - id: draft_recipe
+#         delegate: creative
+#         action: Draft dish using expiring ingredients first
+#       - id: confirm
+#         actor: head
+#         gate: confirm_save
+#       - id: persist
+#         delegate: inventory
+#         tool: add_suggested_dish or full add_dish_from_chat if chef wants full build
+#
+#   - id: promotion_special
+#     name: Promotional recipe for slow seller
+#     status: documented
+#     trigger:
+#       - chef asks for promotion / feature slow dish
+#     steps:
+#       - id: targets
+#         delegate: creative
+#         tool: query_menu promotion_targets
+#       - id: draft
+#         delegate: creative
+#         action: Draft limited-time special or bundle
+#       - id: confirm
+#         actor: head
+#         gate: confirm_save
+#       - id: persist
+#         delegate: inventory
+#         tool: add_suggested_dish
+#
+#   - id: margin_and_price_pass
+#     name: Margin review after dish exists
+#     status: partial
+#     trigger:
+#       - chef asks about margin / price for a named dish
+#     steps:
+#       - id: analyze
+#         delegate: business
+#         tool: query_business suggest_price_change
+#       - id: confirm_price
+#         actor: head
+#         gate: confirm_price
+#       - id: apply
+#         delegate: inventory
+#         tool: apply_inventory apply_price_change
+#
+#   - id: process_purchase_bills
+#     name: Supplier PO → pantry
+#     status: partial
+#     trigger:
+#       - chef confirms purchase order processing
+#     steps:
+#       - id: queue
+#         delegate: inventory
+#         tool: query_inventory purchase_queue
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory process_purchase_bills
+#
+#   - id: process_sales_bills
+#     name: POS receipts → stock depletion
+#     status: partial
+#     trigger:
+#       - chef confirms sales receipt processing
+#     steps:
+#       - id: prerequisite
+#         delegate: business
+#         tool: query_business purchase_prerequisite
+#       - id: queue
+#         delegate: inventory
+#         tool: query_business sales_queue
+#       - id: confirm
+#         actor: head
+#         gate: confirm_inventory
+#       - id: persist
+#         delegate: inventory
+#         tool: apply_inventory process_sales_bills
+#
+# implementation_gaps:
+#   classification:
+#     - Dish/add-on/ingredient "create new class if none fit" is not implemented — invalid dish class falls to other; ingredient unknown → misc
+#     - Head should always surface class choice to chef before persist (target; not always enforced in chat today)
+#   images:
+#     - Chat never shows image or store-product picks — RecipeBuildPicker is text-only; Kitchen control Generate is fail-safe when missingPhotos
+#     - Creative visual brief is text-only; Inventory passes visual_brief to dish image generation on finalize
+#   add_dish_from_chat:
+#     - finalize_recipe_build batches ingredient create, images, dish, recipe in one Next.js call
+#     - dish recipeStatus stays new — not auto-active
+#     - scheduleRecipeBuild runs async for food cost / COGS on recipe record

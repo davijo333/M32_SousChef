@@ -1,12 +1,15 @@
 import mongoose, { Schema, type Model } from "mongoose";
 
+import type { DashboardChatContext } from "@backend/services/agents/dashboard-chat";
+import type { WorkflowStatePayload } from "@backend/services/chat/workflow-state";
+
+export type { WorkflowStatePayload };
+
 export interface IMessage {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: Date;
 }
-
-import type { DashboardChatContext } from "@backend/services/agents/dashboard-chat";
 
 export interface IConversation {
   _id: mongoose.Types.ObjectId;
@@ -15,6 +18,7 @@ export interface IConversation {
   context: DashboardChatContext;
   title: string;
   messages: IMessage[];
+  workflowState?: WorkflowStatePayload | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +34,16 @@ const ConversationSchema = new Schema<IConversation>(
       required: true,
     },
     title: { type: String, default: "New chat" },
+    workflowState: {
+      type: {
+        workflowId: { type: String, required: true },
+        stepId: { type: String, required: true },
+        lockedName: { type: String },
+        gatesPassed: [{ type: String }],
+        baggage: { type: Schema.Types.Mixed },
+      },
+      default: null,
+    },
     messages: [
       {
         role: { type: String, enum: ["user", "assistant", "system"], required: true },

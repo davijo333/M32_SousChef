@@ -1,0 +1,2 @@
+# Human-readable workflow docs (optional).
+# Copy or symlink golden-*.md from legacy agent-service/workflows/ during migration.

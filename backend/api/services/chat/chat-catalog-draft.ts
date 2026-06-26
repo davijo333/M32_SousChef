@@ -201,7 +201,7 @@ export function formatCatalogDraftNote(draft: ChatCatalogDraftPayload): string {
   lines.push(
     "I'll check for duplicates before adding. New pantry items start at qty **0** with label **new**."
   );
-  lines.push("Say **confirm** or **go ahead** when you want me to add it.");
+  lines.push(`Please confirm adding **${draft.name}** to the catalog. (Yes/No/Update Instructions)`);
   return lines.join("\n");
 }
 

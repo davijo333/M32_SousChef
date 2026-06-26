@@ -72,13 +72,13 @@ START → classify_intent
           └─ handoff  → specialist ReAct → END
 ```
 
-Workflow routing (before LLM classifier) lives in `orchestration.py` — e.g. reorder updates consult **Inventory**, pricing reads consult **Business**, new dishes consult **Creative**.
+Workflow routing (before LLM classifier) lives in `orchestration.py` and `workflow_engine.py` — persisted `workflowState` on each conversation drives add-dish / add-ingredient / add-addon steps; other intents fall back to regex (e.g. reorder → **Inventory**, pricing → **Business**, new dishes → **Creative**).
 
 Direct specialist mode (dashboard section tabs or **Connect to … Agent**) bypasses the supervisor and runs one ReAct agent with that agent's tools.
 
 ## Data model (summary)
 
-MongoDB collections: users, restaurants, ingredients, dishes, add-ons, bill uploads, conversations, suggestions. See [DB/README.md](./DB/README.md).
+MongoDB collections: users, restaurants, ingredients, dishes, add-ons, bill uploads, conversations (including optional `workflowState` for multi-turn write flows), suggestions. See [DB/README.md](./DB/README.md).
 
 Images use an R2-compatible key layout (`storage/r2/` locally; Cloudflare R2 in production via `R2_STORAGE_ROOT`).
 

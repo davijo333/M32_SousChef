@@ -1,0 +1,5 @@
+# Internal metadata only — chef never sees this voice.
+
+context: inventory
+worker: inventory
+writes: true

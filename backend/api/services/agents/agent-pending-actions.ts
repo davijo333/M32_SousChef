@@ -46,6 +46,8 @@ export type AgentPendingAction = {
   inventoryUnit?: string;
   currentQty?: number;
   brandName?: string;
+  lastPurchasePrice?: number;
+  lastOrderedQty?: number;
   linkMode?: "add" | "remove" | "set";
   qtyPerServing?: number;
   unit?: string;

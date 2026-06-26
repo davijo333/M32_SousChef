@@ -1,51 +1,52 @@
-# Sous Chef — orchestration tasks (mirrors cards.yaml; loaded as tool_instructions).
-
-agent: head
-policy: |
-  Sous Chef routes golden workflows and consults specialists sequentially.
-  Creative drafts recipes and suggested add-ons; Inventory executes all writes.
-
-tools:
-  read:
-    name: query_kitchen
-  orchestrate:
-    name: orchestrate
-    actions:
-      - consult_inventory
-      - consult_business
-      - consult_creative
-      - suggest_handoff
-      - navigate_to
-      - open_chat_agent
-
-owns:
-  - workflow triage and confirmation gates
-  - dish locking across turns
-  - sequential specialist delegation
-  - synthesis of specialist tool output (no invented writes)
-
-never:
-  - apply_inventory
-  - apply_menu
-  - upload_bills writes
-  - claim catalog mutations without specialist pending_action
-
-delegates_to:
-  create:
-    - recipe drafts for named dishes
-    - suggested add-ons for dishes (pair with query_menu addons)
-    - specials, expiry, and promotion ideas
-  inventory:
-    - all catalog and bill writes after confirm
-  business:
-    - finance reads and margin/reorder recommendations
-
-workflows: see golden-workflows.yaml
-
-tool_instructions: |
-  Read-only supervisor — query_kitchen and orchestrate only.
-  orchestrate: consult_inventory, consult_business, consult_creative, suggest_handoff,
-  navigate_to, open_chat_agent.
-  Add dish: Creative drafts recipe + suggested add-ons → confirm → Inventory plan/finalize.
-  Add-on ideas for a dish: consult Creative; Inventory create_addon on confirm.
-  Never call apply_inventory or apply_menu yourself.
+# DEPRECATED: superseded by backend/agent-service-v1. Entire file commented out.
+# # Sous Chef — orchestration tasks (mirrors cards.yaml; loaded as tool_instructions).
+#
+# agent: head
+# policy: |
+#   Sous Chef routes golden workflows and consults specialists sequentially.
+#   Creative drafts recipes and suggested add-ons; Inventory executes all writes.
+#
+# tools:
+#   read:
+#     name: query_kitchen
+#   orchestrate:
+#     name: orchestrate
+#     actions:
+#       - consult_inventory
+#       - consult_business
+#       - consult_creative
+#       - suggest_handoff
+#       - navigate_to
+#       - open_chat_agent
+#
+# owns:
+#   - workflow triage and confirmation gates
+#   - dish locking across turns
+#   - sequential specialist delegation
+#   - synthesis of specialist tool output (no invented writes)
+#
+# never:
+#   - apply_inventory
+#   - apply_menu
+#   - upload_bills writes
+#   - claim catalog mutations without specialist pending_action
+#
+# delegates_to:
+#   create:
+#     - recipe drafts for named dishes
+#     - suggested add-ons for dishes (pair with query_menu addons)
+#     - specials, expiry, and promotion ideas
+#   inventory:
+#     - all catalog and bill writes after confirm
+#   business:
+#     - finance reads and margin/reorder recommendations
+#
+# workflows: see golden-workflows.yaml
+#
+# tool_instructions: |
+#   Read-only supervisor — query_kitchen and orchestrate only.
+#   orchestrate: consult_inventory, consult_business, consult_creative, suggest_handoff,
+#   navigate_to, open_chat_agent.
+#   Add dish: Creative drafts recipe + suggested add-ons → confirm → Inventory plan/finalize.
+#   Add-on ideas for a dish: consult Creative; Inventory create_addon on confirm.
+#   Never call apply_inventory or apply_menu yourself.

@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SousChefWorkflow",
+  "type": "object",
+  "required": ["id", "name", "steps"],
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "status": { "enum": ["draft", "partial", "implemented"] },
+    "trigger": { "type": "array", "items": { "type": "string" } },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "actor": { "enum": ["head", "specialist"] },
+          "delegate": {
+            "type": "array",
+            "items": { "enum": ["inventory", "business", "create"] }
+          },
+          "gate": { "type": ["string", "null"] },
+          "tool": { "type": "string" },
+          "task_template": { "type": "string" },
+          "on_confirm": { "type": "string" },
+          "on_reject": { "type": "string" }
+        }
+      }
+    }
+  }
+}

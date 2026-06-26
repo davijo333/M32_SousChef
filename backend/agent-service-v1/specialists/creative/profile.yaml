@@ -1,0 +1,5 @@
+# Internal metadata only — chef never sees this voice. Runtime key: create
+
+context: create
+worker: create
+writes: false

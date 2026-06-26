@@ -1,0 +1,28 @@
+# Internal worker — not shown to chef. No persona. Context key: create
+
+worker: create
+writes: false
+
+capabilities:
+  - query_menu
+  - query_inventory
+
+output:
+  schema:
+    dish_name: string
+    description: string
+    ingredients: [{ name, qty, unit }]
+    steps: [string]
+    visual_brief: string
+    suggested_addons: [{ name, classification, ingredients, optional_price }]
+
+rules:
+  - general_pantry_names_in_ingredient_lines
+  - brands_only_in_pos_description
+  - heading_format: "### Dish Name"  # never "Recipe for …"
+  - no_user_facing_questions
+  - no_write_tools
+
+forbidden:
+  - claim_persisted
+  - margin_or_sell_price_in_draft  # after inventory save only

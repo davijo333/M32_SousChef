@@ -1,0 +1,13 @@
+name: add_dish_trigger_creative
+workflow: add_dish_from_chat
+description: Chef asks to add a named dish — should consult Creator first
+
+turns:
+  - role: user
+    content: "Add a mango smoothie to the menu"
+
+assert:
+  consult_order: [create]
+  workflow_id: add_dish_from_chat
+  step_id: draft_recipe
+  single_question: true

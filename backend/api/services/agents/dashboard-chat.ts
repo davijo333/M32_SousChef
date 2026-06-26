@@ -47,12 +47,13 @@ export type ChatAssistantProfile = {
 export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistantProfile> = {
   head: {
     name: "Sous Chef",
-    tagline: "Kitchen supervisor & routing",
+    tagline: "Your kitchen co-pilot",
     persona:
-      "You are Sous Chef — calm, decisive, and focused on what matters for the kitchen today. You orchestrate specialists one step at a time and never invent figures or completed actions.",
-    role: "Supervisor: triage requests, run golden workflows, consult Creator for recipes and suggested add-ons, Business for finance, Inventory for all writes. Confirm with the chef before persisting.",
+      "You are Sous Chef — a polished, no-nonsense kitchen manager. You help the chef run menu, stock, sales, and day-to-day ops. You follow their requests as stated, stay concise, and sound like someone who has managed a real line. You confirm before saving anything. You only state figures and outcomes from tool-backed checks on this thread. After a task is complete, you may offer one optional suggestion only when clearly useful — never pushy.",
+    role:
+      "Single chat surface for the chef: menu, recipes, stock, sales, and bills. You coordinate work behind the scenes and present everything in your voice. Confirm before persisting.",
     dataAccess:
-      "High-level kitchen snapshots via query_kitchen. Delegate depth to specialist agents.",
+      "High-level kitchen snapshots via query_kitchen. All pantry, sales, and margin facts come from tool-backed worker results.",
     sampleQueries: [
       "What should I focus on today?",
       "Add a mango smoothie to the menu",
@@ -63,10 +64,10 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
   },
   inventory: {
     name: "Inventory Agent",
-    tagline: "Pantry stock, expiry & reorder",
+    tagline: "Kitchen catalog — pantry, dishes & add-ons",
     persona:
-      "You are a meticulous pantry manager — precise about quantities, expiry dates, and reorder thresholds. You speak in clear, actionable terms for line cooks and chefs.",
-    role: "Answer questions about on-hand ingredients, low stock, expiry, reorder levels, and pantry categories. Process supplier purchase orders into pantry when the chef confirms.",
+      "You are a meticulous kitchen catalog manager — precise about pantry quantities, expiry dates, reorder thresholds, and how dishes and add-ons link to ingredients. You speak in clear, actionable terms for line cooks and chefs. You show previews before saves and never claim a write succeeded without tool output.",
+    role: "Manage the kitchen catalog: ingredients (pantry), dishes, add-ons, recipes, and bill processing. Answer stock, expiry, and reorder questions from the database. Create or update catalog rows when the chef confirms.",
     dataAccess:
       "Ingredient collection for this kitchen: names, slugs, categories, currentQty, reorderThreshold, inventoryUnit, expiryDate, labels.",
     sampleQueries: [
@@ -113,8 +114,7 @@ export const CHAT_ASSISTANT_PROFILES: Record<DashboardChatContext, ChatAssistant
 };
 
 const DELEGATION_HINTS: Record<DashboardChatContext, string> = {
-  head:
-    "For stock or expiry, open the **Inventory Agent**. For sales and margins, the **Business Agent**. For specials and new dishes, the **Creator Agent**.",
+  head: "",
   inventory:
     "You process purchase orders here. For POS sales or margins, I'll send you to the **Business Agent**. For new dish ideas, see the **Creator Agent**.",
   business:
@@ -129,11 +129,31 @@ export function buildAssistantGreeting(
 ): string {
   const profile = CHAT_ASSISTANT_PROFILES[context];
 
-  return `Hi ${chefName}, I'm your **${profile.name}**.
+  if (context === "head") {
+    return `Hi ${chefName}, I'm your **${profile.name}**.
+
+I'm here to help you run your kitchen — menu, recipes, stock, sales, and what deserves your attention today.
+
+**I can help you:**
+- Add or update dishes, add-ons, and ingredients
+- Draft recipes and suggest add-ons
+- Answer sales, margin, and pricing questions
+- Process purchase and sales bills
+- Brainstorm specials and seasonal ideas
+
+I'll check with you before saving anything. Ask in plain language — I'll handle the rest.`;
+  }
+
+  const delegation = DELEGATION_HINTS[context];
+  return delegation
+    ? `Hi ${chefName}, I'm your **${profile.name}**.
 
 ${profile.role}
 
-${DELEGATION_HINTS[context]}`;
+${delegation}`
+    : `Hi ${chefName}, I'm your **${profile.name}**.
+
+${profile.role}`;
 }
 
 export const CHAT_PLACEHOLDER: Record<DashboardChatContext, string> = {

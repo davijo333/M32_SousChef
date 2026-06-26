@@ -1,0 +1,193 @@
+# Global workflow defaults — loaded with every catalog file.
+# Reply gates for Sous Chef: supervisor/reply_policy.py
+
+version: 1
+
+confirm_phrases:
+  - go ahead
+  - confirm
+  - yes
+  - yeah
+  - yep
+  - sure
+  - ok
+  - okay
+  - add it
+  - save it
+  - looks good
+  - approved
+  - proceed
+  - do it
+
+reject_phrases:
+  - no
+  - nope
+  - not yet
+  - wait
+  - stop
+  - cancel
+  - change
+  - edit
+  - update
+  - instead
+
+reply_rules:
+  max_questions_per_message: 1
+  confirm_suffix: "(Yes/No/Update Instructions)"
+  dish_pick_suffix: "(Yes/No/Customize)"
+  confirm_opener: "Ready to save"
+
+classification_policy:
+  dish:
+    field: classification
+    allowed: [sandwich, byo-sandwich, coffee, tea, juice, other]
+    on_unknown: other
+  ingredient:
+    field: category
+    allowed: [bakery, dairy, produce, protein, coffee, tea, juice, syrup, pantry, misc]
+    on_unknown: misc
+  addon:
+    field: classification
+    common: [addon, cheese, protein, veggie, coffee]
+
+# Writable fields per update workflow — persist step only; links via route_post_persist
+update_field_policy:
+  dish:
+    allowed: [classification, sell_price, description]
+    labels:
+      classification: class
+      sell_price: price
+      description: description
+    forbidden_in_persist:
+      - name
+      - ingredient_links
+      - addon_links
+      - recipe_instructions
+    link_follow_up: route_post_persist → link_dish_ingredients | link_addons_to_dish
+  addon:
+    allowed: [classification, sell_price, description]
+    labels:
+      classification: class
+      sell_price: price
+      description: description
+    forbidden_in_persist:
+      - name
+      - linked_dish_slugs
+      - ingredient_links
+    link_follow_up: route_post_persist → link_addon_ingredients
+  ingredient:
+    allowed:
+      - category
+      - current_qty
+      - reorder_threshold
+      - last_purchase_price
+      - last_ordered_qty
+    labels:
+      category: category
+      current_qty: available quantity
+      reorder_threshold: reorder level
+      last_purchase_price: previous cost
+      last_ordered_qty: previous order quantity
+    forbidden_in_persist:
+      - name
+      - brand_name
+      - sku
+      - inventory_unit
+
+sub_workflows:
+  add_ingredient_from_chat: ingredient addition when pantry row missing
+  add_addon_from_chat: add-on create + link when chef confirms new modifiers
+  link_dish_ingredients: update ingredient links on existing dish
+  link_addon_ingredients: update ingredient links on existing add-on
+  link_addons_to_dish: attach add-on slugs to existing dish
+
+# When a dish or add-on recipe needs pantry rows:
+pantry_ingredient_policy:
+  order: search_then_create_then_link
+  rule: >
+    Search pantry for every recipe ingredient first. Slugs that exist are linked at
+    finalize — do not run add_ingredient for them (no duplicates). Only names with no
+    pantry match go through add_new_ingredients (sub-call). Never link a slug that is
+    not in pantry.
+  dish_build:
+    search: check_recipe_ingredients
+    confirm_gaps: confirm_new_ingredients
+    create_missing: add_new_ingredients
+    confirm_kitchen: confirm_finalize
+    link: persist_build
+  addon_build:
+    search: check_addon_ingredients
+    confirm_gaps: confirm_new_ingredients
+    create_missing: add_new_ingredients
+    link: link_addon_ingredients
+  link_dish_build:
+    search: check_recipe_ingredients
+    confirm_gaps: confirm_new_ingredients
+    create_missing: add_new_ingredients
+    link: persist  # link_dish_ingredients
+
+sub_workflow_context:
+  add_ingredient_from_chat:
+    standalone:
+      when: chef adds an ingredient directly (not during dish/add-on build)
+      on_duplicate: stop_warn_chef
+      gates: [confirm_category, confirm_create]
+    sub_call:
+      when_parent:
+        - add_dish_from_chat
+        - add_addon_from_chat
+        - link_dish_ingredients
+        - link_addon_ingredients
+      input: ingredient_names_missing
+      on_duplicate: return_existing_slug  # parent search already matched; resume parent
+      skip_gates: [confirm_create]  # chef confirms all gaps once at parent confirm_new_ingredients
+      gates: [confirm_category]  # only when category cannot be inferred from recipe context
+      note: >
+        Parent already searched pantry. Sub-call creates only truly missing rows after
+        chef confirms at confirm_new_ingredients. confirm_finalize is a separate gate for
+        full kitchen build (dish + link + images).
+
+photo_upload_entry:
+  rule: >
+    When chef attaches catalog_draft or photo, run image_context before lookup on
+    dish, ingredient, or add-on addition workflows. Chef text correction overrides vision.
+
+duplicate_handling:
+  stop_warn_chef:
+    when: standalone create and catalog row already exists
+    action: warn chef, clear workflow, offer handoff to update_* or new name
+  return_existing_slug:
+    when: sub_call during parent build and row exists
+    action: return slug to parent — never stop parent flow
+
+query_policy:
+  mode: read
+  confirm_gate: disambiguate_only
+  workers:
+    inventory: inventory_* queries
+    business: business_* queries
+    create: creative_* queries
+  rules:
+    - never persist from query workflows
+  creative_vs_add_dish:
+    ideas_only: creative_cues, expiry_special, promotion_special, creative_pantry_recipe
+    ideas_then_build: add_dish_from_chat
+    note: >
+      creative queries return names/rationale or chat drafts only. Chef says
+      build / add / pick 1-2-3 → add_dish_from_chat.
+
+bills_policy:
+  mode: write
+  order: purchase_orders_before_sales_orders
+  confirm_gate: confirm_bills
+  reply_gate: bill_upload
+  workers:
+    inventory: upload_bills, apply_inventory process_purchase_bills, apply_inventory process_sales_bills
+    business: query_business purchase_prerequisite, query_business sales_queue
+  rules:
+    - UI parses/classifies files before chat — agent summarizes and confirms only
+    - mixed batch processes supplier slice then customer slice in one confirmed sequence
+    - business never calls process_sales_bills — inventory persists after confirm
+  query_escalation:
+    inventory_purchase_queue: process_purchase_bills or upload_purchase_orders
+    business_sales_queue: process_sales_bills or upload_sales_orders

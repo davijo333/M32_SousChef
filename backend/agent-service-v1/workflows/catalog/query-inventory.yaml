@@ -1,0 +1,261 @@
+# Inventory queries — read-only pantry and catalog lookups
+#
+# Source: golden-inventory-query-workflows.md
+# Walkthrough: ../docs/query-workflows.md
+
+workflows:
+  - id: inventory_on_hand
+    name: On-hand quantity
+    status: catalogued
+    mode: read
+    description: Quote on-hand qty and unit for a named ingredient (or catalog item).
+
+    trigger:
+      - how much
+      - qty of
+      - do we have
+      - on hand
+      - in stock
+    workers:
+      inventory: query_inventory ingredient_detail, catalog_search
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Extract ingredient or catalog item name from chef message.
+        outputs: [locked_name]
+        next: consult
+
+      - id: consult
+        order: 2
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory ingredient_detail
+        task_template: |
+          Look up **{locked_name}**. Return on-hand qty, unit, slug, category.
+        on_multiple_matches: disambiguate
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Quote **On hand** and **unit** exactly from tool output. No confirm gate.
+        optional_follow_up:
+          - reorder question → inventory_reorder_read
+          - add to pantry → add_ingredient_from_chat
+
+      - id: disambiguate
+        order: 4
+        actor: sous_chef
+        gate: disambiguate
+        action: >
+          Did you mean **A** or **B**? One question only.
+        reply_gate: other
+
+  - id: inventory_low_stock
+    name: Low stock / reorder needed
+    status: catalogued
+    mode: read
+    trigger:
+      - low stock
+      - running out
+      - need to reorder
+      - required items
+    workers:
+      inventory: query_inventory low_stock
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Optional category filter or "everything".
+        outputs: [category_filter]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory
+        task_template: List items below reorder level with on-hand vs threshold.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: List from tool; optional one question to narrow category.
+        optional_follow_up:
+          - set reorder → update_ingredient
+
+  - id: inventory_expiring
+    name: Expiring stock
+    status: catalogued
+    mode: read
+    trigger:
+      - expiring
+      - use before
+      - spoil
+    workers:
+      inventory: query_inventory expiring
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Parse window (default 7 days).
+        outputs: [expiry_window_days]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory expiring
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Names, qty, expiry context from tool.
+        optional_follow_up:
+          - recipe using these → expiry_special or add_dish_from_chat
+
+  - id: inventory_reorder_read
+    name: Reorder level read
+    status: catalogued
+    mode: read
+    trigger:
+      - reorder level
+      - reorder threshold
+      - threshold for
+    workers:
+      inventory: query_inventory ingredient_detail
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [locked_name]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory ingredient_detail
+        on_multiple_matches: disambiguate
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Quote reorder level and unit from DB.
+        optional_follow_up:
+          - set reorder → update_ingredient
+          - sales-based advice → business_reorder_advice
+
+      - id: disambiguate
+        order: 4
+        actor: sous_chef
+        gate: disambiguate
+        reply_gate: other
+
+  - id: inventory_search
+    name: Pantry search
+    status: catalogued
+    mode: read
+    trigger:
+      - find ingredient
+      - search pantry
+      - what's in pantry
+    workers:
+      inventory: query_inventory search
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [search_term, category_filter]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory search
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Matching rows — name, slug, category, on-hand. If zero hits, one clarifier (typo vs missing).
+        optional_follow_up:
+          - add missing → add_ingredient_from_chat
+
+  - id: inventory_menu_lookup
+    name: Dish or add-on catalog lookup
+    status: catalogued
+    mode: read
+    trigger:
+      - do we have a dish
+      - on the menu
+      - is there an addon
+      - lookup dish
+    workers:
+      inventory: query_menu search_dishes, addons
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [entity_kind, locked_name]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_menu search_dishes
+        task_template: Return status, sell price, classification from DB.
+        on_multiple_matches: disambiguate
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - change price → update_dish or update_addon
+          - add dish → add_dish_from_chat
+
+      - id: disambiguate
+        order: 4
+        actor: sous_chef
+        gate: disambiguate
+        reply_gate: other
+
+  - id: inventory_purchase_queue
+    name: Purchase / bill upload queue
+    status: catalogued
+    mode: read
+    trigger:
+      - bills to process
+      - purchase queue
+      - uploaded POs
+    workers:
+      inventory: query_inventory purchase_queue
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Supplier vs sales upload context if stated.
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory purchase_queue
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Counts, filenames, ready state from tool.
+        optional_follow_up:
+          - process bills → bills.yaml write workflows

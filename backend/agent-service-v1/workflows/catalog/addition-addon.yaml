@@ -1,0 +1,174 @@
+# Menu add-on addition — add_addon_from_chat only
+#
+# Source: golden-addition-workflows.md#add-on-addition-golden-workflow
+# Worker: inventory only (no create)
+
+workflows:
+  - id: add_addon_from_chat
+    name: Add menu add-on
+    status: catalogued
+    description: >
+      Create add-on/modifier row, ensure pantry ingredients exist (qty 0 if new), then link.
+      Standalone when chef adds an add-on directly; sub-called from add_dish_from_chat for
+      new modifiers after dish persist (parent_dish_slug required for dish link).
+
+    invocation_modes:
+      standalone:
+        on_duplicate: stop_warn_chef
+      sub_call:
+        when_parent: [add_dish_from_chat]
+        input_from_parent: confirmed_new_addons
+        parent_context: [locked_dish_slug]
+        on_duplicate: return_existing_slug
+        note: >
+          Parent dish already persisted. After add-on create + ingredient link, parent
+          link_addons_to_dish links all addon slugs to the dish.
+
+    intake_modes:
+      name_only:
+        when: chef states add-on name
+        then: lookup
+      image_only:
+        when: add-on photo / catalog_draft
+        then: image_context → confirm_name_from_image → lookup
+      name_and_image:
+        when: name + photo
+        then: combine; chef correction overrides vision name
+
+    trigger:
+      - add add-on
+      - add addon
+      - create modifier
+      - create add-on
+    trigger_when:
+      catalog_draft_item_type: addon
+
+    not_this_workflow:
+      - suggested add-ons for a dish (ideas only) → query.yaml
+      - add dish → addition-dish.yaml
+
+    workers:
+      inventory: search, create_addon, link_addon_ingredients, images
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Parse add-on name; catalog_draft; set intake_mode.
+        outputs: [intake_mode, locked_name, catalog_draft]
+        next: route_intake
+
+      - id: route_intake
+        order: 2
+        actor: sous_chef
+        branch:
+          name_only: lookup
+          image_only: image_context
+          name_and_image: image_context
+
+      - id: image_context
+        order: 3
+        actor: sous_chef
+        action: Vision — name, classification hint, description.
+        next: confirm_name_from_image
+
+      - id: confirm_name_from_image
+        order: 4
+        actor: sous_chef
+        gate: confirm_dish
+        action: Chef confirms or corrects add-on name from photo.
+        on_confirm: lookup
+        reply_gate: catalog_create
+
+      - id: lookup
+        order: 5
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu addons
+        task_template: Search add-on catalog for **{locked_name}**. If exists, return slug and stop.
+        on_duplicate:
+          standalone: stop_warn_chef
+          sub_call: return_existing_slug
+        on_clear: confirm_identity
+
+      - id: stop_warn_chef
+        order: 6
+        actor: sous_chef
+        action: >
+          Add-on **{locked_name}** already exists (`{duplicate_slug}`). Stop standalone add.
+          Offer update_addon or a different name.
+        clears_workflow_state: true
+        handoff_workflow: update_addon
+        on_new_name: lookup
+
+      - id: confirm_identity
+        order: 7
+        actor: sous_chef
+        gate: confirm_inventory
+        action: Confirm name, classification, optional sell price if chef provided.
+        on_confirm: persist_create
+        reply_gate: catalog_create
+
+      - id: persist_create
+        order: 8
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu create_addon
+        task_template: create_addon + auto images. No ingredient links yet.
+        on_success: check_addon_ingredients
+
+      - id: check_addon_ingredients
+        order: 9
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory search
+        task_template: |
+          For each pantry item the add-on needs, search pantry. Return:
+          - ingredient_links_existing: [{name, ingredientSlug, qty, unit}]
+          - ingredient_names_missing: [names with no match]
+          Search only — do not create or link yet.
+        outputs: [ingredient_links_existing, ingredient_names_missing]
+        branch:
+          ingredient_names_missing_empty: link_ingredients
+          has_missing: confirm_new_ingredients
+
+      - id: confirm_new_ingredients
+        order: 10
+        actor: sous_chef
+        gate: confirm_new_ingredients
+        skip_when: ingredient_names_missing_empty
+        action: >
+          List gap pantry items for this add-on; confirm adding all at qty 0 in one gate.
+        on_confirm: add_new_ingredients
+        on_reject: confirm_identity
+        reply_gate: pantry_gaps
+
+      - id: add_new_ingredients
+        order: 11
+        actor: sous_chef
+        action: >
+          Sub-call add_ingredient_from_chat for each name in ingredient_names_missing
+          after chef confirmed at confirm_new_ingredients.
+        sub_workflow: add_ingredient_from_chat
+        sub_workflow_mode: sub_call
+        skip_when: ingredient_names_missing_empty
+        requires: all_addon_ingredients_have_slug
+        next: link_ingredients
+
+      - id: link_ingredients
+        order: 12
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu link_addon_ingredients
+        action: >
+          Link pantry slugs to add-on only after every ingredient exists in pantry.
+        skip_when: no_ingredient_links_requested
+        on_success:
+          standalone: completed
+          sub_call: resume_parent
+
+      - id: completed
+        order: 13
+        actor: sous_chef
+        action: Summarize add-on slug and Kitchen control link.
+        clears_workflow_state: true

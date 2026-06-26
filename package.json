@@ -9,7 +9,7 @@
     "lru-cache": "6.0.0"
   },
   "scripts": {
-    "start:agents": "bash backend/agent-service/run.sh",
+    "start:agents": "bash backend/agent-service-v1/run.sh",
     "start:schef": "bash infra/scripts/start-web.sh",
     "connect:mongodb": "bash infra/scripts/connect-mongodb.sh",
     "reset:db": "bash infra/scripts/reset-db.sh",
@@ -19,7 +19,7 @@
     "generate:tool-docs": "python3 tools/tools/generate-tool-docs.py",
     "dev": "docker compose -f infra/docker-compose.yml up -d mongo && cd apps/web && npm run dev",
     "dev:web": "bash infra/scripts/start-web.sh",
-    "dev:agent": "bash backend/agent-service/run.sh",
+    "dev:agent": "bash backend/agent-service-v1/run.sh",
     "docker:up": "docker compose -f infra/docker-compose.yml up -d mongo",
     "docker:down": "docker compose -f infra/docker-compose.yml down",
     "docker:full": "docker compose -f infra/docker-compose.yml --profile full up -d",

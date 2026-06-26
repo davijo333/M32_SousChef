@@ -1,5 +1,6 @@
 import type { ChatCatalogDraftPayload } from "@backend/services/chat/chat-catalog-draft";
 import {
+  cleanMenuDishName,
   creativeRecipeDraftText,
   inferRecipeDraftDishName,
   threadHasRecipeDraft,
@@ -147,7 +148,9 @@ export function inferRecipeBuildPlanFromThread(
   const dishName =
     catalogName ||
     inferRecipeDraftDishName(messages) ||
-    assistantText.match(/(?:^|\n)#{1,3}\s*([^\n#*]+)\n/)?.[1]?.trim() ||
+    cleanMenuDishName(
+      assistantText.match(/(?:^|\n)#{1,3}\s*([^\n#*]+)\n/)?.[1]?.trim() || ""
+    ) ||
     "";
 
   if (!dishName) return null;

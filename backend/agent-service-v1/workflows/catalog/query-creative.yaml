@@ -1,0 +1,171 @@
+# Creative queries — brainstorm and draft only (no DB writes)
+#
+# Source: golden-creative-query-workflows.md
+#
+# Product: no save-to-Suggested. "Build one" / "add it" → add_dish_from_chat.
+# Ideas-only here; pick + full build is add_dish intake (ideas_request / neither).
+
+workflows:
+  - id: creative_cues
+    name: Daily cues / special ideas
+    status: catalogued
+    mode: read
+    trigger:
+      - idea for today
+      - what should I feature
+      - special for weather
+      - cozy special
+      - seasonal idea
+    not_this_workflow:
+      - add to kitchen / build dish → add_dish_from_chat
+      - save only → add_dish_from_chat after pick
+    workers:
+      create: query_menu cues, query_inventory search
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Note day/weather/season context if chef stated preferences.
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [create]
+        tool: query_menu cues
+        task_template: |
+          Use cues + pantry snapshot. Return 1–3 dish ideas with short rationale.
+          **Names and why only** — no full recipe, no save.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        action: Present ideas in chat. No confirm gate.
+        optional_follow_up:
+          - build one → add_dish_from_chat
+
+  - id: expiry_special
+    name: Expiry-driven recipe idea
+    status: catalogued
+    mode: read
+    trigger:
+      - what can I make with expiring
+      - use up
+      - before it spoils
+    workers:
+      create: query_inventory expiring
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Ingredient names from message or cross-ref inventory_expiring.
+        outputs: [expiring_ingredients]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [create]
+        task_template: Draft dish/recipe using expiring items first. Chat only — no write.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - add to kitchen → add_dish_from_chat
+
+  - id: promotion_special
+    name: Promotional special idea
+    status: catalogued
+    mode: read
+    trigger:
+      - promo for
+      - limited-time special
+      - feature the
+      - bundle for
+    workers:
+      create: query_menu promotion_targets
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [target_dish_or_pick_for_me]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [create]
+        tool: query_menu promotion_targets
+        task_template: Draft promo concept + optional recipe sketch. No write.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - build special → add_dish_from_chat
+
+  - id: suggest_dish_addons
+    name: Suggested add-ons for a dish
+    status: catalogued
+    mode: read
+    trigger:
+      - add-ons for
+      - modifiers for
+      - upsells for
+    workers:
+      create: query_menu addons
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: Lock dish name from thread.
+        outputs: [locked_dish_name]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [create]
+        tool: query_menu addons
+        task_template: Propose 1–3 add-ons with classification and fit rationale. Reuse catalog when they fit.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - add new modifiers → add_dish_from_chat persist_addons or add_addon_from_chat
+
+  - id: creative_pantry_recipe
+    name: Pantry-based recipe brainstorm
+    status: catalogued
+    mode: read
+    trigger:
+      - what can I make with
+      - recipe using what we have
+      - using eggs and
+    workers:
+      create: query_inventory search
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [ingredient_list]
+        next: consult
+
+      - id: consult
+        order: 2
+        delegate: [create]
+        task_template: Draft recipe (ingredients + steps) in chat only.
+        on_complete: answer
+
+      - id: answer
+        order: 3
+        actor: sous_chef
+        optional_follow_up:
+          - add to kitchen → add_dish_from_chat

@@ -17,7 +17,8 @@ Manual UI always works in parallel — agents augment chat; they do not replace 
 
 ### Sous Chef (supervisor)
 
-- Runs golden workflows (`backend/agent-service/agents/head/golden-workflows.yaml`)
+- Follows golden workflows in `backend/agent-service/workflows/` (canonical spec); legacy YAML at `agents/head/golden-workflows.yaml`
+- **Step state** — `conversation.workflowState` (`workflowId`, `stepId`, `lockedName`, `gatesPassed`) persisted in MongoDB and enforced by `agents/head/workflow_engine.py` before regex routing
 - Consults specialists sequentially; synthesizes tool output
 - Does **not** invent stock figures or claim writes completed
 - Deterministic chat gates in Next.js handle common confirms (price, reorder, recipe save) without LLM

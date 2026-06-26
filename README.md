@@ -55,7 +55,7 @@ cp .env.example .env
 npm install && cd apps/web && npm install && cd ../..
 
 npm run connect:mongodb   # MongoDB on :27017
-npm run start:agents      # Backend service on :8000
+npm run start:agents      # Agent service v1 on :8000 (replaces agent-service)
 npm run start:schef       # Web app on :3000
 ```
 

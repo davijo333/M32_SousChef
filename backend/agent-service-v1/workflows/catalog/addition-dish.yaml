@@ -1,0 +1,334 @@
+# Dish addition — add_dish_from_chat only
+#
+# Source: golden-addition-workflows.md (Dish + Recipe Addition)
+# Walkthrough: ../docs/add-dish-from-chat.md
+#
+# Related catalog files:
+#   addition-ingredient.yaml — add_ingredient_from_chat
+#   addition-addon.yaml      — add_addon_from_chat
+#
+# Product: no lite save to Recipes → Suggested from chat. Ideas are conversational
+# (2–3 options) until chef picks one → full kitchen build.
+
+workflows:
+  - id: add_dish_from_chat
+    name: Add dish from chat
+    status: catalogued
+    description: >
+      Single path to add a dish: intake by name, image, ideas request, or missing info;
+      optional 2–3 chat dish ideas (name, description, why from cues); chef picks one;
+      then duplicate check, full recipe draft, confirm gates, plan/finalize, optional add-ons.
+
+    intake_modes:
+      name_only:
+        when: chef message locks a dish name; no photo / catalog_draft image
+        then: duplicate_check using that name
+      image_only:
+        when: photo or catalog_draft image; no locked dish name yet
+        then: read image → chef confirms or corrects proposed name
+      name_and_image:
+        when: chef supplied a name and attached an image
+        then: combine vision (description, class) with chef name; chef correction overrides photo label
+      ideas_request:
+        when: >
+          chef asks for dish ideas or suggestions (what should I add, inspire me, specials ideas)
+          without locking a dish name
+        then: suggest_dish_ideas → pick_dish → duplicate_check → full build
+      neither:
+        when: chef wants to add a dish but gave no name and no image
+        then: gather_preferences → suggest_dish_ideas → pick_dish → duplicate_check → full build
+
+    trigger:
+      - add dish
+      - create menu item
+      - create a dish
+      - add to menu
+      - add to kitchen
+      - build recipe for
+      - build this
+      - what should I add
+      - suggest dishes
+      - dish ideas
+      - what specials
+      - inspire me
+      - ideas for today
+    trigger_when:
+      catalog_draft_item_type: dish
+
+    not_this_workflow:
+      - update existing dish → update_dish (update-dish.yaml)
+      - add pantry ingredient only → add_ingredient_from_chat
+      - add-on only → add_addon_from_chat
+      - add-on ideas read-only → suggest_dish_addons (query.yaml)
+      - sales/margin reads only → query.yaml
+
+    workers:
+      create: dish idea cards, full recipe draft, visual brief, suggested add-ons
+      inventory: duplicate check, ingredient check, plan/finalize, add-on persist
+      business: optional margin pass after completed
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Parse chef message; detect catalog_draft / photo; lock dish name when stated in text.
+          Set intake_mode: name_only | image_only | name_and_image | ideas_request | neither.
+        outputs: [intake_mode, locked_name, catalog_draft, has_image]
+        next: route_intake
+
+      - id: route_intake
+        order: 2
+        actor: sous_chef
+        action: Route to the path matching intake_mode.
+        branch:
+          name_only: duplicate_check
+          image_only: image_context
+          name_and_image: image_context
+          ideas_request: suggest_dish_ideas
+          neither: gather_preferences
+
+      - id: image_context
+        order: 3
+        actor: sous_chef
+        action: >
+          Read image / catalog_draft vision — proposed menu name, POS description,
+          classification hint. For name_and_image, keep chef's stated name unless they
+          correct it; vision enriches description and class only.
+        outputs: [proposed_name, description, classification_hint]
+        next: confirm_name_from_image
+
+      - id: confirm_name_from_image
+        order: 4
+        actor: sous_chef
+        gate: confirm_dish
+        action: >
+          Present vision-proposed name (image_only) or chef name + photo context (name_and_image).
+          Ask chef to **confirm or correct** the menu name before continuing.
+        on_confirm: duplicate_check
+        on_reject: confirm_name_from_image
+        reply_gate: catalog_create
+
+      - id: gather_preferences
+        order: 3
+        actor: sous_chef
+        action: >
+          No dish name yet. Ask **one** question to narrow ideas — e.g. cuisine, meal type
+          (breakfast, lunch, dinner, beverage), hot vs cold, or dietary angle.
+        outputs: [cuisine_hint, meal_type_hint, chef_constraints]
+        gate: null
+        next: suggest_dish_ideas
+
+      - id: suggest_dish_ideas
+        order: 4
+        actor: sous_chef
+        delegate: [create]
+        tool: query_menu cues
+        task_template: |
+          Chef has not chosen a dish yet. Use query_menu cues (weather, season, day) and
+          query_inventory expiring for soon-to-spoil ingredients. Respect chef preferences:
+          cuisine={cuisine_hint}, meal_type={meal_type_hint}, constraints={chef_constraints}.
+          Propose **2–3 dish ideas** — for each use ### 1. **Menu name** with:
+          - One-line POS description
+          - One line **why today** (weather cue, expiring stock, season, or chef preference)
+          **No recipes, ingredients, or prep steps yet** — only ideas until chef picks.
+          Return structured options only — Sous Chef presents and asks chef to pick 1, 2, or 3.
+        outputs: [dish_idea_options]
+        next: pick_dish
+
+      - id: pick_dish
+        order: 5
+        actor: sous_chef
+        gate: dish_pick
+        action: >
+          Present the 2–3 dish ideas (name, description, why). Chef picks one — by number
+          (1/2/3), by name, or yes to the first. Lock chosen name as locked_name; carry
+          description into confirm_dish_identity.
+        on_confirm: duplicate_check
+        on_reject: gather_preferences
+        on_customize: gather_preferences
+        reply_gate: dish_pick
+
+      - id: duplicate_check
+        order: 6
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_menu search_dishes
+        task_template: |
+          Search menu (active, new, suggested, inactive) for dish matching **{locked_name}**
+          or chef's latest pick. Return duplicate_slug, recipeStatus, and match strength;
+          or clear to proceed for new dish.
+        outputs: [duplicate_slug, duplicate_status]
+        on_duplicate: stop_warn_chef
+        on_clear: confirm_dish_identity
+
+      - id: stop_warn_chef
+        order: 7
+        actor: sous_chef
+        action: >
+          **{locked_name}** already exists (`{duplicate_slug}`, status `{duplicate_status}`).
+          Cannot add a second dish with this name. Offer: update the existing dish
+          (`update_dish`), or pick a different name and re-run duplicate_check.
+        clears_workflow_state: true
+        handoff_workflow: update_dish
+        on_new_name: duplicate_check
+
+      - id: confirm_dish_identity
+        order: 8
+        actor: sous_chef
+        gate: confirm_dish
+        action: >
+          Present dish name, short description, and classification (from dish classes).
+          Chef confirms or corrects; lock name for remainder of workflow.
+        on_confirm: draft_recipe
+        on_reject: confirm_dish_identity
+        reply_gate: catalog_create
+
+      - id: draft_recipe
+        order: 9
+        actor: sous_chef
+        delegate: [create]
+        tool: query_inventory search
+        task_template: |
+          Draft full recipe for **{locked_name}**.
+          Include: general ingredient names with qty/unit, numbered prep steps,
+          Visual brief (1–3 sentences, one serving, no brand logos on dish photo),
+          and 1–3 suggested add-ons (reuse query_menu addons when they fit).
+          Use ### {locked_name} as heading — never "Recipe for …".
+          Return structured draft only — no closing question to chef.
+        outputs:
+          - recipe_ingredients
+          - recipe_instructions
+          - visual_brief
+          - suggested_addons
+          - confirmed_new_addons
+          - confirmed_catalog_addon_slugs
+          - ingredient_slugs_where_matched
+        on_complete: confirm_recipe
+
+      - id: confirm_recipe
+        order: 10
+        actor: sous_chef
+        gate: confirm_recipe
+        action: Present recipe draft to chef; confirm or edit before any DB writes.
+        on_confirm: check_recipe_ingredients
+        on_reject: draft_recipe
+        reply_gate: kitchen_build
+
+      - id: check_recipe_ingredients
+        order: 11
+        actor: sous_chef
+        delegate: [inventory]
+        tool: query_inventory search
+        task_template: |
+          For each ingredient in the confirmed recipe for **{locked_name}**, search pantry.
+          Return two lists:
+          - ingredient_links_existing: [{name, ingredientSlug, qty, unit}] for matches
+          - ingredient_names_missing: [names with no pantry match]
+          Do not create or link yet — search only.
+        outputs: [ingredient_links_existing, ingredient_names_missing]
+        branch:
+          ingredient_names_missing_empty: confirm_finalize
+          has_missing: confirm_new_ingredients
+
+      - id: confirm_new_ingredients
+        order: 12
+        actor: sous_chef
+        gate: confirm_new_ingredients
+        skip_when: ingredient_names_missing_empty
+        action: >
+          List ingredient_names_missing only. Show which recipe lines already match pantry
+          (ingredient_links_existing). Ask chef to confirm adding **all gap items** to
+          pantry at qty 0 (label new) — one confirm for the batch, not per item.
+        on_confirm: confirm_finalize
+        on_reject: draft_recipe
+        reply_gate: pantry_gaps
+
+      - id: add_new_ingredients
+        order: 13
+        actor: sous_chef
+        action: >
+          After chef confirmed gaps at confirm_new_ingredients, sub-call
+          add_ingredient_from_chat (sub_call mode) for each name in ingredient_names_missing.
+          Never create rows in ingredient_links_existing.
+        sub_workflow: add_ingredient_from_chat
+        sub_workflow_mode: sub_call
+        skip_when: ingredient_names_missing_empty
+        requires: all_recipe_ingredients_have_slug
+        next: confirm_finalize
+
+      - id: confirm_finalize
+        order: 14
+        actor: sous_chef
+        gate: confirm_finalize
+        action: >
+          Summarize full kitchen build for **{locked_name}**: recipe, ingredient links
+          (existing + newly created), visual brief, confirmed add-ons. Separate confirm
+          from pantry gaps — chef already approved new pantry rows at confirm_new_ingredients
+          (or there were none).
+        on_confirm: persist_build
+        on_reject: draft_recipe
+        reply_gate: kitchen_finalize
+
+      - id: persist_build
+        order: 15
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_menu plan_recipe_build
+        requires_confirm: true
+        task_template: |
+          plan_recipe_build with dish **{locked_name}**, recipe_ingredients (name, qty, unit),
+          recipe_instructions, visual_brief from draft; then finalize_recipe_build in same turn.
+          All pantry rows must already exist from add_new_ingredients (or check only).
+          finalize links dish ingredientLinks, writes recipe, auto dish + ingredient images.
+          No image picking in chat.
+        implementation: batched
+        batched_tools:
+          - apply_menu plan_recipe_build
+          - apply_menu finalize_recipe_build
+        outputs: [locked_dish_slug]
+        on_success: persist_new_addons
+
+      - id: persist_new_addons
+        order: 16
+        actor: sous_chef
+        gate: optional
+        skip_when: no_new_addons_confirmed
+        action: >
+          For each **new** add-on chef confirmed at confirm_recipe (not already in catalog),
+          sub-call add_addon_from_chat (sub_call mode). Pass addon draft fields and
+          parent_dish_slug `{locked_dish_slug}` from persist_build. Reused catalog add-ons
+          skip this step — link only at link_addons_to_dish.
+        sub_workflow: add_addon_from_chat
+        sub_workflow_mode: sub_call
+        input_from_parent: confirmed_new_addons
+        parent_context: [locked_dish_slug]
+        next: link_addons_to_dish
+
+      - id: link_addons_to_dish
+        order: 17
+        actor: sous_chef
+        delegate: [inventory]
+        gate: optional
+        skip_when: no_addons_confirmed
+        tool: apply_menu update_addon
+        task_template: |
+          Link every confirmed add-on slug (new + reused catalog) to dish `{locked_dish_slug}`
+          via linked_dish_slugs. Include slugs from confirmed_new_addons and
+          confirmed_catalog_addon_slugs from recipe draft.
+        on_success: completed
+
+      - id: completed
+        order: 18
+        actor: sous_chef
+        action: >
+          Summarize: dish name, ingredients added/linked, image status,
+          Kitchen control / Recipes link. recipeStatus stays new until chef promotes in UI.
+        clears_workflow_state: true
+
+    optional_follow_ups:
+      - id: margin_pass
+        when: dish persisted and chef may want pricing
+        delegate: [business]
+        tool: query_business suggest_price_change
+        note: Sous Chef offers only when clearly helpful — one optional line

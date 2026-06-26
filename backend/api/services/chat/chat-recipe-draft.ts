@@ -1,6 +1,8 @@
 /** Detect a Creative recipe draft waiting for chef confirmation in chat history. */
 
 import { isAgentAssistantLabel } from "@backend/services/agents/dashboard-chat";
+import { KITCHEN_SAVE_CONFIRM_RE } from "@backend/services/chat/chat-reply-sanitizer";
+import { isDishBrainstormReply } from "@backend/services/chat/dish-brainstorm";
 
 const RECIPE_SECTION_HEADERS =
   /^(?:suggested add-?ons?|prep steps?|ingredients?|visual brief|description|recipe|instructions?)$/i;
@@ -22,18 +24,21 @@ export function threadHasKitchenBuildInThread(
 export function creativeRecipeDraftText(
   messages: Array<{ role: string; content: string }>
 ): string {
-  return messages
-    .filter((row) => row.role === "assistant")
-    .map((row) => row.content)
-    .filter(
-      (text) =>
-        /ingredients?\s*:/i.test(text) &&
-        /prep steps?/i.test(text) &&
-        !/\bingredients ready\b/i.test(text) &&
-        !/\bcreated dish\b/i.test(text) &&
-        !/→/.test(text)
-    )
-    .join("\n\n");
+  for (const row of [...messages].reverse()) {
+    if (row.role !== "assistant") continue;
+    const text = row.content;
+    if (
+      /ingredients?\s*:/i.test(text) &&
+      /prep steps?/i.test(text) &&
+      !/\bingredients ready\b/i.test(text) &&
+      !/\bcreated dish\b/i.test(text) &&
+      !/→/.test(text) &&
+      !isDishBrainstormReply(text)
+    ) {
+      return text;
+    }
+  }
+  return "";
 }
 
 export function threadHasRecipeDraft(
@@ -43,6 +48,7 @@ export function threadHasRecipeDraft(
 
   const assistantText = creativeRecipeDraftText(messages);
   if (!assistantText.trim()) return false;
+  if (isDishBrainstormReply(assistantText)) return false;
 
   const hasIngredients =
     /ingredients?\s*:?\s*\n[\s\S]*?[-•*]\s+/i.test(assistantText) ||
@@ -59,7 +65,16 @@ export function threadHasRecipeDraft(
   return (hasIngredients && hasSteps) || (hasDishDraft && hasIngredients);
 }
 
-/** Last assistant message is asking the chef to confirm a kitchen save. */
+export {
+  applyKitchenBuildConfirmCloser,
+  CONFIRM_OPTIONS,
+  KITCHEN_BUILD_CONFIRM_OPTIONS,
+  kitchenBuildConfirmCloser,
+  KITCHEN_SAVE_CONFIRM_RE,
+  replyAsksKitchenSaveConfirm,
+  stripStackedNextStepQuestion,
+} from "@backend/services/chat/chat-reply-sanitizer";
+
 export function threadAwaitingKitchenSaveConfirm(
   messages: Array<{ role: string; content: string }>
 ): boolean {
@@ -73,10 +88,7 @@ export function threadAwaitingKitchenSaveConfirm(
 
   if (!lastAssistant?.trim()) return false;
 
-  const asksConfirm =
-    /\b(please confirm|would you like to proceed|confirm if you(?:'d| would) like|ready to (?:add|save)|save (?:it|this) to (?:your )?kitchen)\b/i.test(
-      lastAssistant
-    );
+  const asksConfirm = KITCHEN_SAVE_CONFIRM_RE.test(lastAssistant);
 
   const hasDishContext =
     Boolean(inferRecipeDraftDishName(messages)) ||
@@ -113,22 +125,54 @@ function isValidRecipeDishName(name: string): boolean {
   if (!cleaned || cleaned.split(/\s+/).length > 8) return false;
   if (isAgentAssistantLabel(cleaned)) return false;
   if (RECIPE_SECTION_HEADERS.test(cleaned)) return false;
+  if (/^full kitchen build\b/i.test(cleaned)) return false;
   return true;
+}
+
+export function cleanMenuDishName(name: string): string {
+  const cleaned = name
+    .trim()
+    .replace(/\*+/g, "")
+    .replace(/^\d+\.\s*/, "")
+    .replace(/^recipe\s+for\s+/i, "")
+    .replace(/^full kitchen build for\s+/i, "")
+    .replace(/^full kitchen build\s*[-—:]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  const titled = titleCaseDishName(cleaned);
+  return isValidRecipeDishName(titled) ? titled : "";
 }
 
 export function inferRecipeDraftDishName(
   messages: Array<{ role: string; content: string }>
 ): string | null {
   for (const row of [...messages].reverse()) {
+    const ready = row.content.match(
+      /\bready to add\s+\*\*([^*]+)\*\*(?:\s+to\s+kitchen)?/i
+    );
+    if (ready) {
+      const name = cleanMenuDishName(ready[1].trim());
+      if (name) return name;
+    }
+    const readyPlain = row.content.match(
+      /\bready to add(?:\s+the)?\s+(.+?)\s+to\s+kitchen\b/i
+    );
+    if (readyPlain) {
+      const name = cleanMenuDishName(readyPlain[1].trim());
+      if (name) return name;
+    }
     const patterns = [
       /(?:\*\*)?(?:menu name|proposed dish|dish to add)\s*:?\s*\*?\*?\s*([^\n*]+)/i,
       /(?:^|\n)#{1,3}\s*([^\n#*]+)\s*\n/i,
-      /\b(?:confirm|kitchen build for)(?:\s+the)?\s+\*?\*?([^*\n.!?]+?)\*?\*?/i,
+      /\b(?:confirm|kitchen build for)(?:\s+the)?\s+\*\*([^*]+)\*\*/i,
     ];
     for (const pattern of patterns) {
       const match = row.content.match(pattern);
       if (match) {
-        const name = titleCaseDishName(match[1].trim().replace(/\*+/g, ""));
+        const name =
+          cleanMenuDishName(match[1].trim().replace(/\*+/g, "")) ||
+          titleCaseDishName(match[1].trim().replace(/\*+/g, ""));
         if (name && isValidRecipeDishName(name)) return name;
       }
     }

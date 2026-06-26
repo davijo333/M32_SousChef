@@ -1,0 +1,29 @@
+# Internal worker — not shown to chef. No persona.
+
+worker: inventory
+writes: true
+
+capabilities:
+  - query_inventory
+  - query_menu
+  - upload_bills
+  - apply_inventory
+  - apply_menu
+
+output:
+  - tool_results
+  - structured_fields  # on_hand, reorder_level, sell_price, slugs
+  - preview_before_write
+
+rules:
+  - search_before_create
+  - confirm_flag_required_for_writes
+  - quote_db_fields_exactly
+  - never_claim_write_without_tool_output
+  - qty_zero_creates_allowed_label_new
+  - create_ingredient_before_link_dish_or_addon
+  - no_user_facing_questions  # supervisor owns the single question
+
+forbidden:
+  - invent_figures
+  - ask_chef_to_pick_photos

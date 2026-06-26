@@ -1,0 +1,394 @@
+# Bill upload & processing — supplier POs and POS sales receipts
+#
+# Source: agent-service/agents/head/golden-workflows.yaml (bills section)
+#         golden-shared-rules.md (PO before SO, confirm gate)
+# Walkthrough: ../docs/bill-workflows.md
+#
+# UI parses/classifies files before chat (/classify-bill, /parse-bill-pipeline).
+# Agent summarizes batch → chef confirms → Inventory persists. Business reads
+# purchase_prerequisite only — never process_sales_bills itself.
+
+workflows:
+  - id: upload_purchase_orders
+    name: Upload purchase orders (supplier bills)
+    status: catalogued
+    mode: write
+    description: >
+      Chef attached supplier invoices (PDF/PNG) or confirms a ready PO batch.
+      Summarize upload_batch, confirm once, process into pantry stock.
+
+    trigger:
+      - upload purchase
+      - supplier bill
+      - purchase order
+      - process purchase
+      - process the PO
+      - sysco bill
+      - vendor invoice
+    trigger_when:
+      upload_batch_bill_type: supplier
+
+    not_this_workflow:
+      - POS / customer receipts → upload_sales_orders
+      - mixed PO + SO batch → upload_mixed_bill_batch
+      - queue read only → inventory_purchase_queue (query)
+      - sales processing → process_sales_bills
+
+    workers:
+      inventory: upload_bills, apply_inventory process_purchase_bills
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        action: >
+          Detect upload_batch attachment or chef intent to process supplier bills.
+          Lock bill_ids from upload_batch.readyBillIds or recent_bill_ids when present.
+        outputs: [bill_ids, upload_batch]
+        next: ingest_note
+
+      - id: ingest_note
+        order: 2
+        actor: sous_chef
+        action: >
+          Files were parsed and classified in the UI before this chat turn
+          (/classify-bill → supplier pipeline). No in-chat OCR — proceed to summarize.
+        next: summarize
+
+      - id: summarize
+        order: 3
+        actor: sous_chef
+        delegate: [inventory]
+        tool: upload_bills summarize
+        task_template: |
+          Summarize the supplier bill batch for the chef: filenames, line counts,
+          ready vs needs review. Use upload_batch when attached; otherwise recent PO queue.
+          Quote counts exactly — do not process yet.
+        on_empty: stop_no_bills
+        on_complete: confirm_process
+
+      - id: stop_no_bills
+        order: 4
+        actor: sous_chef
+        action: >
+          No supplier bills are ready to process. Offer Upload orders tab or attach files.
+        clears_workflow_state: true
+
+      - id: confirm_process
+        order: 5
+        actor: sous_chef
+        gate: confirm_bills
+        action: >
+          Present batch summary. Ask chef to confirm processing **purchase orders**
+          into pantry (stock + ingredient costs). One question only.
+        on_confirm: persist
+        on_reject: summarize
+        reply_gate: bill_upload
+
+      - id: persist
+        order: 6
+        actor: sous_chef
+        delegate: [inventory]
+        tool: apply_inventory process_purchase_bills
+        requires_confirm: true
+        task_template: |
+          process_purchase_bills for bill_ids from confirmed upload_batch or queue.
+          Updates pantry stock from supplier invoices only.
+        on_success: completed
+
+      - id: completed
+        order: 7
+        actor: sous_chef
+        action: >
+          Quote tool result: lines processed, stock updated, any unmatched lines.
+          Note chef can upload sales receipts after POs are processed.
+        clears_workflow_state: true
+
+  - id: upload_sales_orders
+    name: Upload sales orders (POS receipts)
+    status: catalogued
+    mode: write
+    description: >
+      Chef attached POS/customer receipts or confirms a ready sales batch.
+      Requires at least one processed supplier PO before sales depletion.
+
+    trigger:
+      - upload sales
+      - pos receipt
+      - sales receipt
+      - customer bill
+      - process sales
+      - process receipts
+    trigger_when:
+      upload_batch_bill_type: customer
+
+    not_this_workflow:
+      - supplier invoices → upload_purchase_orders
+      - mixed batch → upload_mixed_bill_batch
+
+    workers:
+      inventory: upload_bills, apply_inventory process_sales_bills
+      business: query_business purchase_prerequisite
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [bill_ids, upload_batch]
+        next: ingest_note
+
+      - id: ingest_note
+        order: 2
+        actor: sous_chef
+        action: UI classified files as customer/POS before agent runs.
+        next: summarize
+
+      - id: summarize
+        order: 3
+        delegate: [inventory]
+        tool: upload_bills summarize
+        task_template: Report ticket counts and filenames for customer receipts. No writes yet.
+        on_complete: prerequisite
+
+      - id: prerequisite
+        order: 4
+        delegate: [business]
+        tool: query_business purchase_prerequisite
+        task_template: >
+          Verify at least one processed supplier purchase order exists before sales
+          receipt processing. Quote result exactly.
+        on_block: stop_po_first
+        on_clear: confirm_process
+
+      - id: stop_po_first
+        order: 5
+        actor: sous_chef
+        action: >
+          No processed supplier POs yet — sales receipts cannot run until pantry is
+          stocked from purchase orders. Offer upload_purchase_orders first.
+        handoff_workflow: upload_purchase_orders
+        clears_workflow_state: true
+
+      - id: confirm_process
+        order: 6
+        actor: sous_chef
+        gate: confirm_bills
+        action: Confirm processing **sales receipts** (menu + pantry depletion).
+        on_confirm: persist
+        on_reject: summarize
+        reply_gate: bill_upload
+
+      - id: persist
+        order: 7
+        delegate: [inventory]
+        tool: apply_inventory process_sales_bills
+        requires_confirm: true
+        task_template: process_sales_bills for confirmed customer bill_ids.
+        on_success: completed
+
+      - id: completed
+        order: 8
+        actor: sous_chef
+        action: Quote tickets processed and pantry deductions from tool output.
+        clears_workflow_state: true
+
+  - id: upload_mixed_bill_batch
+    name: Mixed PO + SO batch in one attach
+    status: catalogued
+    mode: write
+    description: >
+      upload_batch contains both supplier and customer slices. Process POs first,
+      then SOs — same order as Upload orders tab.
+
+    trigger:
+      - mixed bills
+      - both purchase and sales
+      - po and so
+    trigger_when:
+      upload_batch_mixed: true
+
+    workers:
+      inventory: upload_bills, apply_inventory
+      business: query_business purchase_prerequisite
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        outputs: [upload_batch, supplier_bill_ids, customer_bill_ids]
+        next: summarize
+
+      - id: summarize
+        order: 2
+        delegate: [inventory]
+        tool: upload_bills batch_status
+        task_template: |
+          Report mixed batch: supplier slice count + filenames, customer slice count + filenames.
+        on_complete: confirm_order
+
+      - id: confirm_order
+        order: 3
+        actor: sous_chef
+        gate: confirm_bills
+        action: >
+          Explain processing order: **purchase orders first** (pantry stock), then
+          **sales receipts** (depletion). One confirm for the full sequence.
+        on_confirm: persist_purchase
+        on_reject: summarize
+        reply_gate: bill_upload
+
+      - id: persist_purchase
+        order: 4
+        delegate: [inventory]
+        tool: apply_inventory process_purchase_bills
+        task_template: process_purchase_bills for supplier slice bill_ids only.
+        on_success: prerequisite
+
+      - id: prerequisite
+        order: 5
+        delegate: [business]
+        tool: query_business purchase_prerequisite
+        on_block: stop_po_first
+        on_clear: persist_sales
+
+      - id: persist_sales
+        order: 6
+        delegate: [inventory]
+        tool: apply_inventory process_sales_bills
+        task_template: process_sales_bills for customer slice bill_ids only.
+        on_success: completed
+
+      - id: stop_po_first
+        order: 7
+        actor: sous_chef
+        action: Purchase slice failed or PO prerequisite still not met. Stop before sales.
+        clears_workflow_state: true
+
+      - id: completed
+        order: 8
+        actor: sous_chef
+        action: Summarize PO then SO results from both tool passes.
+        clears_workflow_state: true
+
+  - id: process_purchase_bills
+    name: Process queued supplier POs (no new upload)
+    status: catalogued
+    mode: write
+    description: Chef confirms processing bills already in the queue (chat or tab).
+
+    trigger:
+      - process purchase bills
+      - process the purchase orders
+      - run purchase queue
+      - process uploaded POs
+
+    workers:
+      inventory: query_inventory purchase_queue, apply_inventory process_purchase_bills
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        next: queue_read
+
+      - id: queue_read
+        order: 2
+        delegate: [inventory]
+        tool: query_inventory purchase_queue
+        task_template: List supplier bills ready to process (ids, filenames, status).
+        on_empty: stop_no_bills
+        on_complete: confirm_process
+
+      - id: stop_no_bills
+        order: 3
+        actor: sous_chef
+        action: No purchase bills in queue. Offer upload or Upload orders tab.
+        clears_workflow_state: true
+
+      - id: confirm_process
+        order: 4
+        actor: sous_chef
+        gate: confirm_bills
+        on_confirm: persist
+        on_reject: queue_read
+        reply_gate: bill_upload
+
+      - id: persist
+        order: 5
+        delegate: [inventory]
+        tool: apply_inventory process_purchase_bills
+        requires_confirm: true
+        on_success: completed
+
+      - id: completed
+        order: 6
+        actor: sous_chef
+        clears_workflow_state: true
+
+  - id: process_sales_bills
+    name: Process queued POS receipts (no new upload)
+    status: catalogued
+    mode: write
+    description: Chef confirms sales receipt processing from queue after PO prerequisite.
+
+    trigger:
+      - process sales bills
+      - process the sales receipts
+      - run sales queue
+      - process uploaded receipts
+
+    workers:
+      business: query_business purchase_prerequisite, query_business sales_queue
+      inventory: apply_inventory process_sales_bills
+
+    steps:
+      - id: intake
+        order: 1
+        actor: sous_chef
+        next: prerequisite
+
+      - id: prerequisite
+        order: 2
+        delegate: [business]
+        tool: query_business purchase_prerequisite
+        on_block: stop_po_first
+        on_clear: queue_read
+
+      - id: stop_po_first
+        order: 3
+        actor: sous_chef
+        handoff_workflow: upload_purchase_orders
+        clears_workflow_state: true
+
+      - id: queue_read
+        order: 4
+        delegate: [business]
+        tool: query_business sales_queue
+        task_template: List customer receipts ready to process.
+        on_empty: stop_no_bills
+        on_complete: confirm_process
+
+      - id: stop_no_bills
+        order: 5
+        actor: sous_chef
+        clears_workflow_state: true
+
+      - id: confirm_process
+        order: 6
+        actor: sous_chef
+        gate: confirm_bills
+        on_confirm: persist
+        on_reject: queue_read
+        reply_gate: bill_upload
+
+      - id: persist
+        order: 7
+        delegate: [inventory]
+        tool: apply_inventory process_sales_bills
+        requires_confirm: true
+        on_success: completed
+
+      - id: completed
+        order: 8
+        actor: sous_chef
+        clears_workflow_state: true

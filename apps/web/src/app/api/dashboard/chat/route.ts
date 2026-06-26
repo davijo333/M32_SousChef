@@ -43,11 +43,11 @@ import type { ChatCatalogDraftPayload } from "@backend/services/chat/chat-catalo
 import { applyCatalogDraftCorrection, inferCatalogDraftFromThread, inferPricingSubjectDraftFromThread } from "@backend/services/chat/chat-catalog-draft";
 import { deriveChatChoices } from "@backend/services/chat/chat-choices";
 import {
-  inferRecipeDraftDishName,
   threadAwaitingKitchenSaveConfirm,
   threadHasKitchenBuildInThread,
   threadHasRecipeDraft,
 } from "@backend/services/chat/chat-recipe-draft";
+import { sanitizeHeadChatReply } from "@backend/services/chat/chat-reply-sanitizer";
 import { inferRecipeBuildPlanFromThread } from "@backend/services/chat/recipe-build-from-thread";
 import { isAgentAssistantLabel } from "@backend/services/agents/dashboard-chat";
 import {
@@ -84,7 +84,6 @@ import {
   inferIngredientNameFromReorderThread,
   parseCurrentReorderThresholdRequest,
   parsePendingReorderForConfirm,
-  replyAsksForConfirm as replyAsksForReorderConfirm,
   threadAwaitingReorderConfirm,
 } from "@backend/services/chat/chat-reorder-adjustment";
 import { resolveReorderThresholdForAdjustment } from "@backend/services/chat/chat-reorder-adjustment-server";
@@ -97,6 +96,7 @@ import {
   executeAgentPendingAction,
   executeConfirmedUploadBatch,
 } from "@backend/services/agents/agent-pending-actions";
+import { isWorkflowConfirmGate, isActiveAddDishWorkflow, normalizeWorkflowState } from "@backend/services/chat/workflow-state";
 
 const USE_LANGCHAIN_AGENTS = process.env.USE_LANGCHAIN_AGENTS !== "false";
 
@@ -568,6 +568,13 @@ Check query_menu suggested/active and query_inventory search before proposing du
     content: m.content,
   }));
 
+  let workflowState = normalizeWorkflowState(conversation.workflowState ?? null);
+  const activeWorkflowConfirmGate = isWorkflowConfirmGate(workflowState);
+  const activeAddDishWorkflow = isActiveAddDishWorkflow(workflowState);
+  const workflowConfirmYes =
+    activeWorkflowConfirmGate &&
+    detectRecipeFinalizeConfirm(userMessage);
+
   const recoveredCatalogDraft = inferCatalogDraftFromThread(history);
   const recoveredPricingSubject = inferPricingSubjectDraftFromThread(history);
   let effectiveCatalogDraft = applyCatalogDraftCorrection(
@@ -582,7 +589,10 @@ Check query_menu suggested/active and query_inventory search before proposing du
   const catalogDishForKitchenBuild =
     effectiveCatalogDraft?.itemType === "dish" &&
     effectiveCatalogDraft?.source !== "pricing";
-  const isKitchenBuildConfirm = detectKitchenBuildConfirm(userMessage, {
+  const isKitchenBuildConfirm =
+    !activeWorkflowConfirmGate &&
+    !activeAddDishWorkflow &&
+    detectKitchenBuildConfirm(userMessage, {
     hasCatalogDish: catalogDishForKitchenBuild,
     hasRecipePlan: Boolean(recipeBuild),
     hasRecipeDraftInThread: threadHasRecipeDraft(history),
@@ -614,10 +624,12 @@ Check query_menu suggested/active and query_inventory search before proposing du
   const resolvedConfirmSuggestion =
     effectiveConfirmSuggestion ||
     (isKitchenBuildConfirm && !isAnyPriceConfirm && !awaitingPriceConfirm && !awaitingReorderConfirm) ||
+    workflowConfirmYes ||
     Boolean(body.confirmSuggestion);
   const resolvedConfirmInventory =
     confirmInventory ||
     (context === "head" && isKitchenBuildConfirm && !isAnyPriceConfirm && !isAnyReorderConfirm) ||
+    workflowConfirmYes ||
     (context === "head" && isAnyPriceConfirm) ||
     (context === "head" && isAnyReorderConfirm);
 
@@ -964,6 +976,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
     if (existingDish) {
       finalizeAttempted = true;
       kitchenBuildComplete = true;
+      workflowState = null;
       builtDishName = existingDish.name;
       reply =
         `**${existingDish.name}** is already in your kitchen. ` +
@@ -983,6 +996,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
         builtDishName = threadPlan.dishName;
         recipeBuildPlan = null;
         kitchenBuildComplete = true;
+        workflowState = null;
         activity = { orchestrator: "head", consultedAgents: ["inventory"] };
         const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
         if (marginNote) {
@@ -1029,6 +1043,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
       builtDishName = recipeBuildPlan.dishName;
       recipeBuildPlan = null;
       kitchenBuildComplete = true;
+      workflowState = null;
       activity = { orchestrator: "head", consultedAgents: ["create"] };
       const marginNote = await suggestDishPriceMargin(restaurantId, builtDishName);
       if (marginNote) {
@@ -1050,7 +1065,8 @@ Check query_menu suggested/active and query_inventory search before proposing du
     !kitchenBuildComplete &&
     !finalizeAttempted &&
     !threadPlan &&
-    !awaitingPriceConfirm
+    !awaitingPriceConfirm &&
+    !activeAddDishWorkflow
   ) {
     finalizeAttempted = true;
     reply =
@@ -1090,6 +1106,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
       confirmSuggestion: resolvedConfirmSuggestion,
       confirmInventory: resolvedConfirmInventory || confirmUpload,
       confirmBusiness: confirmBusiness || confirmUpload,
+      workflowState: workflowState ?? undefined,
     });
 
     if (agentResult) {
@@ -1122,6 +1139,10 @@ Check query_menu suggested/active and query_inventory search before proposing du
       if (agentResult.recipeBuildPlan) {
         recipeBuildPlan = agentResult.recipeBuildPlan;
       }
+      if (agentResult.workflowState !== undefined) {
+        workflowState =
+          normalizeWorkflowState(agentResult.workflowState) ?? workflowState;
+      }
       if (confirmUpload) {
         try {
           const batchResult = await executeConfirmedUploadBatch(
@@ -1148,6 +1169,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
             builtDishName = agentResult.pendingAction.dishName ?? builtDishName;
             recipeBuildPlan = null;
             kitchenBuildComplete = true;
+            workflowState = null;
             reply = actionMessage;
           } else {
             reply = reply ? `${reply}\n\n${actionMessage}` : actionMessage;
@@ -1172,6 +1194,10 @@ Check query_menu suggested/active and query_inventory search before proposing du
   }
 
   if (!reply) {
+    if (activeAddDishWorkflow) {
+      reply =
+        "I couldn't advance the add-dish workflow just now. Please reply with **1**, **2**, or **3**, or the dish name.";
+    } else {
     const llmUserMessage = connectAgent
       ? `The chef clicked Connect in chat to speak with you. Review the conversation above and take over — briefly acknowledge the thread, then help with what they need.`
       : message;
@@ -1222,25 +1248,17 @@ Check query_menu suggested/active and query_inventory search before proposing du
         }
       }
     }
+    }
   }
 
-  if (
-    agentContext === "head" &&
-    !kitchenBuildComplete &&
-    !finalizeAttempted &&
-    !replyAsksForReorderConfirm(reply) &&
-    !/\bUpdate \*\*[^*]+\*\* sell price to\b/i.test(reply)
-  ) {
-    const awaitingKitchenSave =
-      threadAwaitingKitchenSaveConfirm(history) ||
-      (threadHasRecipeDraft(history) && !threadHasKitchenBuildInThread(history));
-    if (
-      !awaitingKitchenSave &&
-      !threadAwaitingPriceConfirm(history) &&
-      !threadAwaitingReorderConfirm(history)
-    ) {
-      reply = `${reply}\n\nWhat would you like to do next?`;
-    }
+  if (agentContext === "head") {
+    reply = sanitizeHeadChatReply(reply, {
+      workflowState,
+      history,
+      kitchenBuildComplete,
+      finalizeAttempted,
+      appendNextStep: true,
+    });
   }
 
   if (!reply) {
@@ -1270,6 +1288,11 @@ Check query_menu suggested/active and query_inventory search before proposing du
     agentContext = "head";
   }
 
+  if (kitchenBuildComplete) {
+    workflowState = null;
+  }
+
+  conversation.workflowState = workflowState;
   conversation.messages.push(
     { role: "user", content: savedUserMessage, createdAt: new Date() },
     { role: "assistant", content: reply, createdAt: new Date() }
@@ -1312,6 +1335,7 @@ Check query_menu suggested/active and query_inventory search before proposing du
     catalogDraft: effectiveCatalogDraft ?? null,
     choices: chatChoices,
     activity,
+    workflowState,
   });
 }
 
