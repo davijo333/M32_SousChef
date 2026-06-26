@@ -28,10 +28,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
   && apt-get install -y --no-install-recommends nodejs \
   && rm -rf /var/lib/apt/lists/*
 
-COPY backend/agent-service/requirements.txt ./agent/requirements.txt
+COPY backend/agent-service-v1/requirements.txt ./agent/requirements.txt
 RUN pip install --no-cache-dir -r agent/requirements.txt
 
-COPY backend/agent-service ./agent
+COPY backend/agent-service-v1 ./agent
 COPY --from=web-builder /app/node_modules ./node_modules
 COPY --from=web-builder /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=web-builder /app/package.json ./package.json
